@@ -1,0 +1,14 @@
+---
+description: Read ProjectFiles.luau before any other work in this repo
+alwaysApply: true
+---
+
+# Project handoff — read first
+
+Before answering, planning, or editing anything in this repository, **your first action must be to read**:
+
+`src/client/ProjectFiles.luau`
+
+That file is the authoritative developer handoff for the JJK Roblox project: current demo state, architecture, tunables, known bugs, and next steps. Do not rely on memory or assumptions about this codebase until you have read it.
+
+If the user's task touches hit/destruction/VFX/debris/terrain, also open the files it references (especially `src/server/HitHandler.luau` and `src/client/ClickInput.luau`) after reading the handoff.
