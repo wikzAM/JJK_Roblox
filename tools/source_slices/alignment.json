@@ -1,0 +1,26 @@
+{
+  "scale": 4.182817489324327,
+  "axis_order": [
+    0,
+    2,
+    1
+  ],
+  "signs": [
+    -1,
+    1,
+    1
+  ],
+  "offset": [
+    117.42021163650827,
+    -4.628656099976979,
+    253.12012546710255
+  ],
+  "max_intact_tile_center_error": 0.0007967623602772245,
+  "intact_tiles": 4,
+  "dimensions_relative_error": 0.054532430190281846,
+  "verified_vertices": 174,
+  "max_vertex_error": 0.0006794671903698355,
+  "vertices": 409039,
+  "triangles": 174613,
+  "components": 81513
+}

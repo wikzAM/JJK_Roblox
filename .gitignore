@@ -1,8 +1,21 @@
 # Project place file
 /JJK_Roblox.rbxlx
 
+# Place-file snapshots are published as GitHub Release assets, not versioned here
+/*.rbxl
+!/JJK_Roblox.rbxl
+/*.rbxlx
+
 # Roblox Studio lock files
 /*.rbxlx.lock
 /*.rbxl.lock
 
 sourcemap.json
+
+# Vendored Python packages for the FBX slice pipeline (reinstall, don't version)
+/tools/python_deps/
+__pycache__/
+*.pyc
+
+# Regenerable pipeline geometry dumps
+/tools/source_slices/*.npz
