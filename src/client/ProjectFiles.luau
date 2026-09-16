@@ -1,5 +1,28 @@
 --!nonstrict
 --[[
+September 16, 2026 — zero live jagged autos
+  Latest user direction supersedes the earlier keep-live rule: remove all jagged
+  BuildingAuto_* models from the live map, accept robust smooth approximations
+  for difficult sources, and refine individual buildings later when needed.
+
+  ShibuyaFinalSmoothPass completes that migration. It first decomposes valid
+  InteriorGrid data into non-overlapping vertical segments and builds a convex
+  hull for each segment. Sources with invalid grids, no usable segments, or too
+  many fragments fall back to a single source-envelope box. The fallback is
+  intentionally conservative and visually simple; exact archived originals can
+  support later case-by-case refinement. Three final core-incompatible sources
+  used widened 50-stud rectangular rescue footprints.
+
+  Live Studio migration started at 2,167 BuildingSmooth_* / 638 BuildingAuto_*
+  and ended at 3,190 BuildingSmooth_* / ZERO BuildingAuto_*. This pass archived
+  all 638 remaining autos and generated 1,023 smooth bodies across eleven
+  ShibuyaBeforeGridSplit_* archives. The jagged originals remain invisible in
+  ServerStorage as reference/rollback material; none remain in Workspace.
+  Final direct audit: 3,190 smooth buildings, 174,531 structural parts including
+  101,782 wedges, zero bad smooth buildings, and no review/preview residue.
+  Workspace.Buildings still contains the three intentional procedural/reference
+  models Building1, Building2, and Building3. Press Ctrl+S before closing Studio.
+
 September 15, 2026 — guarded grid recovery and disconnected-body splitting
   IMPORTANT: MCP cannot invoke Studio's Save to Roblox/File action. The live
   DataModel changes below are currently in the open TestJJK session; press
