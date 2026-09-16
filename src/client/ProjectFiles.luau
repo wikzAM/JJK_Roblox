@@ -1,5 +1,224 @@
 --!nonstrict
 --[[
+September 15, 2026 — guarded grid recovery and disconnected-body splitting
+  IMPORTANT: MCP cannot invoke Studio's Save to Roblox/File action. The live
+  DataModel changes below are currently in the open TestJJK session; press
+  Ctrl+S (or File -> Save to Roblox) before closing Studio.
+  Global cross-component reconstruction resumed after a Studio restart. Multi-loop
+  slices now retain independent closed contours while ignoring unrelated open
+  fragments and classifying courtyard holes. ShibuyaGlobalFootprint tracks those
+  contours vertically by absolute height, measures coverage against every floor
+  of saved InteriorGrid occupancy, binds every overlapping live BuildingAuto, and
+  rejects any candidate overlapping an existing BuildingSmooth. Its Stage/Apply
+  path supports several tracks sharing the same complete source set and archives
+  every source atomically. Synthetic slice and volumetric fixtures pass.
+
+  Three visually reviewed global-track recoveries were applied in this continuation,
+  moving the live count from 1,488 smooth / 685 legacy to 1,491 smooth / 682 legacy.
+  Full originals are retained in ShibuyaBeforeGridSplit_a11cce3f-...,
+  ShibuyaBeforeGridSplit_96996c59-..., and ShibuyaBeforeGridSplit_fdd09c25-....
+  The first rejected subset and a five-track stage overlapping four existing smooth
+  buildings were restored/discarded. This smooth-overlap guard is load-bearing:
+  global source loops include buildings already replaced in earlier passes.
+
+  Residual-preserving continuation: ShibuyaResidualSplitPass now decomposes each
+  saved InteriorGrid into non-overlapping vertical chains, smooths every chain
+  that independently passes ShibuyaGridMassing, and regenerates every unaccepted
+  occupied cell as a live BuildingAuto_* residual. Apply archives the complete
+  original and installs all smooth/residual outputs atomically, so partial
+  progress never deletes unresolved geometry. An end-to-end synthetic fixture
+  verifies 256 accepted cells plus 25 retained residual cells through staging,
+  apply, archive, and cleanup.
+
+  Ten reviewed residual batches replaced 385 legacy source generations: 44 were
+  completed outright and 341 retained smaller residual autos. They added 676
+  smooth buildings, moving the live scene from 1,491 smooth / 682 autos to
+  2,167 BuildingSmooth_* / 638 BuildingAuto_*. Of the remaining autos, 341 are
+  reduced residuals and 297 are untouched. Final audit: 118,775 smooth parts and
+  27,027 residual parts, zero bad smooth buildings, zero invalid residual parts,
+  no workspace review residue. All originals are retained across ten
+  ShibuyaBeforeResidual_* archives. Extractions below 20% were deliberately left
+  live to avoid sparse/core-like slivers. Press Ctrl+S before closing Studio.
+
+  Studio MCP edit session started at 914 smooth / 1,042 legacy models and ended
+  at 1,488 BuildingSmooth_* / 685 BuildingAuto_* / 3 preserved original models.
+  This session replaced 357 legacy source models with 574 smooth models. The
+  higher output count is deliberate: 112 compound legacy sources were separated
+  into 329 independently validated bodies/vertical segments instead of merging
+  neighboring buildings. Another 245 sources used one-to-one smooth replacement.
+  All 1,488 live smooth buildings passed a final direct audit: 85,260 BaseParts,
+  zero unanchored/noncollidable/sub-0.05 parts, zero missing Interior or CoreSize.
+  ServerStorage now retains 1,159 originals across 15 ShibuyaBeforeSmooth_*
+  archives and 112 compound originals across 5 ShibuyaBeforeGridSplit_* archives.
+  No review folders or nonempty staging folders remained after the final audit.
+
+  ShibuyaGridMassing is the conservative fallback for source-mesh rejects. It
+  traces saved InteriorGrid floor plates into real simplified polygons, requiring
+  complete topology and repeated support; courtyards and meaningful detached
+  bodies are rejected. Strict, low-rise, bounded 70% envelope, and 67% vertical
+  coverage batches were staged, audited, and applied separately.
+  ShibuyaGridSplitPass handles legacy models containing several substantial
+  bodies. Preview tracks connected occupancy through floors, crops each body to
+  its own frame, and accepts a source only when EVERY substantial body validates.
+  PreviewSegments additionally partitions podium/tower forks into non-overlapping
+  vertical chains. Stage isolates failures by source; Apply atomically archives
+  each original once and installs every staged body. Synthetic two-body, branch,
+  tiny-island, staging, and structural fixtures pass (5 segment bodies tested).
+  Do not weaken this into dominant-body deletion: rejected secondary geometry
+  must remain live unless a complete decomposition validates.
+
+  The 6%-height sparse source profile was explicitly rejected after viewport
+  review: it produced a core-like sliver and a visually merged footprint. Its
+  24-model stage was restored and destroyed; none were applied. The moderate
+  two-slice 10%-height source profile and bounded grid profiles passed review.
+  Remaining 685 autos are mostly ambiguous disconnected/branching topology,
+  low-envelope fragments, courtyards, or source groups with a failed body/core.
+  Keep them intact until a stronger complete reconstruction is available.
+
+September 14, 2026 — exact polygon floors, first two live batches
+  Latest user direction: replace jagged/incomplete sections with simplified,
+  complete massing and clean angled boundaries; retain recoverable originals.
+  720 matched BuildingAuto sections replaced in Studio with BuildingSmooth_*:
+  2,700 floors, 37,656 structural parts. First batch: 599; second batch: 121.
+  Original 599 models: ServerStorage.ShibuyaBeforeSmooth_30db07da-4f2a-4e77-83f4-1899af3c2b08.
+  Original next 121: ServerStorage.ShibuyaBeforeSmooth_1e181d82-3f87-4c17-93ce-f859ffaff19f.
+  First full local checkpoint: Shibuya_Smooth_First599.rbxl (4,830,670 bytes).
+  Saved TestJJK to Roblox September 14 at 11:47 Studio log time.
+  This is an incremental pass, not a complete reconstruction of all buildings.
+  PolygonSlab builds exact rectangle/concave polygon floors from Parts/Wedges.
+  ShibuyaMassing finds persistent footprints at multiple source heights, trims
+  roof equipment and preserves supported nested setbacks. It rejects ambiguous
+  missing walls, disconnected bodies and courtyards rather than inventing them.
+  SmoothBuildingBuilder.Build(report) stages in ServerStorage; Apply(stage)
+  archives only exact matched originals. Do not rerun the legacy full-map pass.
+  SmoothBuildingPass.RunNext({BatchSize=100}) is the guarded incremental entry:
+  it ranks remaining accepted matches by confidence, stages them, runs the
+  structural audit, then applies only a failure-free batch. StageOnly=true
+  stops before live changes. Every replaced BuildingAuto remains recoverable
+  in a new ServerStorage.ShibuyaBeforeSmooth_* archive; none are deleted.
+  SmoothBuildingReview.Show(stage,index,"before"/"after",angle) is temporary:
+  ALWAYS call Restore() before Apply or saving, to return the hidden original.
+  SmoothMassing/SmoothFrame attributes preserve polygon geometry for Regenerate.
+  BuildingGenerator.Regenerate routes these buildings through the smooth builder.
+  InteriorGrid is used for core placement, NOT visible floor boundaries.
+  Live verification: 9 polygon fixtures, 2,699 collision probes, 5 invalid rings;
+  3 complete-building fixtures, regeneration after movement, actual wedge CSG.
+  All 720 buildings passed anchored/collidable/min-size and continuous-core
+  checks. Visual before/after checks passed on tall and recessed examples.
+  Floor counts remain height estimates; no unverified landmark identity applied.
+  Bulk interiors remain StructuralOnly; furniture templates are available for
+  a later layout pass. Source seam-repair improvements are being investigated.
+
+September 13, 2026 — full jagged map restored (current working base)
+  USER DIRECTION: work from the full jagged generation; keep the newer sparse
+  box/manual version for later. This supersedes the clean-box priority below.
+  Restored all 1,989 BuildingAuto sections, then conservatively archived 33 tiny
+  short floating sections after Studio close-up checks of representative scraps.
+  Workspace.Buildings now has 1,956 auto sections + the 3 original buildings.
+  Remaining auto structure: 133,717 BaseParts; verified anchored, collidable,
+  positive dimensions. This is an edit-time check, not a combat playtest.
+  ServerStorage.ShibuyaManualAndBoxPass_20260913 preserves 92 alternate models
+  (78 clean boxes + 14 manually measured buildings). Two previously rejected
+  clean-box fragments remain in ServerStorage.ManualVisualRejectedFragments.
+  ServerStorage.ShibuyaSmallFragments_20260913 preserves the 33 removed sections.
+  The 16 red reference MeshParts are in ServerStorage.Shibuya.
+  ShibuyaFragmentCleanup.Preview is read-only; Apply archives exact candidates.
+  This pass used default thresholds, then restricted to measuredFloors <= 2,
+  height <= 60 studs, and terrain clearance >= 40 studs. Re-preview with Explicit
+  exact models before Apply. Never delete solely on low hollow-shell part volume
+  or terrain clearance: much of the imported map is above the flat terrain.
+  Jagged edges, larger fragmented sections and terrain alignment remain pending.
+  Do not bulk replace this full base with ShibuyaBoxBuilder. Angle/wedge work
+  should be incremental. ManualShellBuilder and ManualSurvey remain available
+  for later; manual estimates are not surveyed real-world building identities.
+
+September 13, 2026 — clean box revision (first live batch complete)
+  Desktop control recovered after resetting its session and reacquiring Studio.
+  Generated 80 clean box buildings: 641 floors, 4,567 structural Parts.
+  Archived 1,989 prior auto sections in ServerStorage folder
+  ShibuyaPreviousGeneration_1789340420.
+  Workspace.Buildings contains 83 models including the 3 preserved originals.
+  Every new level has exactly one full rectangular slab; all parts anchored and
+  collidable; all 80 buildings have core metadata. Synthetic rotated-box,
+  open-facade and triangular-prism checks passed; one live example inspected.
+  Furnished 3-floor copy in ServerStorage.BuildingFurniturePreview works with
+  current templates: 564 NoCSG pieces. Bulk structures remain StructuralOnly.
+  Complete map checkpoint intended as Shibuya_CleanBoxes.rbxl.
+  User moved the Shibuya reference into ServerStorage and reported fractured,
+  floating and jagged output from the previous 1,989-component reconstruction.
+  That count was mesh sections, NOT verified buildings; do not optimize coverage
+  by reproducing it. Prioritize complete simple buildings and defer complex ones.
+  ShibuyaGeometry.Scan(source) now supports the reference in ServerStorage.
+  BuildingGenerator now bypasses collision sampling for single upright blocks
+  and exposes GenerateBox(model, cf, size[, floors]): exactly one rectangular
+  slab per level, while retaining the grid for core/furniture layout only.
+  ShibuyaBoxBuilder adds conservative closed-contour rectangle classification,
+  five-height footprint consistency, ground support and rotated overlap checks.
+  A seam fallback requires 97% measured coverage on all four facade sides and
+  rejects substantial internal edges. Grounding preserves the imported roof but
+  extends the base to current terrain (max 125 studs and no more than source
+  height); checks center and corners for level support. GroundAdjustment and
+  SourceBaseY record the change. These remain estimated simplified buildings.
+  Preview -> Build (ServerStorage staging) -> Apply (archive previous auto models).
+  Manual buildings and source references remain untouched; failed stages cannot
+  replace the live scene. See tools/ShibuyaBoxPass.md and VerifyBoxGeneration.luau.
+  This is deliberately sparse: most disconnected/complex/small source geometry
+  is deferred. Do not call it a complete map reconstruction. Browser reference
+  access timed out on app approval; no PLATEAU/Maps match was established.
+  True polygon/wedge floor boundaries for complex shells remain future work.
+
+September 13, 2026 — automated Shibuya reconstruction
+  Live command-bar run generated 1,989 additional BuildingAuto_* sections,
+  9,005 height-estimated floors, 134,113 primitive structural parts; 0 failures.
+  Preserved existing Building1/2/3 and all 16 Shibuya reference MeshParts.
+  Full Studio map copy: Shibuya_Interiors.rbxl (NOT the Rojo scripts-only build).
+  Checkpoint with the first three new samples: Shibuya_InteriorCheckpoint.rbxl.
+  Reopened saved map: counts unchanged; all 134,113 parts are anchored,
+  collidable primitive Parts with positive dimensions. 1,726 sections have
+  core metadata; 263 have floors only. Regenerate passed on a disposable clone.
+  Studio's viewport/ribbon stopped drawing reliably; restart did not restore
+  3D rendering, so comprehensive visual/playtest validation is still pending.
+
+  New edit-time modules: ShibuyaGeometry and ShibuyaAutoBuilder. Geometry reads
+  EditableMesh triangles, welds coincident positions, and separates connected
+  components. AutoBuilder slices those components at floor/ceiling heights and
+  requires enclosed crossings in both horizontal axes. Cell corners and centre
+  must fit; detached facades and small fragments are rejected. Rotated frames
+  follow the longest horizontal mesh edge. It never uses city-block collision
+  hulls as building footprints. 3,224 size-filtered components produced 1,989
+  plans after enclosure filtering and excluding the three existing buildings.
+
+  Re-run in EDIT mode after Rojo sync:
+    local a = require(game.ServerScriptService.Server.ShibuyaAutoBuilder)
+    local plans = a.Preview(a.Scan())
+    a.Generate(plans)
+  Source keys prevent repeating existing sections. These are mesh components,
+  not verified cadastral buildings: wings can be separate, touching bodies can
+  be merged. Curves/tapers follow a conservative, lightly stepped sample grid.
+  Open geometry, very small structures and oversized connected blocks remain
+  reference-only. Floor counts are estimates at the existing 5 m floor pitch;
+  no real-world landmark identification was applied automatically.
+
+  StructuralOnly=true generates slabs and core walls without the expensive
+  furniture/carpet/lighting layer. Some stepped/tapered structures lose their
+  ground-positioned core on upper floors; core continuity needs later review.
+  GeneratedFloors records the planned floor count. InteriorGrid is the source
+  for these shell-free interiors; Regenerate now preserves it when no shell
+  remains. Resampling is needed to change their floor count. Do not move them
+  then regenerate using the original world-space bbox attributes.
+
+  GenerateAll now supports nested grouping folders, RequestedFloors per-model,
+  SkipGeneration, dry-run argument #3, per-building failure isolation, yields,
+  and a returned status report. Existing interiors remain skipped.
+
+  Research references (above-ground floors; match identity before applying):
+    Scramble Square east: 47, about 230 m
+      https://www.shibuya-scramble-square.com/en/index.html
+    Hikarie: floors through 34
+      https://www.hikarie.jp/floorguide/
+    Mark City east / Excel Hotel: 25
+      https://www.tokyuhotels.co.jp/en/shibuya-e/facility/index.html
+
 ================================================================================
   JJK Roblox Game — Developer Handoff Document
   Last updated: June 2026 (building interior generation system plan added)

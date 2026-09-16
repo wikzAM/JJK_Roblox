@@ -5,8 +5,8 @@
 --   require(game.ServerScriptService.Server.BuildingGenerator).GenerateAll()
 --
 -- Takes shell Models inside Workspace.Buildings (each named "Building*") and
--- generates a destructible interior from primitive Parts, then DELETES the
--- shell parts.
+-- generates a destructible interior from primitive Parts. Original shell
+-- parts are retained by default (KEEP_SHELL).
 --
 -- WHOLE-VOLUME / SILHOUETTE FOLLOWING: the generator samples the model's solid
 -- volume floor-by-floor with WorldRoot:GetPartsInPart, which uses each part's
@@ -390,6 +390,17 @@ local function sampleOccupancy(building, bboxCF, bboxSize, requestedFloors)
 	local grid = { cell = cell, nx = nx, nz = nz, minX = -sx / 2, minZ = -sz / 2,
 		floors = floors, ground = ground, clearUpper = clearUpper, occ = {}, occTight = {} }
 
+	-- A single upright block is exact geometry, not a collision sampling problem.
+	-- Fill the logical layout grid completely; slab decomposition emits ONE part
+	-- clipped to the actual box dimensions, including partial boundary cells.
+	if #shellParts == 1 and shellParts[1]:IsA("Part")
+		and shellParts[1].Shape == Enum.PartType.Block
+		and math.abs(shellParts[1].CFrame.UpVector.Y) > 0.999999 then
+		local full = string.rep("1", nx * nz)
+		for k = 1, floors do grid.occ[k] = full; grid.occTight[k] = full end
+		return grid
+	end
+
 	local op = OverlapParams.new()
 	op.FilterType = Enum.RaycastFilterType.Include
 	op.FilterDescendantsInstances = shellParts
@@ -760,7 +771,7 @@ end
 -- ==========================================================
 -- CORE + OFFICES for one floor (offices clipped to the sampled silhouette)
 -- ==========================================================
-local function generateCoreFloor(grid, k, bboxCF, localCF, floorModel, cx, cz, coreX, coreZ, floorY, wallH, rng, budget, smallBuilding, slotSpacing, maxRingDepth)
+local function generateCoreFloor(grid, k, bboxCF, localCF, floorModel, cx, cz, coreX, coreZ, floorY, wallH, rng, budget, smallBuilding, slotSpacing, maxRingDepth, structuralOnly)
 	local wallY = floorY + wallH / 2
 
 	local function corePart(name, size, ox, oz)
@@ -775,6 +786,7 @@ local function generateCoreFloor(grid, k, bboxCF, localCF, floorModel, cx, cz, c
 	corePart("CoreWallLeft",  Vector3.new(CORE_WALL_THICK, wallH, coreZ - CORE_WALL_THICK), -coreX / 2, 0)
 	corePart("CoreDividerX", Vector3.new(coreX - CORE_WALL_THICK, wallH, CORE_WALL_THICK), 0, 0)
 	corePart("CoreDividerZ", Vector3.new(CORE_WALL_THICK, wallH, coreZ - CORE_WALL_THICK), 0, 0)
+	if structuralOnly then return end
 
 	local elevSideIndex, elevHalf, _exitSideIndex, _exitHalf, decoReserved =
 		decorateCoreWalls(grid, k, bboxCF, cx, cz, coreX, coreZ, floorY, floorModel, rng)
@@ -903,12 +915,21 @@ end
 -- model's height at the preset FLOOR_CLEAR.
 function BuildingGenerator.Generate(building, requestedFloors)
 	if not building:IsA("Model") then return false end
+	requestedFloors = requestedFloors or building:GetAttribute("RequestedFloors")
+	if requestedFloors ~= nil then
+		assert(type(requestedFloors) == "number" and requestedFloors == requestedFloors
+			and requestedFloors < math.huge and requestedFloors >= 1
+			and requestedFloors % 1 == 0, "RequestedFloors must be a finite positive integer")
+	end
 	if not building.Name:match("^Building") then
 		warn("[BuildingGenerator]", building.Name, "does not start with 'Building' — CSG destruction will NOT work on it.")
 	end
 	if building:FindFirstChild("Interior") then
 		print("[BuildingGenerator] Skipping", building:GetFullName(), "(Interior already exists)")
 		return false
+	end
+	if building:GetAttribute("SmoothMassing") then
+		error("Saved polygon building is missing its Interior; restore its archived Interior before regenerating")
 	end
 
 	-- Sample the live shell, or reload a stored grid (regen after shell deletion)
@@ -931,6 +952,7 @@ function BuildingGenerator.Generate(building, requestedFloors)
 	end
 
 	local sx, sy, sz = bboxSize.X, bboxSize.Y, bboxSize.Z
+	local structuralOnly = building:GetAttribute("StructuralOnly") == true
 	local floorCount = grid.floors
 	local groundClear = grid.ground
 	local smallBuilding = sx < SMALL_BUILDING_MAX and sz < SMALL_BUILDING_MAX
@@ -992,9 +1014,9 @@ function BuildingGenerator.Generate(building, requestedFloors)
 		-- small buildings (both shell axes under SMALL_BUILDING_MAX) get a
 		-- different core ratio
 		local ratio = smallBuilding and SMALL_CORE_RATIO or CORE_RATIO
-		coreX = math.clamp(math.max(rw * ratio, rw - 2 * maxRingDepth, math.min(MIN_CORE_SIZE, rw * 0.5)), 2, rw - 2)
-		coreZ = math.clamp(math.max(rd * ratio, rd - 2 * maxRingDepth, math.min(MIN_CORE_SIZE, rd * 0.5)), 2, rd - 2)
-		if coreX < 2 or coreZ < 2 then
+		coreX = math.clamp(math.max(rw * ratio, rw - 2 * maxRingDepth, math.min(MIN_CORE_SIZE, rw * 0.5)), 2, math.max(2, rw - 2))
+		coreZ = math.clamp(math.max(rd * ratio, rd - 2 * maxRingDepth, math.min(MIN_CORE_SIZE, rd * 0.5)), 2, math.max(2, rd - 2))
+		if rw <= 4 or rd <= 4 then
 			coreX = nil
 		else
 			-- core spans floors whose footprint still fully covers it
@@ -1029,7 +1051,7 @@ function BuildingGenerator.Generate(building, requestedFloors)
 			applyCeilingMaterial(slab)
 		end
 
-		if k <= floorCount then
+		if k <= floorCount and not structuralOnly then
 			local floorY = lineBottom(grid, sy, k) + SLAB_THICKNESS
 			local carpetRects = decompose(lineMatrix(grid, k, false), grid.nx, grid.nz)
 			for _, r in carpetRects do
@@ -1087,8 +1109,8 @@ function BuildingGenerator.Generate(building, requestedFloors)
 		local wallH = lineBottom(grid, sy, k + 1) - floorY
 		local budget = { count = 0 }
 		if coreX and k <= coreTopFloor then
-			generateCoreFloor(grid, k, bboxCF, localCF, floorModelFor(k), ccx, ccz, coreX, coreZ, floorY, wallH, rng, budget, smallBuilding, slotSpacing, maxRingDepth)
-		else
+			generateCoreFloor(grid, k, bboxCF, localCF, floorModelFor(k), ccx, ccz, coreX, coreZ, floorY, wallH, rng, budget, smallBuilding, slotSpacing, maxRingDepth, structuralOnly)
+		elseif not structuralOnly then
 			-- no core on this floor: sprinkle a little furniture in the largest room
 			local r = largestRect(lineMatrix(grid, k, false), grid.nx, grid.nz)
 			if r.area > 0 then
@@ -1101,6 +1123,7 @@ function BuildingGenerator.Generate(building, requestedFloors)
 	end
 
 	interior.Parent = building
+	building:SetAttribute("GeneratedFloors", floorCount)
 
 	-- Core metadata for future collapse scripts (world-space column)
 	if coreX and coreTopFloor and coreTopFloor >= 1 then
@@ -1141,30 +1164,109 @@ function BuildingGenerator.Generate(building, requestedFloors)
 	return true
 end
 
-function BuildingGenerator.Regenerate(building, requestedFloors)
-	local existing = building:FindFirstChild("Interior")
-	if existing then existing:Destroy() end
-	-- a forced regen re-samples the shell, so clear the stored grid too
-	building:SetAttribute("InteriorGrid", nil)
+-- Exact box input for imported massing. No retained solid shell obscures it.
+-- The grid is used for core/furniture layout, never for the visible boundary.
+function BuildingGenerator.GenerateBox(building, cf, size, requestedFloors)
+	assert(not game:GetService("RunService"):IsRunning(), "Stop playtest first")
+	assert(not building:FindFirstChildWhichIsA("BasePart", true), "GenerateBox expects an empty model")
+	assert(math.abs(cf.UpVector.Y) > 0.999999, "Box frame must be upright")
+	assert(size.X > 0 and size.Z > 0 and size.Y >= 2 * SLAB_THICKNESS + FLOOR_CLEAR, "Box is too small")
+	requestedFloors = requestedFloors or building:GetAttribute("RequestedFloors")
+	assert(requestedFloors == nil or (type(requestedFloors) == "number" and requestedFloors >= 1
+		and requestedFloors < math.huge and requestedFloors % 1 == 0), "Invalid floor count")
+	local floors, ground, clear = computeFloors(size.Y, requestedFloors)
+	local cell = math.max(GRID_MIN, math.max(size.X, size.Z) / MAX_CELLS_AXIS)
+	local nx, nz = math.ceil(size.X / cell), math.ceil(size.Z / cell)
+	local full = string.rep("1", nx * nz)
+	local grid = {cell=cell,nx=nx,nz=nz,minX=-size.X/2,minZ=-size.Z/2,
+		floors=floors,ground=ground,clearUpper=clear,occ={},occTight={}}
+	for k = 1, floors do grid.occ[k] = full; grid.occTight[k] = full end
+	building:SetAttribute("InteriorBBoxCFrame", cf)
+	building:SetAttribute("InteriorBBoxSize", size)
+	building:SetAttribute("FootprintMode", "ExactBox")
+	storeGrid(building, grid)
 	return BuildingGenerator.Generate(building, requestedFloors)
 end
 
--- GenerateAll(folder, requestedFloors): requestedFloors (optional) applies the
--- same floor count to every building in the folder. Omit it to use preset
--- height-driven floors per building.
-function BuildingGenerator.GenerateAll(folder, requestedFloors)
+function BuildingGenerator.Regenerate(building, requestedFloors)
+	if building:GetAttribute("SmoothMassing") then
+		return require(script.Parent.SmoothBuildingBuilder).Regenerate(building, requestedFloors)
+	end
+	local existing = building:FindFirstChild("Interior")
+	local hasShell = false
+	for _, p in building:GetDescendants() do
+		if p:IsA("BasePart") and not (existing and p:IsDescendantOf(existing)) then hasShell = true; break end
+	end
+	assert(hasShell or loadStoredGrid(building), "No shell or saved grid; cannot regenerate")
+	assert(hasShell or requestedFloors == nil, "Changing floor count requires the original shell/triangle resampling")
+	if existing then existing:Destroy() end
+	-- Imported interiors have no solid shell; their sampled grid IS the source.
+	if hasShell then building:SetAttribute("InteriorGrid", nil) end
+	return BuildingGenerator.Generate(building, requestedFloors)
+end
+
+-- Traverse grouping folders/models, but stop at each Building model so its
+-- component models and an existing Interior are never treated as buildings.
+local function collectBuildings(folder, result)
+	for _, child in folder:GetChildren() do
+		if child:IsA("Model") and child.Name:match("^Building") then
+			table.insert(result, child)
+		elseif child:IsA("Folder") or child:IsA("Model") then
+			collectBuildings(child, result)
+		end
+	end
+end
+
+-- GenerateAll(folder?, requestedFloors?, dryRun?): an explicit floor count
+-- overrides each model's RequestedFloors attribute; otherwise use its height.
+-- dryRun=true inventories candidates without modifying the map. One failed
+-- building does not prevent the rest of the district from being generated.
+function BuildingGenerator.GenerateAll(folder, requestedFloors, dryRun)
+	assert(not game:GetService("RunService"):IsRunning(), "GenerateAll is an edit-time tool; stop playtest first")
 	folder = folder or Workspace:FindFirstChild("Buildings")
 	if not folder then
 		warn("[BuildingGenerator] No Workspace.Buildings folder found.")
 		return
 	end
-	local generated, skipped = 0, 0
-	for _, child in folder:GetChildren() do
-		if child:IsA("Model") then
-			if BuildingGenerator.Generate(child, requestedFloors) then generated += 1 else skipped += 1 end
+	local buildings = {}
+	collectBuildings(folder, buildings)
+	table.sort(buildings, function(a, b) return a:GetFullName() < b:GetFullName() end)
+	local report = { generated = 0, skipped = 0, failed = 0, ready = 0, entries = {} }
+	for _, building in buildings do
+		local entry = { path = building:GetFullName(), requestedFloors = requestedFloors or building:GetAttribute("RequestedFloors") }
+		if building:FindFirstChild("Interior") then
+			entry.status, entry.reason = "skipped", "Interior already exists"
+		elseif building:GetAttribute("SkipGeneration") == true then
+			entry.status, entry.reason = "skipped", "SkipGeneration attribute"
+		else
+			local primitives, meshes = 0, 0
+			for _, part in building:GetDescendants() do
+				if part:IsA("MeshPart") then meshes += 1
+				elseif part:IsA("BasePart") then primitives += 1 end
+			end
+			if meshes > 0 and primitives == 0 then
+				entry.status, entry.reason = "skipped", "Mesh-only reference: requires an individual solid building shell"
+			elseif dryRun then
+				entry.status = "ready"
+			else
+				local ok, result = pcall(BuildingGenerator.Generate, building, requestedFloors)
+				if ok and result then
+					entry.status = "generated"
+					entry.floors = building:GetAttribute("GeneratedFloors")
+				else
+					entry.status = "failed"
+					entry.reason = ok and "No usable solid volume or stored grid; see Output" or tostring(result)
+				end
+			end
 		end
+		report[entry.status] += 1
+		table.insert(report.entries, entry)
+		print(string.format("[BuildingGenerator] %s: %s %s", entry.path, entry.status, entry.reason or ""))
+		task.wait() -- keep Studio responsive between buildings
 	end
-	print(string.format("[BuildingGenerator] Done. Generated %d, skipped %d.", generated, skipped))
+	print(string.format("[BuildingGenerator] Done. Generated %d, skipped %d, failed %d, ready %d.",
+		report.generated, report.skipped, report.failed, report.ready))
+	return report
 end
 
 return BuildingGenerator

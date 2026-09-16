@@ -208,7 +208,7 @@ local function destroyAlongCylinder(startPos, endPos, radius)
 	-- BuildingGenerator's output. The only parts a spatial query can't see are
 	-- CanQuery = false ones, so the fallback scan only needs to consider those.
 	-- (Skipping the thousands of query-able parts on a tall tower is the win.)
-	for _, child in ipairs(Workspace:GetChildren()) do
+	local function scanBuilding(child)
 		if child:IsA("Model") and child.Name:match("^Building") and buildingNearSegment(child) then
 			for _, descendant in ipairs(child:GetDescendants()) do
 				if descendant:IsA("BasePart") and not descendant.CanQuery and not hitSet[descendant] then
@@ -220,6 +220,16 @@ local function destroyAlongCylinder(startPos, endPos, radius)
 					end
 				end
 			end
+		end
+	end
+	for _, child in ipairs(Workspace:GetChildren()) do
+		if child.Name == "Buildings" and (child:IsA("Folder") or child:IsA("Model")) then
+			-- Buildings is a container, even when it is a Model. Cull its actual
+			-- building children individually instead of scanning the whole city.
+			for _, building in ipairs(child:GetChildren()) do scanBuilding(building) end
+		else
+			-- Preserve support for standalone test/hand-authored buildings.
+			scanBuilding(child)
 		end
 	end
 
