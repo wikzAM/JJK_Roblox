@@ -88,7 +88,7 @@ end
 -- skipped: their neighbours' overlap already covers them.
 --
 -- Same entry as Build(); options.height / options.thickness override the wall.
-local RIM_HEIGHT = 4.0      -- studs, ~1.1 m at 0.28 m per stud: a parapet, not a storey
+local RIM_HEIGHT = 6.0      -- studs, ~1.7 m: raised from 4 at the map owner's request, still a ledge
 local RIM_THICKNESS = 1.0   -- studs, ~0.28 m
 
 local function inside(points, x, z)

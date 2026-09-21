@@ -56,6 +56,7 @@ PROTECTED = [(-630.0, 48.0, 260.0)]
 # studs apart and its podium up to seven pieces; the map owner asked for PARCO
 # to be filled within its perimeter at each section, so it gets a wider close.
 SEAM = 3.0
+TOP_SNAP = False   # see the plan builder: floating roof slabs; ledge on the top floor instead
 SEAM_OVERRIDES = [((705.0, 1720.0), 8.0, "Shibuya PARCO")]
 
 
@@ -288,7 +289,7 @@ def main():
             y += B.PITCH
         # TOP SLAB AT THE ROOF: on a fixed storey grid the last slab lands up to
         # a storey below it (median building 20.8 studs short of the FBX).
-        if plates:
+        if TOP_SNAP and plates:
             last_y, last_plate = plates[-1]
             roof_y = main_roof(roofs, last_plate, last_y + B.SLAB, last_y + B.SLAB + 2 * B.PITCH, reach)
             want = roof_y - B.SLAB

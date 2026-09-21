@@ -271,8 +271,9 @@ end
 -- crown (the older, hand-approved sector crowns) and those left for manual
 -- design. Idempotent: a building that already has a rim is left alone, so a
 -- replayed call does nothing twice.
-function Sweep.RimAll()
+function Sweep.RimAll(options)
 	editOnly()
+	options = options or {}   -- options.replace: rebuild existing rims too (e.g. after a height change)
 	local live = buildings()
 	local metrics = {buildings = 0, removed = 0, rimParts = 0, skippedShell = 0,
 		skippedManual = 0, already = 0, failed = 0}
@@ -292,7 +293,12 @@ function Sweep.RimAll()
 			end
 		end
 		if hasShell then metrics.skippedShell += 1; continue end
-		if hasRim then metrics.already += 1; continue end
+		if hasRim and not options.replace then metrics.already += 1; continue end
+		if hasRim then
+			for _, d in model:GetDescendants() do
+				if d:IsA("BasePart") and d:GetAttribute("ParapetRim") then table.insert(solid, d) end
+			end
+		end
 		local entry = rimEntryFor(model)
 		if not entry then metrics.failed += 1; continue end
 		local ok, made = pcall(CrownParapet.BuildRim, model, entry, {tag = NO_CSG})

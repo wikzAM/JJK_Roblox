@@ -87,6 +87,11 @@ ROOF_REGION_PAD = 6.0
 # floor spilling out of the FBX -- 876 of 2,004 buildings had a floor more than
 # 10% outside it, some 100%.
 LEVEL_SEAM = 3.0
+# OFF, by the map owner's rule: floors on the storey grid and the parapet as a
+# ledge straight on top of the final floor, nothing above it. Snapping a slab to
+# the roof added small floating slabs (with rims they read as floating boxes) and
+# stretched core walls up to them -- the tall block between two towers.
+TOP_SNAP = False
 CONTAIN_SHARE = 0.6
 CONTAIN_TOLERANCE = 1.5
 SLIVER_SHARE = 0.15
@@ -741,7 +746,7 @@ def build_plan(key, members, slicer):
     # storey below the roof; the median building was 20.8 studs short. Find the
     # roof over most of the top floor and lift (or add) the top slab onto it.
     snapped = 0.0
-    if levels and len(my_roofs):
+    if TOP_SNAP and levels and len(my_roofs):
         last_y = bottom + levels[-1]["y"]
         last_world = world_of(levels[-1]["pieces"])
         roof_y = main_roof(my_roofs, last_world, last_y + SLAB, last_y + SLAB + 2 * PITCH, reach)
