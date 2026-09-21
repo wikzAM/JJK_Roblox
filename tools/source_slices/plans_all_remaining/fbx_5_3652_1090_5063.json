@@ -1,0 +1,160 @@
+{
+ "id": "fbx_5_3652_1090_5063",
+ "origin": {
+  "x": 365.25,
+  "y": 61.1,
+  "z": 507.625,
+  "yaw": 1.372834
+ },
+ "levels": [
+  {
+   "y": 0.0,
+   "thickness": 5.3571,
+   "pieces": [
+    [
+     [
+      -14.67,
+      7.838
+     ],
+     [
+      19.905,
+      7.838
+     ],
+     [
+      19.73,
+      -6.762
+     ],
+     [
+      -19.915,
+      -7.887
+     ]
+    ]
+   ]
+  },
+  {
+   "y": 17.8571,
+   "thickness": 5.3571,
+   "pieces": [
+    [
+     [
+      -14.67,
+      7.838
+     ],
+     [
+      19.905,
+      7.838
+     ],
+     [
+      19.73,
+      -6.762
+     ],
+     [
+      -19.915,
+      -7.887
+     ]
+    ]
+   ]
+  },
+  {
+   "y": 35.7143,
+   "thickness": 5.3571,
+   "pieces": [
+    [
+     [
+      -14.67,
+      7.838
+     ],
+     [
+      19.905,
+      7.838
+     ],
+     [
+      19.73,
+      -6.762
+     ],
+     [
+      -19.915,
+      -7.887
+     ]
+    ]
+   ]
+  },
+  {
+   "y": 53.5714,
+   "thickness": 5.3571,
+   "pieces": [
+    [
+     [
+      -14.67,
+      7.838
+     ],
+     [
+      19.905,
+      7.838
+     ],
+     [
+      19.73,
+      -6.762
+     ],
+     [
+      -19.915,
+      -7.887
+     ]
+    ]
+   ]
+  },
+  {
+   "y": 71.4286,
+   "thickness": 5.3571,
+   "pieces": [
+    [
+     [
+      -14.67,
+      7.838
+     ],
+     [
+      19.905,
+      7.838
+     ],
+     [
+      19.73,
+      -6.762
+     ],
+     [
+      -19.915,
+      -7.887
+     ]
+    ]
+   ]
+  }
+ ],
+ "core": {
+  "minX": -12.3191,
+  "minZ": -5.6074,
+  "maxX": 15.032,
+  "maxZ": 6.6832
+ },
+ "sourceInfo": {
+  "origin": "world_triangles.npz horizontal sections",
+  "sourceKey": "5_3652_1090_5063",
+  "planBottom": 61.1,
+  "fbxBottom": 61.1,
+  "fbxTop": 155.1,
+  "baseExtension": 0.0,
+  "greyBase": 61.1,
+  "greyTop": 156.8,
+  "bandCount": 1,
+  "roofClutterTrimmed": 0.0,
+  "crownTrimmed": 0.0,
+  "exactLevels": 5,
+  "roofLevels": 0,
+  "coreShrunkToFit": true,
+  "simplifyEscalated": 0,
+  "ringsDropped": 0,
+  "replaces": [
+   "BuildingSmooth_5_3652_1090_5063"
+  ],
+  "measuredMembers": 1,
+  "greyOversizeFactor": 1.0
+ }
+}

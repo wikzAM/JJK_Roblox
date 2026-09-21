@@ -1,0 +1,139 @@
+{
+ "id": "fbx_5_4245_980_9119",
+ "origin": {
+  "x": 424.5625,
+  "y": 63.2,
+  "z": 910.367,
+  "yaw": -1.961076
+ },
+ "levels": [
+  {
+   "y": 0.0,
+   "thickness": 5.3571,
+   "pieces": [
+    [
+     [
+      32.087,
+      -10.537
+     ],
+     [
+      -32.276,
+      -11.255
+     ],
+     [
+      -28.832,
+      10.523
+     ],
+     [
+      32.254,
+      11.291
+     ]
+    ]
+   ]
+  },
+  {
+   "y": 17.8571,
+   "thickness": 5.3571,
+   "pieces": [
+    [
+     [
+      32.087,
+      -10.537
+     ],
+     [
+      -32.276,
+      -11.255
+     ],
+     [
+      -28.832,
+      10.523
+     ],
+     [
+      32.254,
+      11.291
+     ]
+    ]
+   ]
+  },
+  {
+   "y": 35.7143,
+   "thickness": 5.3571,
+   "pieces": [
+    [
+     [
+      32.087,
+      -10.537
+     ],
+     [
+      -32.276,
+      -11.255
+     ],
+     [
+      -28.832,
+      10.523
+     ],
+     [
+      32.254,
+      11.291
+     ]
+    ]
+   ]
+  },
+  {
+   "y": 53.5714,
+   "thickness": 5.3571,
+   "pieces": [
+    [
+     [
+      32.087,
+      -10.537
+     ],
+     [
+      -32.276,
+      -11.255
+     ],
+     [
+      -28.832,
+      10.523
+     ],
+     [
+      32.254,
+      11.291
+     ]
+    ]
+   ]
+  }
+ ],
+ "core": {
+  "minX": -23.4473,
+  "minZ": -7.396,
+  "maxX": 26.8957,
+  "maxZ": 8.8868
+ },
+ "sourceInfo": {
+  "origin": "world_triangles.npz horizontal sections",
+  "sourceKey": "5_4245_980_9119",
+  "planBottom": 63.2,
+  "fbxBottom": 65.2,
+  "fbxTop": 122.2,
+  "baseExtension": 2.0,
+  "greyBase": 63.2,
+  "greyTop": 132.8,
+  "bandCount": 1,
+  "roofClutterTrimmed": 0.0,
+  "crownTrimmed": 9.0,
+  "exactLevels": 4,
+  "roofLevels": 0,
+  "coreShrunkToFit": true,
+  "simplifyEscalated": 0,
+  "ringsDropped": 0,
+  "replaces": [
+   "BuildingSmooth_5_4245_980_9119_ResidualBody02",
+   "BuildingSmooth_5_4245_980_9119_Residual_eaa74253_Body01",
+   "BuildingSmooth_5_4245_980_9119_Residual_eaa74253_Body02",
+   "BuildingSmooth_5_4245_980_9119_Residual_eaa74253_Body03"
+  ],
+  "measuredMembers": 4,
+  "greyOversizeFactor": 0.925
+ }
+}

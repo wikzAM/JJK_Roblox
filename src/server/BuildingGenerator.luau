@@ -1189,6 +1189,11 @@ function BuildingGenerator.GenerateBox(building, cf, size, requestedFloors)
 end
 
 function BuildingGenerator.Regenerate(building, requestedFloors)
+	if building:GetAttribute("SourceSlicePlan")
+		or building:GetAttribute("FootprintMode") == "ExplicitSourceSlices" then
+		assert(requestedFloors == nil, "Source-slice floor counts come from explicit levels, not RequestedFloors")
+		return require(script.Parent.SourceSliceBuilder).Regenerate(building)
+	end
 	if building:GetAttribute("SmoothMassing") then
 		return require(script.Parent.SmoothBuildingBuilder).Regenerate(building, requestedFloors)
 	end

@@ -1,0 +1,138 @@
+{
+ "id": "fbx_11_19095_1486_3990",
+ "origin": {
+  "x": 1909.49,
+  "y": 108.0,
+  "z": 398.977,
+  "yaw": 3.043994
+ },
+ "levels": [
+  {
+   "y": 0.0,
+   "thickness": 5.3571,
+   "pieces": [
+    [
+     [
+      27.005,
+      -22.713
+     ],
+     [
+      -27.005,
+      -22.75
+     ],
+     [
+      -27.037,
+      22.763
+     ],
+     [
+      26.974,
+      22.801
+     ]
+    ]
+   ]
+  },
+  {
+   "y": 17.8571,
+   "thickness": 5.3571,
+   "pieces": [
+    [
+     [
+      27.005,
+      -22.713
+     ],
+     [
+      -27.005,
+      -22.75
+     ],
+     [
+      -27.037,
+      22.763
+     ],
+     [
+      26.974,
+      22.801
+     ]
+    ]
+   ]
+  },
+  {
+   "y": 35.7143,
+   "thickness": 5.3571,
+   "pieces": [
+    [
+     [
+      27.005,
+      -22.713
+     ],
+     [
+      -27.005,
+      -22.75
+     ],
+     [
+      -27.037,
+      22.763
+     ],
+     [
+      26.974,
+      22.801
+     ]
+    ]
+   ]
+  },
+  {
+   "y": 53.5714,
+   "thickness": 5.3571,
+   "pieces": [
+    [
+     [
+      27.005,
+      -22.713
+     ],
+     [
+      -18.717,
+      -22.672
+     ],
+     [
+      -18.677,
+      22.805
+     ],
+     [
+      27.045,
+      22.765
+     ]
+    ]
+   ]
+  }
+ ],
+ "core": {
+  "minX": -15.1177,
+  "minZ": -19.0941,
+  "maxX": 23.4107,
+  "maxZ": 19.1871
+ },
+ "sourceInfo": {
+  "origin": "world_triangles.npz horizontal sections",
+  "sourceKey": "11_19095_1486_3990",
+  "planBottom": 108.0,
+  "fbxBottom": 110.0,
+  "fbxTop": 177.0,
+  "baseExtension": 2.0,
+  "greyBase": 108.0,
+  "greyTop": 189.2,
+  "bandCount": 2,
+  "roofClutterTrimmed": 0.0,
+  "crownTrimmed": 11.0,
+  "exactLevels": 4,
+  "roofLevels": 0,
+  "coreShrunkToFit": true,
+  "simplifyEscalated": 0,
+  "ringsDropped": 0,
+  "replaces": [
+   "BuildingSmooth_11_19095_1486_3990_ResidualBody01",
+   "BuildingSmooth_11_19095_1486_3990_ResidualBody04",
+   "BuildingSmooth_11_19095_1486_3990_Residual_6912aae1_Body01"
+  ],
+  "measuredMembers": 3,
+  "greyOversizeFactor": 0.825
+ }
+}

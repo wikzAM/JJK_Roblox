@@ -2,7 +2,11 @@
 from pathlib import Path
 import sys, json, itertools
 ROOT = Path(__file__).resolve().parent
-sys.path.insert(0, str(ROOT / 'python_deps'))
+versioned_deps = ROOT / f'python_deps_py{sys.version_info.major}{sys.version_info.minor}'
+if versioned_deps.exists():
+    sys.path.insert(0, str(versioned_deps))
+elif sys.version_info[:2] == (3, 12):
+    sys.path.insert(0, str(ROOT / 'python_deps'))
 import numpy as np
 from scipy.optimize import linear_sum_assignment
 from scipy.spatial import cKDTree
@@ -81,9 +85,14 @@ def sections(triangles,y,weld=.35,seam=4):
     # Closed buildings cannot be joined by this step. Keep repair length visible.
     repairs=[]
     if seam:
-        endpoints=np.array([p for line in get_parts(lines) for p in [line.coords[0],line.coords[-1]]])
-        unique,counts=np.unique(endpoints,axis=0,return_counts=True)
-        loose=unique[counts==1]
+        # union_all can emit empty parts at this grid size; line.coords[0] then
+        # raises IndexError and kills the whole run. Seen on 6_4510_4915_-8852.
+        parts=[line for line in get_parts(lines) if not line.is_empty and len(line.coords)>=2]
+        endpoints=np.array([p for line in parts for p in [line.coords[0],line.coords[-1]]]
+                           ) if parts else np.empty((0,2))
+        unique,counts=(np.unique(endpoints,axis=0,return_counts=True)
+                       if len(endpoints) else (np.empty((0,2)),np.empty(0,dtype=int)))
+        loose=unique[counts==1] if len(unique) else unique
         if len(loose)>1:
             distance,neighbor=cKDTree(loose).query(loose,k=2)
             for i in range(len(loose)):

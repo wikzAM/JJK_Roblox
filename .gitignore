@@ -14,8 +14,16 @@ sourcemap.json
 
 # Vendored Python packages for the FBX slice pipeline (reinstall, don't version)
 /tools/python_deps/
+/tools/python_deps_py*/
 __pycache__/
 *.pyc
 
 # Regenerable pipeline geometry dumps
 /tools/source_slices/*.npz
+
+# Whole-map sweep intermediates: per-tile plans and the gate/crown shards are
+# rebuilt by tools/source_slice_sweep.py and tools/source_slice_finish.py in
+# ~15 minutes. The merged batch, the chunks and the measurements are kept.
+/tools/source_slices/sweep/tiles/
+/tools/source_slices/sweep/gate_shards/
+/tools/source_slices/sweep/crown_shards/

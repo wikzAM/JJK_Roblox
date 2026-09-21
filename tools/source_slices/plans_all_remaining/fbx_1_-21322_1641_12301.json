@@ -1,0 +1,142 @@
+{
+ "id": "fbx_1_-21322_1641_12301",
+ "origin": {
+  "x": -2132.25,
+  "y": 134.7,
+  "z": 1230.75,
+  "yaw": -0.877259
+ },
+ "levels": [
+  {
+   "y": 0.0,
+   "thickness": 5.3571,
+   "pieces": [
+    [
+     [
+      -21.305,
+      -15.435
+     ],
+     [
+      -22.26,
+      15.436
+     ],
+     [
+      8.277,
+      15.463
+     ],
+     [
+      9.73,
+      15.436
+     ],
+     [
+      9.773,
+      13.586
+     ],
+     [
+      21.136,
+      13.604
+     ],
+     [
+      22.26,
+      -15.436
+     ]
+    ]
+   ]
+  },
+  {
+   "y": 17.8571,
+   "thickness": 5.3571,
+   "pieces": [
+    [
+     [
+      -21.305,
+      -15.435
+     ],
+     [
+      -22.26,
+      15.436
+     ],
+     [
+      9.73,
+      15.436
+     ],
+     [
+      9.779,
+      13.656
+     ],
+     [
+      21.136,
+      13.604
+     ],
+     [
+      22.292,
+      -15.474
+     ]
+    ]
+   ]
+  },
+  {
+   "y": 35.7143,
+   "thickness": 5.3571,
+   "pieces": [
+    [
+     [
+      -21.305,
+      -15.435
+     ],
+     [
+      -22.26,
+      15.436
+     ],
+     [
+      9.73,
+      15.436
+     ],
+     [
+      9.773,
+      13.586
+     ],
+     [
+      21.136,
+      13.604
+     ],
+     [
+      22.292,
+      -15.474
+     ]
+    ]
+   ]
+  }
+ ],
+ "core": {
+  "minX": -16.9991,
+  "minZ": -12.594,
+  "maxX": 16.9437,
+  "maxZ": 10.7449
+ },
+ "sourceInfo": {
+  "origin": "world_triangles.npz horizontal sections",
+  "sourceKey": "1_-21322_1641_12301",
+  "planBottom": 134.7,
+  "fbxBottom": 134.7,
+  "fbxTop": 192.7,
+  "baseExtension": 0.0,
+  "greyBase": 134.7,
+  "greyTop": 193.5,
+  "bandCount": 3,
+  "roofClutterTrimmed": 0.0,
+  "crownTrimmed": 0.0,
+  "exactLevels": 3,
+  "roofLevels": 0,
+  "coreShrunkToFit": true,
+  "simplifyEscalated": 0,
+  "ringsDropped": 0,
+  "replaces": [
+   "BuildingSmooth_1_-21322_1641_12301_Body01",
+   "BuildingSmooth_1_-21322_1641_12301_Body02",
+   "BuildingSmooth_1_-21322_1641_12301_Body03"
+  ],
+  "measuredMembers": 3,
+  "greyOversizeFactor": 0.788
+ }
+}

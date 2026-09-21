@@ -1,0 +1,141 @@
+{
+ "id": "fbx_11_13842_1435_2949",
+ "origin": {
+  "x": 1364.4457,
+  "y": 104.7,
+  "z": 324.4022,
+  "yaw": -0.881208
+ },
+ "levels": [
+  {
+   "y": 0.0,
+   "thickness": 5.3571,
+   "pieces": [
+    [
+     [
+      -14.0,
+      -8.739
+     ],
+     [
+      -14.006,
+      8.729
+     ],
+     [
+      13.983,
+      8.739
+     ],
+     [
+      13.989,
+      -8.729
+     ]
+    ]
+   ]
+  },
+  {
+   "y": 17.8571,
+   "thickness": 5.3571,
+   "pieces": [
+    [
+     [
+      13.989,
+      -8.7
+     ],
+     [
+      -14.013,
+      -8.71
+     ],
+     [
+      -14.019,
+      8.729
+     ],
+     [
+      13.983,
+      8.739
+     ]
+    ]
+   ]
+  },
+  {
+   "y": 35.7143,
+   "thickness": 5.3571,
+   "pieces": [
+    [
+     [
+      13.989,
+      -8.7
+     ],
+     [
+      -14.013,
+      -8.71
+     ],
+     [
+      -14.019,
+      8.729
+     ],
+     [
+      13.983,
+      8.739
+     ]
+    ]
+   ]
+  },
+  {
+   "y": 53.5714,
+   "thickness": 5.3571,
+   "pieces": [
+    [
+     [
+      13.989,
+      -8.7
+     ],
+     [
+      -14.013,
+      -8.71
+     ],
+     [
+      -14.019,
+      8.729
+     ],
+     [
+      13.983,
+      8.739
+     ]
+    ]
+   ]
+  }
+ ],
+ "core": {
+  "minX": -10.9304,
+  "minZ": -6.7095,
+  "maxX": 10.9304,
+  "maxZ": 6.7095
+ },
+ "sourceInfo": {
+  "origin": "world_triangles.npz horizontal sections",
+  "sourceKey": "11_13842_1435_2949",
+  "planBottom": 104.7,
+  "fbxBottom": 108.7,
+  "fbxTop": 176.7,
+  "baseExtension": 4.0,
+  "greyBase": 104.7,
+  "greyTop": 182.3,
+  "bandCount": 2,
+  "roofClutterTrimmed": 0.0,
+  "crownTrimmed": 0.0,
+  "exactLevels": 3,
+  "roofLevels": 0,
+  "coreShrunkToFit": true,
+  "simplifyEscalated": 0,
+  "ringsDropped": 0,
+  "replaces": [
+   "BuildingSmooth_11_13644_1347_3244",
+   "BuildingSmooth_11_13842_1435_2949_ResidualBody01",
+   "BuildingSmooth_11_13842_1435_2949_Residual_6d4b6f3a_Body01"
+  ],
+  "measuredMembers": 2,
+  "greyOversizeFactor": 2.812,
+  "mergedFrom": [
+   "fbx_11_13644_1347_3244"
+  ]
+ }
+}

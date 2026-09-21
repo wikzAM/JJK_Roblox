@@ -1,5 +1,629 @@
 --!nonstrict
 --[[
+START HERE: tools/SHIBUYA_LIVE_STATE.md — measured census of the live place,
+  the rebuild commands, and the Studio gotchas. Written so a fresh session needs
+  no MCP calls to know where things stand. Then tools/SHIBUYA_SOURCE_SLICE_HANDOFF.md
+  for the reasoning record. THE MAP IS UNSAVED.
+
+September 21, 2026 — ROOF ENVELOPE + ORPHANS. FBX coverage 49.8% -> 86.5%.
+  The pipeline was GREY-DRIVEN (only sliced the FBX under an existing grey), so
+  buildings with no grey -- Shibuya PARCO among them -- were never generated, and
+  wall cuts fail on this PLATEAU export (walls and roofs are separate surfaces,
+  whole wall runs missing: PARCO's cut at Y 250 is 17 triangles, all open ends).
+  NEW tools/source_slice_roofs.py: a plate at height y = union of roof faces
+  above y. Monotone -- no mushrooms, no pinches by construction. Built from the
+  roof TRIANGLES, not a raster (raster: 150-207 verts a ring; faces: 8).
+  Section builder fallback is now wall cut -> roof envelope -> band (only above
+  the lowest closed section). Cerulean + control regenerate byte-identically.
+  NEW tools/source_slice_orphans.py: identity from mesh connectivity (PLATEAU
+  buildings weld to themselves, not neighbours), stacked components merged on
+  roof+wall outlines with holes filled. 626 buildings added (PARCO =
+  orph_703_1736, 23 levels), 155 rebuilt. 4 elevated viaducts removed to
+  ServerStorage.RemovedInfrastructure -- the envelope floored the space under
+  the deck. Live: 1,998 buildings, 352 greys.
+  MEMORY: Studio ~14 GB (306k parts in ServerStorage archives). One plan worker
+  = 1.03 GB. 12 workers + Studio crashed Claude Code (ENOMEM).
+  Details: tools/SHIBUYA_SOURCE_SLICE_HANDOFF.md, "ROOF ENVELOPE + ORPHANS".
+
+September 20, 2026 — WHOLE-MAP SWEEP GENERATED (offline). Nothing applied.
+  The four sectors were hand-driven at ~30 buildings each; the ~2,900 remaining
+  greys were another 70 sessions at that rate. tools/source_slice_sweep.py now
+  plans the whole remainder in one pass: 89 tiles of 600 studs, 12 processes,
+  10.7 min wall clock (107 CPU-min) -> 1,287 plans claiming 2,182 greys over
+  6,497 levels. After the gate: 1,254 buildings over 2,136 greys in 51 chunks,
+  median mean-IoU 0.997, 33 dropped under 0.95, 46 kept but unmeasurable.
+  BUG THE SWEEP FOUND: the core guard's shrink solves for the scale that lands
+  the core EXACTLY on MAX_CORE_SHARE, so re-testing `> MAX_CORE_SHARE` was
+  decided by float rounding -- 0.600000000000001 vs 0.6. It refused 166 groups
+  / 228 greys whose shares before the shrink were 0.744 and 0.996, i.e. real
+  buildings. The re-test now carries +1e-9; the guard still catches the case it
+  was written for (the max(2.0,...) clamp stopping the shrink). The shipped-plan
+  control still regenerates byte-identically, and the fix recovered 154
+  buildings.
+  Budget if all 51 chunks are applied: structure ~159,700 + parapets ~9,100 +
+  shell crowns ~77,100 - ~114,900 of removed greys = about +131,000 parts,
+  taking 219,300 to ~350,000. The 201 shell crowns are 31% of everything added
+  on 16% of the buildings; the tighter rule (slope>=0.25 or band>=55) leaves 134
+  and saves ~24,300.
+  --box REPLACES --near FOR SWEEPS. A --near disc overlaps its neighbours, which
+  is why sectors 2/3/4 each re-offered buildings that were already live. --box is
+  half-open on its max edges, so a grid of boxes PARTITIONS the map: one tile per
+  group, no tile can claim another's greys, tiles are independent processes. The
+  builder's own deduplicate() runs globally after the merge for plans that fall
+  either side of a tile edge. --skip-names drops already-replaced greys first.
+  CONTROL: --key 4_-1164_1279_-9107 regenerates a SHIPPED plan byte-identically,
+  so the patch changes selection only.
+  THE GATE IS MEAN IoU, NOT `outside`. pokeout's `outside` column is the WORST
+  SINGLE LEVEL's spill, not the building's: the applied Cerulean Tower scores
+  97.8% outside with a mean IoU of 0.977. A 5% spill gate would refuse a building
+  the owner approved by eye. source_slice_chunks.py gates on IoU >= 0.95 (what
+  the sectors actually used); --spill exists and defaults to OFF.
+  1,074 greys (35%) produce no plan: under two storeys of FBX section over their
+  footprint, or none at all. NOT all small -- 186 of those groups have a live
+  grey over 36 studs and one is 362 studs over a 14-stud band. Flooring those
+  would invent storeys the scan never recorded, which is the same mistake as the
+  four failed crown fitters. Left grey is the honest outcome; a low-rise pass is
+  the owner's call.
+  APPLYING: src/server/SourceSliceSweepApply.luau. Preview/Commit/Discard/Run/
+  Status, one chunk (~25 buildings) per call, pulled over the sink because a
+  chunk with its crowns is megabytes. The lock folder is the FIRST statement
+  (execute_luau replays) and the stage is never found by searching -- the two
+  rules from the near-miss that almost replaced the wrong 46 greys.
+  MCP: MCPPlugin.rbxmx discoverPort() probes 58741..58745 and takes the first
+  server reporting mcpServerActive with pluginConnected:false. Community servers
+  launched with --port 58741 do not exit when it is taken, so a STALE server from
+  a previous session owns 58741 and the plugin attaches to a server no live
+  session is talking to. Kill every stale node server; if the live one is not on
+  58741 and Studio cannot be restarted (unsaved map), proxy the port -- and
+  listen on IPv6 as well as IPv4, because Windows resolves localhost to ::1 first
+  and an IPv4-only proxy is invisible to the plugin while curl finds it.
+  Read tools/SHIBUYA_SWEEP_RUNBOOK.md before opening Studio.
+
+September 19, 2026 — CROWNS FINAL: parapet default, FILLED shell where earned.
+  The 22 interesting crowns are back on the sealed wedge shell the owner
+  approved by eye, but FILLED rather than hollow.
+  TriangleShell gained options.fillToward (Vector3). A WedgePart is centred on
+  its triangle, so just raising thickness bulges half of it OUTWARD and fattens
+  the building. fillToward slides each wedge so its OUTER FACE STAYS ON THE
+  TRIANGLE and the thickness grows INWARD, towards the crown's centre of mass --
+  silhouette unchanged, interior filled. Inward is decided per triangle by
+  dot(fillToward - triCentroid, normal), NOT by winding: this scan's winding is
+  not consistent (same reason the sealer walks boundaries undirected).
+  Thickness 10, picked by eye against 4 -- at 4 the faces still read separately,
+  at 10 they merge into one mass. 0 triangles skipped either way.
+  LIVE: crown = 857 parapet + 8,628 filled wedge = 9,485 parts. 100 dull
+  buildings ~8.6 parts each; 22 interesting ~392 each. Workspace 219,300 parts,
+  1,315 MB, 183 parts per source-slice building. Still 3.5x under the 33,356
+  wedge-shell peak because the cost lands only where it is earned.
+  Heaviest to eyeball before scaling: fbx_6_2510_2462_-12844 (1,272 parts,
+  234x338 studs) and fbx_4_-2192_1412_-10100 (950).
+
+September 19, 2026 — CROWNS: PARAPET BY DEFAULT, DETAIL WHERE EARNED. UNSAVED.
+  FOUR attempts at reconstructing rooftop detail from the scan all failed:
+  wedge shells fanned at corners; slice+plateau-intersect wiped roof clutter
+  (25 crowns -> 1 box); slice+per-level rectangles gave FLOATING SLABS (MIN_SIDE
+  applied to height); per-object box-or-prism terraced again (17 prisms of
+  exactly 4 studs on Cerulean).
+  THE REASON IS THE DATA. The median crown component keeps only 0.38 of a closed
+  box's surface area -- the scan saw a roof's top and one or two sides, nothing
+  else. There is no solid to recover; every fitter invented the missing half,
+  differently each time. The FBX itself is clean: Cerulean's crown is 89
+  triangles over 100 vertices with ZERO slivers.
+  SPLIT: dull crown -> PARAPET, the top floor's own (already validated) outline
+  extruded 2-8 studs via PolygonSlab, inventing nothing. Interesting crown ->
+  left alone and marked CrownInteresting with the reason, for hand work.
+  tools/source_slice_crown_parapets.py + src/server/CrownParapet.luau.
+  INTERESTING, measured over 181 crowns: sloped share of surface area has median
+  0.00 / p90 0.17, band height median 24 / p90 47. slopeShare>=0.20 OR
+  bandHeight>=50 picks 25 of 181 (14%), Cerulean included. REJECTED: a taper
+  test (bottom vs top third footprint IoU) is bimodal at exactly 0.00 or 1.00
+  because one footprint is usually empty -- no information.
+  LIVE: 22 of 122 flagged interesting (keeping box crowns), 100 with parapets.
+  Crown parts 1,501 -> 1,335 (857 parapet + 478 box), from 33,356 at the
+  wedge-shell peak. Workspace 211,150. A source-slice building is 116 parts.
+  NEXT (owner's call): scatter AC units and roof clutter procedurally instead of
+  recovering them from a scan that never recorded them.
+  STUDIO GOTCHA: require() caches modules for the session, so an edited module
+  never loads. Clone it into a folder and require the clone.
+
+September 19, 2026 — BOX FITTER BUG FIXED. I shipped floating slabs. UNSAVED.
+  MIN_SIDE=3.0 guards the minimum box dimension and I applied it to HEIGHT too.
+  Slices were STEP=2 apart, so any box existing for a single slice was 2 studs
+  tall, failed the test, and was DELETED -- punching air through the stacks.
+  622 overlapping box pairs across 47 crowns had gaps. MIN_SIDE now guards plan
+  dimensions only; height floors at STEP*0.9.
+  I HAD CHECKED THE WRONG THING: I verified box tops reached the building top
+  and bottoms started at the band, called it clean, and never looked at the
+  middle. Every build now runs a VOXEL check instead -- boxes rasterised back
+  onto the slice grid, yielding four numbers:
+    cover  of the sliced solid that got boxed      median 95-97%, worst 81%
+    over   box where the FBX had nothing           0.0% everywhere
+    drop   box with SOLID below we failed to box   median 0.0%, worst 2.4%  <-- the bug
+    float  box with EMPTY below (real canopy)      median 0.0%, worst 8.4%
+  Splitting drop from float is the point: a box over empty FBX is a real
+  overhang and correct; one over solid FBX is the defect. A single "floating"
+  number conflates them and would hide it again.
+  DO NOT REUSE the earlier pairwise gap check -- it flagged any two boxes
+  overlapping in plan with air between, which a third box may legitimately fill.
+  DECOMPOSITIONS TRIED: canonical row-runs are stable between heights but
+  fragment on ROTATED shapes (every edge a diagonal staircase) -- 294 boxes per
+  building, or 19% coverage on the Cerulean n-gon. Greedy largest-rectangle is
+  unstable (median box one slice tall, 569 boxes for sector 2) but that is a
+  PART COUNT problem, not correctness. Greedy on a COARSE grid wins:
+  CELL=4, STEP=4, MIN_SIDE=4.
+  Live: 957 boxes + 544 wedges (4 buildings fit no box) = 1,501 crown parts,
+  from 33,356. Workspace 211,316. A source-slice building is 117 parts (was 439).
+
+September 19, 2026 — CROWNS ARE SOLID BOXES NOW. 33,356 -> 1,458 parts. UNSAVED.
+  The owner saw fans of thin plates at rooftop corners and said the FBX looks
+  clean in Blender. They were right. Measured on the raw npz at the Cerulean
+  crown: 89 triangles, 100 distinct vertices (same at 0.001 and 1.0 stud weld),
+  0 duplicate faces, 0% slivers, median face 533 sq studs. Every artefact was
+  MINE:
+   (1) clip_band manufactures slivers -- 9.7% of clipped triangles have a
+       shortest altitude under 1 stud, aspect ratios to 9,085:1. Sealing and
+       dilation REDUCE this (9.7 -> 9.1 -> 4.6%), so they were never the cause.
+   (2) a thin feature (mast, fin, sign) has two surfaces a few studs apart; as
+       two 0.6-stud plates they overlap and splay at every corner. That is the
+       fan. It is what you get drawing a SOLID as a SURFACE.
+  FIX: tools/source_slice_crown_boxes.py + src/server/CrownBoxes.luau. Slice the
+  crown band every 2 studs (the proven floor machinery; each slice is a SOLID
+  footprint), cut every slice into maximal rectangles on ONE SHARED grid, merge
+  a rectangle with the identical rectangle above it into a box, emit one Part
+  per box. All in the BUILDING'S OWN yaw frame -- only 3.2% of vertical crown
+  faces are world-axis-aligned, so a world-axis fitter finds nothing. Local
+  (x,z) in the payload are the plan's own (a,b) piece coordinates.
+  Crown parts 33,356 -> 1,458 (684 boxes + 774 wedges kept on 5 buildings that
+  fit no box). A source-slice building is 117 parts, down from 439. Workspace
+  243,171 -> 211,273. Cerulean 416 wedges -> 18 boxes.
+  MEMORY CAVEAT: only moved 1,298 -> 1,289 MB in-session, far less than the part
+  count implies. Studio does not reclaim the tags promptly. Trust the part count
+  until it is remeasured in a fresh session.
+  TRIED AND REJECTED (1): grouping slices into plateaus and intersecting them.
+  It keeps only what runs a plateau's full height -- collapsed 25 of 120 crowns
+  to ONE box and wiped the roof clutter that is most of what a crown is.
+  TRIED AND REJECTED (2): slope wedges on the boxes (--wedges still does it).
+  The box stack already expresses Cerulean's sloped roof as steps, so the plate
+  floats above them as a blade and overhangs the boxes by 38 studs.
+  Coverage checked before rollout: boxes start at the band (median gap 0.0), and
+  the top falls >8 studs short on only 8 of 118 -- thin masts, correctly skipped.
+
+September 19, 2026 — CROWNS BOUNDED. Two defects, both mine, both measured.
+  The user saw giant diagonal sails around small buildings. Two causes:
+  (1) CROWN BAND REACHED 140 STUDS UP REGARDLESS OF THE BUILDING. MAX_CROWN=140
+  plus OUTLINE_PAD=14 let a neighbouring tower into the band. 92 of 123 crowns
+  reached above their OWN building's top; the mean crown was 1.24x the height of
+  the building under it. fbx_16_13294_1839_-3533 is a 23-stud building whose FBX
+  stops at 171.6 and whose crown ran to 304. Fix: ceiling at the building's own
+  top, which the plan already records -- max(fbxTop, greyTop) + 10. Result 92->0,
+  median crown height 52 -> 27 studs.
+  (2) THE SEAL THREW MEMBRANES ACROSS OPEN SKY. fill_loop filled ANY boundary
+  loop including a crown's genuine outer edge. The seal made the largest triangle
+  bigger on 24 of 123 crowns; one went 2,450 -> 22,380 sq studs and shipped as a
+  0.6 x 92 x 90 stud wedge. Fix: MAX_GAP=8 in the sealer -- a fill triangle whose
+  SHORTEST ALTITUDE (2*Area/longest edge) exceeds 8 studs is not closing a crack,
+  exceeds the cap is not closing a crack. Rejected per triangle, not per loop.
+  TUNED BY SWEEP over 123 crowns (raw largest triangle 4,074 sq studs):
+    cap     4    8   12   16   24   40  none
+    closed 18%  39%  54%  65%  75%  81%  83%
+    maxTri 4180 4180 4180 4180 4180 4180 26444   <- the sail, uncapped only
+    >2000    29   29   29   29   34   45    95
+  Any cap kills the sail; at any cap up to 16 the seal adds NOTHING bigger than
+  the FBX already had, so MAX_GAP=16 is the largest safe cap.
+  Live: crown wedges 37,982 -> 33,356 (12% fewer), 273/building, closure 60-72%
+  per sector. 243,171 parts. Worst offender fbx_16_13294 now has a 61-stud crown
+  on its 23-stud structure, down from 143.
+  WHY CROWNS COST SO MUCH: floors pay per STOREY, crowns pay per TRIANGLE. One
+  slab Part covers a whole storey at any size; every crown triangle is 2
+  WedgeParts, and a plain box arrives as 12 triangles = 24 wedges where a Roblox
+  Part would do it in 1. Crown cost is nearly FLAT with height (200 wedges under
+  60 studs vs 286 at 100-150), and 72% of buildings are under 100 studs but carry
+  61% of all crown wedges.
+  Workspace.Shibuya was MOVED to ServerStorage.Shibuya (intact, 16 MeshParts).
+  Do not assume workspace.Shibuya exists.
+
+September 18, 2026 — SECTORS 2-4 APPLIED. 122 buildings, all crowned. UNSAVED.
+  sector 1 --near 387 -894 500 : 24 applied, 35 greys, 9,126 crown wedges
+  sector 2 --near 387 -194 450 : 27 applied, 33 greys, 7,572
+  sector 3 --near 1165 -116 450: 35 applied, 46 greys, 11,066  (gate 34/34)
+  sector 4 --near -313 -894 450: 33 applied, 43 greys, 8,306
+  The two first-test buildings finally have crowns; 0 of 122 are crownless.
+  Live: 3,030 greys + 122 BuildingSourceSlice = 247,813 parts, 1,521 MB
+  (6.3 KB/part, stable across every measurement). Source-slice is 50,786 parts
+  over 559 storeys, of which 37,982 are crown wedges = 75%.
+  SECTORS OVERLAP: drop any plan whose id is already a live BuildingSourceSlice
+  before staging, or Capture binds a grey that no longer exists (5+2+3 so far).
+  EXECUTE_LUAU REPLAYS AND IT NEARLY APPLIED THE WRONG GREYS: the staging call
+  ran ~3x, made duplicate stages and MISLABELLED one -- a stage holding sector
+  3's 35 models came back tagged sector4, because copy 2 searched for "the stage
+  with no Sector attribute" and found copy 1's before it was tagged. Rules now:
+  (1) take a lock folder as the FIRST statement, before any HTTP or building;
+  (2) never find a new stage by searching -- Builder.StagePlans returns the
+  folder, hold that handle, then assert #children == #plans and outputs ==
+  #plans before Apply. The mismatch (33 outputs for 35 plans) is what caught it.
+
+September 18, 2026 — SECTOR 2 APPLIED + PERFORMANCE MEASURED. MAP UNSAVED.
+  Archive ShibuyaBeforeSourceSlice_b81a036d-50b1-4d80-9d42-b47293247c11 (33).
+  --near 387 -194 450: 27 applied, 33 greys replaced, 27 sealed crowns / 7,572
+  wedges. Gate median IoU 0.996, 27/29 >= 0.95. Sectors overlap, so filter plans
+  whose id is already a live BuildingSourceSlice before staging (5 were).
+  Live: 3,119 greys + 54 BuildingSourceSlice + Building1/2/3 = 226,352 parts.
+  SHIBUYA SKY IS FENCED IN CODE: PROTECTED in source_slice_plan_builder.py,
+  (-630, 48, r260) = Workspace.Buildings.Building1, 29,907 parts with furniture,
+  measured X -793..-468 Z -120..217 Y 57..967. A group is rejected if ANY member
+  is inside. --exclude X Z RADIUS adds more zones.
+  PERFORMANCE (measured, not estimated): source-slice = 439 parts/building vs
+  53.8 for a grey; 25.3 structural parts/storey vs 14.8; 309 crown wedges per
+  building = 70% of the building. Memory 6.4 KB/part (PhysicsParts 617MB +
+  Instances 589MB + GraphicsParts 202MB over 226k parts; Studio inflates this).
+  workspace.StreamingEnabled is FALSE -- that is the decision that matters.
+  Resident sets: r500 = 10,799 parts, r1000 = 27,281. Whole-map projection is
+  ~1.1M parts / ~7 GB unstreamed, and CROWNS ARE 71% OF IT.
+  Hit cost does NOT regress: parts in the destroyAlongCylinder volume are 129
+  and 16 in converted sectors vs 105 and 146 in greys (crowns are NoCSG, so
+  deleted not carved).
+  Crown headroom: 43% of crown triangles are right-angled. A rectangle = 2 tris
+  = 4 wedges today but 1 thin Part; a closed box = 24 wedges but 1 Part. Only
+  3.2% of vertical faces are world-axis-aligned, so box fitting must run in the
+  building's own yaw frame. Coplanar merge alone is weak (2.2 tris/plane).
+  MEASURED AND REJECTED: CanTouch=false on all 16,698 crown wedges moved memory
+  by 0.0 MB. Not a memory win.
+
+September 18, 2026 — CROWNS SEALED. 9,126 wedges live. MAP UNSAVED.
+  The Shibuya FBX is a drone/photogrammetry scan and is NOT watertight, so the
+  crowns rendered with slits you could see through. Measured: 1,770 crack edges
+  across 25 crowns (boundary edges that are not a legitimate rim), 82% of them
+  within 3 studs of another crack edge -- two sides of a slit, not a surface that
+  ends. Welding does not help (Cerulean 131 -> 130 verts); the faces are absent,
+  so the repair has to ADD geometry.
+  tools/source_slice_crown_seal.py: drop slivers -> weld -> walk the boundary
+  into loops (UNDIRECTED; scan winding is not consistent) -> fill each loop by
+  minimum-area triangulation (Barequet/Liepa DP -- a slit loop runs up one side
+  and back down the other, so filling the loop IS zipping the slit) -> dilate
+  each triangle in its own plane to cover the V notch a 0.6-stud shell leaves at
+  every convex fold. Bottom rim and a flat top loop stay open on purpose (the
+  Cerulean helipad); --cap-top fills them.
+  Result: crack edges 1,772 -> 360 (80%), crack length 45,810 -> 8,628 studs
+  (81%), Cerulean 72 -> 2. Bounding box grows at most 1.0 stud, so no fill
+  reaches outside the building.
+  TRAPS: (1) the crack metric is meaningless AFTER dilation -- it detaches every
+  triangle by design, 1,770 -> 11,204. Count before dilating. (2) Uncapped
+  dilation throws needles: the corner step is pad/sin(half-angle), enormous at a
+  sliver's tip. Cap it by the triangle's own inradius (2*Area/perimeter); a flat
+  ceiling alone is not enough.
+  STUDIO: workspace.CurrentCamera in edit mode takes position but silently
+  REVERTS rotation -- set CameraType = Scriptable first or screenshots mislead.
+  tools/source_slice_sink.py now serves GET /get/<repo path> so Studio can pull
+  payloads too big to paste into execute_luau.
+  Rollback: crowns_batch.py ... --no-seal reproduces the raw soup exactly; the
+  old crowns were NOT kept in the place (5,730 orphan parts would have saved).
+
+September 18, 2026 — SECTOR APPLIED: 24 buildings + 25 crowns. MAP UNSAVED.
+  Resume: tools/SHIBUYA_SOURCE_SLICE_HANDOFF.md. Archive
+  ShibuyaBeforeSourceSlice_0a6b883f-ef70-4397-bbf0-6541f33410dc (35 originals).
+  Live: 3,152 BuildingSmooth + 27 BuildingSourceSlice + Building1/2/3 = 3,182.
+  PRESS CTRL+S TO KEEP THIS.
+  Sector = --near 387 -894 500 (the Cerulean Tower neighbourhood): 34 groups ->
+  26 plans -> 24 applied (1 dropped on the gate, 1 already live). 35 greys
+  consolidated. Gate before applying: median IoU 0.998, p10 0.990, 22/23 >= 0.95;
+  fbx_6_705_2489_-10277 failed at 80.8% outside and was DROPPED, not shipped.
+  CROWNS: 25 buildings carry a TriangleShell crown, 9,126 wedges (sealed). FBX
+  triangles above the last floor are clipped to the band and rendered directly as
+  WedgePairs -- no slicing, no storeys. Crown wedges are tagged NoCSG (HitHandler
+  deletes rather than carves a 0.6-stud shell) at 0.6 thickness.
+  CAVEAT: Builder.Audit now FAILS on any building with a crown, because it asserts
+  every BasePart belongs to a declared floor. Audit before attaching crowns, or
+  teach it to allow ShellWedge parts.
+  New: --near X Z RADIUS spatial selection (this is how to scale -- sector by
+  sector); core shrink-to-fit instead of rejecting (6 of 10 first-run skips were
+  that one guard; sector went 15 -> 26 plans, 11 with coreShrunkToFit);
+  tools/source_slice_crowns_batch.py bounds each crown by its own building's top
+  outline, never a bbox, or neighbours' crowns come along in a dense sector.
+  Also fixed: source_slice_pipeline.sections() crashed with IndexError when
+  union_all emitted empty parts.
+
+September 18, 2026 — FIRST APPLY. Two buildings live. MAP UNSAVED.
+  Archive: ShibuyaBeforeSourceSlice_122c0a0c-6697-4e2f-8dab-c69b61dfe9c7.
+  Live: 3,188 BuildingSmooth + 2 BuildingSourceSlice + Building1/2/3 = 3,193.
+  PRESS CTRL+S IN STUDIO TO KEEP THIS, or close without saving to discard.
+  Replaced BuildingSmooth_4_-9770_4222_-4948 (Cerulean Tower, 186 m -- matched by
+  the 4.1828 studs/m FBX factor against the real 184.3 m) and
+  BuildingSmooth_4_-10904_1766_-9267 (tapering 10-gon).
+  Cerulean before/after, measured with PartExtents: Y 34.0-810.3 (185.6 m) ->
+  34.0-789.4 (180.5 m); footprint extent 347x320 -> 440x371; 522 -> 946 parts.
+  Both complaints addressed: the grey had a FLAT ROOF WITH STOREYS INSIDE THE
+  CROWN and a base 25% per side SMALLER than the FBX podium (real podium is
+  440x371, a 24-vertex n-gon). The sloped crown itself is still not modelled --
+  PolygonSlab emits horizontal plates only, so a slope needs vertical wedges,
+  a new capability. Nothing is built up there now, which beats a flat roof.
+  Three builder fixes this seed forced: floors now stop at the last STABLE band
+  rather than the last height with any geometry (that is exactly what put storeys
+  in a crown); BAND_TRUST_SHARE=0.4 rejects a per-floor section under 40% of its
+  own band as an artifact (Cerulean has a 1,259 sq stud sliver at the podium->
+  tower neck that drove the core intersection to zero and rejected the whole
+  43-storey building); and the probe window now takes the LARGEST section, not
+  the first hit.
+  Known imperfection: 1 level of 43 (Y 159, the neck) has a plate bigger than the
+  FBX there, because the FBX has only a sliver -- a mesh hole. Mean IoU 0.977 for
+  Cerulean, 0.996 for the second building.
+  PLANS_V8 IS NOW STALE: all three fixes landed after it was generated, and the
+  crown fix is the one that stops a tapering building getting a flat roof full of
+  storeys. Do not scale from plans_v8 -- regenerate to plans_v9, re-gate, re-stage.
+  The two APPLIED buildings were built WITH the fixes and are unaffected.
+
+September 17, 2026 — plans_v8 is clean on every axis; this is the batch to use
+  Resume: tools/SHIBUYA_SOURCE_SLICE_HANDOFF.md (START HERE).
+  55 plans consolidating 201 greys. Staged live as SourceSliceStage_e948c30c-...:
+  55 of 55 BUILT, 55 GOOD, 0 BAD, 377 levels, 11,456 structural parts (208 per
+  building, 9,522 of 9,524 slab parts wedges).
+  Gate: median mean-IoU vs the FBX section 0.997, p10 0.991, WORST PLAN 0.989,
+  54/54 at >= 0.95, ZERO plans over 5% spill, worst spill 3.4%, worst
+  under-coverage 1.8%, 336/377 levels (89.1%) using their own height's section.
+  Both v7 outliers gone: fbx_poly_250_79 (61.1% spill, tapering top) and
+  fbx_poly_170_65 (23% under-coverage). Every plan is now >= 0.989 IoU.
+  NOTHING APPLIED. Live map unchanged: 3,190 BuildingSmooth + Building1/2/3,
+  49 Shibuya archives, FBX still in Workspace.
+  Three things still need human eyes before any Apply: the rooftop trimming on
+  17 plans (<=1 storey each; only a picture separates a parapet from a narrow top
+  floor), the 21 levels sitting where the FBX has no geometry (mesh holes), and
+  an orange building compared against the red FBX.
+
+September 17, 2026 — last real defect fixed (tapering tops); v8 regenerating
+  fbx_poly_250_79 had put 61.1% of one plate outside the FBX and had survived
+  v4/v5/v7 unchanged. Cause, once measured per level: levels 0-13 matched their
+  sections to 0.0-0.2%, but levels 14 and 15 both carried a 39,336 plate --
+  identical to level 10's, ten storeys down -- while the real sections there are
+  26,299 and 15,559. The building tapers at the top and those floors were using a
+  BAND plate. The per-floor lookup called slicer.at(middle) once, at exactly that
+  height; the non-watertight export drops sections at scattered levels, so a
+  single miss fell back to the band, which is badly wrong on a taper.
+  SECTION_PROBES now tries 0, +/-0.6, +/-1.2, +/-2.0 first. On that seed:
+  exactLevels 13/16 -> 15/16 and 61.1% outside / IoU 0.934 -> 0.3% outside,
+  0.1% under-coverage, IoU 0.998. Verified in isolation.
+  plans_v8 (v7 + this fix) was STILL GENERATING at hand-off -- not gated, not
+  staged. plans_v7 remains the validated batch: 55/55 built, 55 good, 0 bad,
+  median IoU 0.996, staged as SourceSliceStage_afefdba8-...
+  Nothing applied; live map unchanged at 3,190 greys + Building1/2/3.
+
+September 17, 2026 — plans_v7: 55/55 build, 55 good, 0 bad, median IoU 0.996
+  Resume: tools/SHIBUYA_SOURCE_SLICE_HANDOFF.md (START HERE). plans_v7 is the
+  batch to use: 55 plans consolidating 201 greys, staged live as
+  SourceSliceStage_afefdba8-... with 55 of 55 built, 55 good, 0 bad, 377 levels,
+  11,406 structural parts (207 per building, 9,472 of 9,474 slab parts wedges).
+  Gate: median mean-IoU vs the FBX section 0.996, p10 0.991, worst plan 0.923,
+  52/54 at >= 0.95, under-coverage median 0.3%. Fidelity is unchanged from v5 --
+  the fixes bought buildability, not accuracy, and cost none. NOTHING APPLIED;
+  live map still 3,190 greys + Building1/2/3, 49 archives, FBX in Workspace.
+  ROOFTOP TRIMMING: implemented as asked, then MEASURED AND WALKED BACK. At
+  0.25/36 studs it fired on 25 of 55 plans and removed up to TWO real storeys
+  (fbx_poly_170_6 lost 34 studs where the live greys reach 229.3, and v5 had
+  matched that top to under a stud). Now 0.15/24 with a hard floor that never
+  cuts more than one storey below the live building's own top: 17 plans, max 18
+  studs, 7 levels total. Still NOT verified by eye -- only a picture separates a
+  parapet from a narrow top floor. ROOF_MIN_SHARE = 0 disables it.
+  Remaining real defect: fbx_poly_250_79 puts 61.1% of one plate outside the FBX
+  and has survived v4/v5/v7 unchanged. fbx_poly_130_8 (6.3%) is the only other
+  plan over 5%. Everything else is at or above 0.95 IoU.
+  Generation is slow (tens of minutes) and the cause is the per-floor slicer.at()
+  calls added in v4, NOT the triangulation checks -- capping the replica search
+  from 2048 to 300 states made verdicts instant and barely moved runtime. Cache
+  sections by rounded height before scaling this to the whole map.
+
+September 17, 2026 — both PolygonSlab defect classes diagnosed and fixed
+  Resume: tools/SHIBUYA_SOURCE_SLICE_HANDOFF.md. The v5 stage now audits
+  53 good / 0 bad (was 51/2) after one measured tolerance fix, and the three
+  build failures have a fix awaiting a v6 run.
+  1. "Slab protrudes beyond its source polygon": measured, not assumed -- max
+     corner displacement 0.0024 and 0.0027 studs across 212 and 314 slabs. That
+     is float32 (slabShape round-trips corners through WORLD space; Roblox stores
+     CFrames as float32, and |x| reaches ~3000 here). The audit compared AREAS
+     against a flat 0.01 sq stud floor, but a displaced edge costs area in
+     proportion to its LENGTH, so a 400-stud perimeter turns 0.003 studs into
+     ~1.2 sq studs and any large plate failed for free. Tolerance is now
+     max(0.05, area*2e-5, perimeter*0.01). Re-audited live: 53 good, 0 bad.
+  2. "No exact native-size triangulation (0.05 stud minimum)": the message is
+     MISLEADING. The failing outlines have minimum edge 0.92-2.06 studs and
+     minimum angle 47-68 degrees -- they are well conditioned. The real cause is
+     PolygonSlab.triangulate exhausting its 2048-state backtracking budget on
+     18-32 vertex rings. Do not hunt for slivers.
+     Fixed without touching load-bearing Luau: tools/polygon_slab_sim.py is a
+     Python replica of that triangulator (it reproduces the three live failures
+     exactly), and the plan builder now walks SIMPLIFY_LADDER (0.9, 1.4, 2.0,
+     3.0, 4.5), keeping the first tolerance whose ring provably triangulates.
+     The check only runs on rings with >= 14 vertices and is memoised -- without
+     that guard the run effectively hangs, because the replica burns the full
+     budget on every ring it cannot tile.
+
+September 17, 2026 — plans_v5: floors now follow the FBX to a median IoU of 0.997
+  Resume: tools/SHIBUYA_SOURCE_SLICE_HANDOFF.md (START HERE section).
+  56 plans consolidating 205 greys. Offline gate: median mean-IoU vs the FBX
+  section 0.997, p10 0.991, worst plan 0.923, 54/56 at >= 0.95, under-coverage
+  median 0.3%. Staged live: 53 of 56 built, 51 good, 2 bad, 327 levels,
+  7,748 slab parts (7,746 wedges), 9,404 structural parts. NOTHING APPLIED.
+  FIFTH metric error, caught and corrected: the "under-coverage tail" (20 of 56
+  plans below 0.95) was the GATE, not the plans. It selected the building's
+  section with intersection>=300 against the greys' AXIS-ALIGNED region, which in
+  a city this dense always catches a neighbour; the plate was then scored as
+  failing to cover a building it never targeted. fbx_poly_170_56 read as 89%
+  under-covering while actually matching its own section to 0.1%. The gate now
+  uses the builder's exact rule. CAVEAT: that makes the gate answer "does the
+  plate reproduce the section the builder chose" -- it no longer independently
+  checks that the builder chose the right polygons. That check is still missing.
+  The multi-piece change (emit every qualifying polygon, not just the largest)
+  did NOT move the tail, because the tail was measurement. Keep it anyway; it is
+  correct and 49 levels are genuinely multi-piece.
+  EVERY remaining defect is in PolygonSlab, not the slicing: 3 plans fail to
+  build with "No exact native-size triangulation (0.05 stud minimum)" because the
+  sliced outline has slivers under Roblox's minimum part size, and 2 fail the
+  audit with "Slab protrudes beyond its source polygon". Fix by conditioning the
+  ring before PolygonSlab.Build. Highest-value remaining task.
+  Rooftop clutter trimming is implemented but was added AFTER v5 was generated --
+  regenerate to pick it up, and verify roofClutterTrimmed is 0 on real setbacks.
+  Part budget: 168 parts per building at this fidelity; measure on a larger
+  sample before scaling to the whole map.
+
+September 17, 2026 — GOAL CLARIFIED: floors must follow the FBX geometry closely
+  User: facades are handled separately, rooftop signs/AC need not be modelled,
+  but the generated floors "should follow the geometry very well".
+  STRATEGY SETTLED BY MEASUREMENT: slice the FBX, do not merge the greys.
+  A/B over the 51 fragmented groups, same building, same height, same metric
+  (tools/source_slice_ab.py): median IoU vs the FBX section is 0.994 for the
+  generated slice against 0.462 for the live grey fragments; IoU >= 0.95 on
+  40/51 vs 0/51; the slice wins on 51 of 51 plans. Grey fragments miss 9-78% of
+  each floor, so there is nothing to merge.
+  QUALIFICATION to the earlier "greys already match the FBX": that compared
+  AREAS, and equal area is not equal shape. By IoU (source_slice_shape_survey.py,
+  147 live floors) SOLO greys are genuinely good -- median IoU 0.996, 84% at
+  >= 0.95, spill p95 only 1.1% -- and their failure mode is under-coverage
+  (miss p95 24%). So ~44% of the map is already close and the fragmented 56% is
+  not. Slicing everything fixes both and keeps one pipeline.
+  Fidelity knobs measured: SIMPLIFY=0.9 costs almost nothing (median IoU 0.9988,
+  p05 0.9890, vs 1.0 unsimplified) while halving vertices, so it is NOT the
+  bottleneck; courtyard holes are negligible (2 of 68 sections, 0.1% of area).
+  The real limiter was under-coverage: Slicer.at() returned only the single
+  largest polygon, so buildings whose section is several disjoint pieces lost
+  everything else -- worst plans covered 11-56% of their own floor while
+  spilling only ~0.5%. Now returns all qualifying pieces; the builder already
+  accepted a list of pieces per level.
+  New offline tools: source_slice_pokeout.py (now reports IoU, spill AND
+  under-coverage, and separates real defects from holes in the non-watertight
+  export), source_slice_shape_survey.py, source_slice_ab.py, source_slice_sink.py.
+
+September 17, 2026 overnight — Studio reached; the whole footprint premise is dead
+  Resume: tools/SHIBUYA_SOURCE_SLICE_HANDOFF.md. Community MCP plugin connected
+  (Plugins tab -> "MCP Integration" -> "MCP Server"; the official Roblox MCP is a
+  DIFFERENT plugin and connecting it does nothing for these tools). Nothing was
+  applied and nothing live changed: still 3,190 BuildingSmooth + Building1/2/3,
+  49 Shibuya archives intact, Shibuya FBX left in Workspace where the user put it.
+
+  1. GREYS ARE NOT OVERSIZED BOXES. Measured every building with PartExtents:
+     extent area / material area is 1.00 for a box, 1.68 for a 21.5deg yawed
+     rectangle. Only 21 of 3,193 greys are under 1.05. Median is 1.82 -- the
+     typical grey fills 55% of its own bounding box. fill_survey divided FBX
+     polygon area by grey BOUNDING BOX area, so a perfect grey scores ~0.55 and
+     reads as "45% oversized". "933 greys oversized" is now positively DISPROVED.
+     At seed 16_7714 grey's widest storey is 19,158.8 sq studs vs the FBX section's
+     19,154.3 -- 0.02% apart, same centre, same yaw. No footprint win exists there.
+     The old "194.9 x 195.9 box" was size.Y (the height) misread as horizontal,
+     because that model's pivot is not upright.
+  2. THE IDENTITY PROBLEM IS ~6x BIGGER THAN RECORDED and is the real target:
+     562 multi-member groups covering 1,796 greys (56% of the map), largest 13.
+     That is a lower bound; key-grouping splits 16_7714's five greys into two.
+  3. THE GENERATED PLANS WERE NEVER CLOSE. New tools/source_slice_pokeout.py
+     measures each floor plate against the FBX section at its own height
+     (validated on the hand seed: 0.0% outside, IOU 1.000). The original 48 plans
+     put a MEDIAN 37.9% of plate area outside the FBX, 33 of 48 over 5%. The
+     "all 48 validate with zero failures" claim was contract compliance only --
+     level counts, core containment -- never geometric fit.
+     Root cause: the export is not watertight, so sections drop out at scattered
+     heights; every dropout ended a band, a solid 35-stud tower became five
+     2-10 stud slivers, and MIN_BAND=12 deleted all of them, so every floor
+     inherited the podium plate. Tapering buildings fail the same way.
+  4. FIXED in tools/source_slice_plan_builder.py: bands() now bridges gaps and
+     ignores single-sample artifacts; each floor takes the section at its OWN
+     height; the lowest band is extruded down to the greys' measured base (the
+     FBX is hollow below ~Y 170 at many footprints and grey's base is invented,
+     which the user wants kept); load() prefers measured live_extents.csv over
+     pivot-oriented live_buildings.json. Measured live on 41 v2 plans: mean
+     height retained 0.941 (was 0.38-0.48 on the worst seeds), base correct on
+     37/41, audit 37 good / 4 bad (all four are 0.13-0.18 sq stud float32
+     overlap against a 0.10 tolerance, not geometry).
+  5. New src/server/PartExtents.luau and SourceSliceLiveExtents.luau are the
+     measurement infrastructure; tools/source_slice_sink.py POSTs bulk dumps
+     from Studio straight to disk. NOTE: execute_luau can run the same code more
+     than once -- make every script idempotent.
+
+September 17, 2026 — the "unexplained" overlay overhang was a measurement bug
+  Resume: tools/SHIBUYA_SOURCE_SLICE_HANDOFF.md. No Studio work: the community
+  MCP plugin (Plugins tab -> "MCP Integration" -> "MCP Server", dials
+  localhost:58741) was never connected. Ports were clean this time -- one server,
+  holding 58741 -- so it is the plugin, not the stale-port pileup. The official
+  Roblox MCP plugin is a DIFFERENT plugin and connecting it does nothing for us.
+  Both remaining open items turned out to be one root cause, found offline and
+  reproduced exactly by tools/wedge_box_check.py: a WedgePart fills only HALF of
+  its Size box. PolygonSlab builds that box as the rectangle spanned by the
+  triangle's two legs, so the mirror corner is empty space outside the outline.
+  - The "20 studs of unexplained excess in X" is not real. Measuring all eight
+    corners gives 201.77 x 187.12; the session measured 201.7 x 187.1. Real
+    footprint is exactly MAIN's 181.31 x 177.70. Nothing to explain.
+  - elevations falling back to "uniform" was NOT a naming problem -- floor parts
+    really are named Slab. liveSlabs read part.Size.Y as thickness, but a wedge's
+    thickness is on LOCAL X, so mostly-wedge grey floors landed hundreds of studs
+    below the FBX band and were filtered out.
+  Consequence: 1.79x is withdrawn along with 2.00x. The overlay side was inflated
+  too (32,219, not 37,755) and grey is mostly wedges. The grey oversize factor is
+  currently UNKNOWN and Compare() will measure it on the next live run.
+  New src/server/PartExtents.luau (Corners/Box/Footprint) is the wedge-aware
+  measurement; use it instead of GetBoundingBox, which is also pivot-oriented.
+  SourceSliceFbxSample now measures with it and reports measuredSizeX/Z beside
+  predictedSizeX/Z. fill_survey.json still cannot be rebuilt offline -- it needs a
+  live per-part dump. Nothing staged, previewed or applied; nothing live changed.
+  NOTE: every Command Bar clone snippet must now also clone PartExtents.
+
+September 17, 2026 late — first FBX overlay built live; fill metric retracted
+  Resume: tools/SHIBUYA_SOURCE_SLICE_HANDOFF.md. SourceSliceFbxSample staged
+  and previewed via Command Bar: builder accepted the plan (badBuildings 0,
+  11 levels, base exact), floors build as single Parts after snapping MAIN to a
+  true rectangle, 16 wedges are the setback roof only.
+  RETRACTION: the "grey is 2.00x too big" claim compared a tight rotated
+  rectangle against an axis-aligned box — a 1.68x artifact at this yaw. Measured
+  properly (world AABB over real parts) grey is 259.8x259.9 and the overlay
+  201.7x187.1, so grey is 1.79x — directionally right, wrongly derived. The
+  whole fill_survey metric shares that flaw; median fill 0.689 is inside the
+  artifact range, so "933 greys oversized" is NOT established. Multi-owner
+  counts are unaffected. Rebuild the survey on measured part extents.
+  Open: elevations fell back to "uniform" (liveSlabs wants a part named exactly
+  "Slab"); overlay AABB is ~20 studs wider in X than MAIN predicts.
+
+September 17, 2026 — FBX slicing generalised; Studio still never reached
+  Resume: tools/SHIBUYA_SOURCE_SLICE_HANDOFF.md. No Studio work happened this
+  session either: the MCP plugin dials a hardcoded localhost:58741, and four
+  stale robloxstudio-mcp servers had accumulated, with a Sept 14 zombie holding
+  that port while the live server sat on 58744. All were killed; every port is
+  now free. A newly added MCP server does not hot-load, so the official
+  Roblox_Studio entry needs a Claude Code restart before its tools exist.
+  Studio was restarted 02:33, so the first-sample overlay and stage folder are
+  gone (both disposable, nothing live lost).
+  New tools/source_slice_plan_builder.py generalises SourceSliceFbxSample: it
+  emits builder-ready plans for many seeds, revalidating each against the Luau
+  contract. 48 plans generated, all re-validating from disk with 0 failures;
+  186 greys consolidate into 48 buildings, each grey claimed exactly once.
+  SourceSlicePlanStage.luau feeds that JSON into Builder.StagePlans (which only
+  takes Lua tables). Nothing staged, previewed or applied — candidates only.
+  Correction to earlier advice: group by FBX polygon ownership, NOT by
+  ShibuyaSourceKey — the 16_7714 seed's five greys span two keys.
+
+September 16, 2026 night — first real FBX seed written, not yet staged
+  Resume: tools/SHIBUYA_SOURCE_SLICE_HANDOFF.md. Measured the FBX triangles
+  directly instead of guessing. At the first seed the FBX footprint IS grey's
+  rectangle (100% fill), so that sample was a dead end, not a near miss.
+  City-wide, median fill is 0.689: 933 greys are >20% oversized and at least 83
+  FBX polygons own 3+ greys each (same ShibuyaSourceKey, split by the residual/
+  body passes) — identity and overlap complaints are real and now quantified.
+  Reproduce with tools/source_slice_fill_survey.py.
+  New SourceSliceFbxSample targets seed 16_7714: five greys are one building,
+  and the big grey is a world-axis box exactly 2.00x the real yawed footprint.
+  Plan verified offline (11 levels, 0 clearance violations, core inside every
+  level). NOT staged — no Studio plugin was connected. Nothing live changed.
+
+September 16, 2026 night — source-slice overlay copies live hull, not FBX
+  Resume: tools/SHIBUYA_SOURCE_SLICE_HANDOFF.md. Orange overlay is a builder
+  reconstruction of the live ExactPolygon (grey), truncated below roof equipment.
+  Re-staged: 19 floors, 0 wedges, base Y 118.70, Floor1 yaw matches live
+  (Right ≈ -0.805,0,-0.592). Grey still fits the FBX better. Do not Apply.
+  Next agent: real FBX triangle slices from world_triangles.npz.
+
+September 16, 2026 night — source-slice sample overlay misaligned, not applied
+  Resume: tools/SHIBUYA_SOURCE_SLICE_HANDOFF.md. Fixtures passed; first live
+  sample overlay was a cached 12-floor wedge float. Rebuild copies live slab
+  Ys from the base; re-stage with a cloned require. Do not Apply yet.
+
+September 16, 2026 evening — source-slice fixtures tested, nothing applied
+  Operational resume: tools/SHIBUYA_SOURCE_SLICE_HANDOFF.md. Builder/replacement
+  Command Bar fixtures passed; no BuildingSourceSlice_* is live; map not saved
+  by this work. Next: one source-envelope parallelogram sample, then setback
+  and compound ownership, staged before any Apply.
+
 September 16, 2026 — zero live jagged autos
   Latest user direction supersedes the earlier keep-live rule: remove all jagged
   BuildingAuto_* models from the live map, accept robust smooth approximations

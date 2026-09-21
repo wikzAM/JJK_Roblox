@@ -1,0 +1,120 @@
+{
+ "id": "fbx_5_10078_1026_5422",
+ "origin": {
+  "x": 1009.645,
+  "y": 73.6,
+  "z": 538.6011,
+  "yaw": 0.122203
+ },
+ "levels": [
+  {
+   "y": 0.0,
+   "thickness": 5.3571,
+   "pieces": [
+    [
+     [
+      -24.838,
+      26.317
+     ],
+     [
+      -25.302,
+      21.072
+     ],
+     [
+      50.443,
+      28.611
+     ],
+     [
+      62.616,
+      -20.874
+     ],
+     [
+      -42.222,
+      -28.611
+     ],
+     [
+      -42.867,
+      -11.059
+     ],
+     [
+      -62.616,
+      -9.807
+     ],
+     [
+      -59.073,
+      28.611
+     ]
+    ]
+   ]
+  },
+  {
+   "y": 17.8571,
+   "thickness": 5.3571,
+   "pieces": [
+    [
+     [
+      -25.302,
+      21.072
+     ],
+     [
+      50.443,
+      28.611
+     ],
+     [
+      62.616,
+      -20.874
+     ],
+     [
+      -42.222,
+      -28.611
+     ],
+     [
+      -42.867,
+      -11.059
+     ],
+     [
+      -62.616,
+      -9.807
+     ],
+     [
+      -59.073,
+      28.611
+     ],
+     [
+      -24.801,
+      26.423
+     ]
+    ]
+   ]
+  }
+ ],
+ "core": {
+  "minX": -54.8523,
+  "minZ": -9.7908,
+  "maxX": 5.1477,
+  "maxZ": 20.9436
+ },
+ "sourceInfo": {
+  "origin": "world_triangles.npz horizontal sections",
+  "sourceKey": "5_10078_1026_5422",
+  "planBottom": 73.6,
+  "fbxBottom": 75.6,
+  "fbxTop": 108.6,
+  "baseExtension": 2.0,
+  "greyBase": 73.6,
+  "greyTop": 131.5,
+  "bandCount": 1,
+  "roofClutterTrimmed": 0.0,
+  "crownTrimmed": 21.0,
+  "exactLevels": 2,
+  "roofLevels": 0,
+  "coreShrunkToFit": false,
+  "simplifyEscalated": 0,
+  "ringsDropped": 0,
+  "replaces": [
+   "BuildingSmooth_5_10078_1026_5422_ResidualBody01"
+  ],
+  "measuredMembers": 1,
+  "greyOversizeFactor": 0.066
+ }
+}

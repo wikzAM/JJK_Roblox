@@ -1,0 +1,139 @@
+{
+ "id": "fbx_13_-7890_867_21803",
+ "origin": {
+  "x": -784.6405,
+  "y": 59.8,
+  "z": 2180.3307,
+  "yaw": -0.467894
+ },
+ "levels": [
+  {
+   "y": 0.0,
+   "thickness": 5.3571,
+   "pieces": [
+    [
+     [
+      32.173,
+      4.156
+     ],
+     [
+      27.142,
+      4.177
+     ],
+     [
+      27.136,
+      -18.117
+     ],
+     [
+      21.747,
+      -18.138
+     ],
+     [
+      21.755,
+      -32.203
+     ],
+     [
+      -32.627,
+      -32.286
+     ],
+     [
+      -32.27,
+      30.726
+     ],
+     [
+      -4.592,
+      29.736
+     ],
+     [
+      -4.648,
+      32.286
+     ],
+     [
+      32.627,
+      32.217
+     ]
+    ]
+   ]
+  },
+  {
+   "y": 17.8571,
+   "thickness": 5.3571,
+   "pieces": [
+    [
+     [
+      32.62,
+      4.154
+     ],
+     [
+      27.142,
+      4.177
+     ],
+     [
+      27.136,
+      -18.117
+     ],
+     [
+      21.747,
+      -18.138
+     ],
+     [
+      21.755,
+      -32.203
+     ],
+     [
+      -32.627,
+      -32.286
+     ],
+     [
+      -32.27,
+      30.726
+     ],
+     [
+      -4.145,
+      29.734
+     ],
+     [
+      -4.648,
+      32.286
+     ],
+     [
+      32.627,
+      32.217
+     ]
+    ]
+   ]
+  }
+ ],
+ "core": {
+  "minX": -28.7367,
+  "minZ": -28.0044,
+  "maxX": 15.9105,
+  "maxZ": 23.933
+ },
+ "sourceInfo": {
+  "origin": "world_triangles.npz horizontal sections",
+  "sourceKey": "13_-7890_867_21803",
+  "planBottom": 59.8,
+  "fbxBottom": 59.8,
+  "fbxTop": 84.8,
+  "baseExtension": 0.0,
+  "greyBase": 59.8,
+  "greyTop": 95.7,
+  "bandCount": 1,
+  "roofClutterTrimmed": 0.0,
+  "crownTrimmed": 11.0,
+  "exactLevels": 2,
+  "roofLevels": 0,
+  "coreShrunkToFit": true,
+  "simplifyEscalated": 0,
+  "ringsDropped": 0,
+  "replaces": [
+   "BuildingSmooth_13_-7890_867_21803_Body01",
+   "BuildingSmooth_13_-7890_867_21803_Body02",
+   "BuildingSmooth_13_-7890_867_21803_Body03",
+   "BuildingSmooth_13_-7890_867_21803_Body04"
+  ],
+  "measuredMembers": 4,
+  "greyOversizeFactor": 0.345
+ }
+}

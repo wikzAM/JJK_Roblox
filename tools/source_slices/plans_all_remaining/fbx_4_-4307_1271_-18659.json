@@ -1,0 +1,160 @@
+{
+ "id": "fbx_4_-4307_1271_-18659",
+ "origin": {
+  "x": -430.7218,
+  "y": 94.2,
+  "z": -1866.2866,
+  "yaw": 1.302075
+ },
+ "levels": [
+  {
+   "y": 0.0,
+   "thickness": 5.3571,
+   "pieces": [
+    [
+     [
+      22.024,
+      -21.393
+     ],
+     [
+      -25.624,
+      -21.912
+     ],
+     [
+      -25.611,
+      -2.467
+     ],
+     [
+      -22.899,
+      21.316
+     ],
+     [
+      25.6,
+      21.912
+     ],
+     [
+      25.644,
+      -2.787
+     ],
+     [
+      21.969,
+      -2.76
+     ]
+    ]
+   ]
+  },
+  {
+   "y": 17.8571,
+   "thickness": 5.3571,
+   "pieces": [
+    [
+     [
+      21.988,
+      -21.902
+     ],
+     [
+      -25.624,
+      -21.912
+     ],
+     [
+      -25.611,
+      -2.467
+     ],
+     [
+      -24.977,
+      -3.368
+     ],
+     [
+      -22.899,
+      21.316
+     ],
+     [
+      25.6,
+      21.912
+     ],
+     [
+      25.644,
+      -2.787
+     ],
+     [
+      21.969,
+      -2.76
+     ]
+    ]
+   ]
+  },
+  {
+   "y": 35.7143,
+   "thickness": 5.3571,
+   "pieces": [
+    [
+     [
+      21.988,
+      -21.902
+     ],
+     [
+      -25.624,
+      -21.912
+     ],
+     [
+      -25.611,
+      -2.467
+     ],
+     [
+      -24.965,
+      -3.89
+     ],
+     [
+      -22.899,
+      21.316
+     ],
+     [
+      25.6,
+      21.912
+     ],
+     [
+      25.644,
+      -2.787
+     ],
+     [
+      21.969,
+      -2.76
+     ]
+    ]
+   ]
+  }
+ ],
+ "core": {
+  "minX": -18.2521,
+  "minZ": -20.0274,
+  "maxX": 20.3056,
+  "maxZ": 13.0717
+ },
+ "sourceInfo": {
+  "origin": "world_triangles.npz horizontal sections",
+  "sourceKey": "4_-4307_1271_-18659",
+  "planBottom": 94.2,
+  "fbxBottom": 96.2,
+  "fbxTop": 146.2,
+  "baseExtension": 2.0,
+  "greyBase": 94.2,
+  "greyTop": 160.0,
+  "bandCount": 1,
+  "roofClutterTrimmed": 0.0,
+  "crownTrimmed": 0.0,
+  "exactLevels": 3,
+  "roofLevels": 0,
+  "coreShrunkToFit": true,
+  "simplifyEscalated": 0,
+  "ringsDropped": 0,
+  "replaces": [
+   "BuildingSmooth_4_-4307_1271_-18659_ResidualBody06",
+   "BuildingSmooth_4_-4307_1271_-18659_ResidualBody07",
+   "BuildingSmooth_4_-4307_1271_-18659_ResidualBody08",
+   "BuildingSmooth_4_-4307_1271_-18659_Residual_0d619d7d_Body01",
+   "BuildingSmooth_4_-4307_1271_-18659_Residual_0d619d7d_Body02"
+  ],
+  "measuredMembers": 5,
+  "greyOversizeFactor": 0.432
+ }
+}

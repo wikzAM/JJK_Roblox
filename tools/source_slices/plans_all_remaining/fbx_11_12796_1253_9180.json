@@ -1,0 +1,160 @@
+{
+ "id": "fbx_11_12796_1253_9180",
+ "origin": {
+  "x": 1279.3776,
+  "y": 73.4,
+  "z": 915.8832,
+  "yaw": 1.244575
+ },
+ "levels": [
+  {
+   "y": 0.0,
+   "thickness": 5.3571,
+   "pieces": [
+    [
+     [
+      21.976,
+      -9.1
+     ],
+     [
+      -26.834,
+      -9.056
+     ],
+     [
+      -26.214,
+      9.473
+     ],
+     [
+      26.834,
+      9.473
+     ]
+    ]
+   ]
+  },
+  {
+   "y": 17.8571,
+   "thickness": 5.3571,
+   "pieces": [
+    [
+     [
+      21.976,
+      -9.1
+     ],
+     [
+      -26.834,
+      -9.056
+     ],
+     [
+      -26.214,
+      9.473
+     ],
+     [
+      26.834,
+      9.473
+     ]
+    ]
+   ]
+  },
+  {
+   "y": 35.7143,
+   "thickness": 5.3571,
+   "pieces": [
+    [
+     [
+      21.976,
+      -9.1
+     ],
+     [
+      -26.834,
+      -9.056
+     ],
+     [
+      -26.214,
+      9.473
+     ],
+     [
+      26.834,
+      9.473
+     ]
+    ]
+   ]
+  },
+  {
+   "y": 53.5714,
+   "thickness": 5.3571,
+   "pieces": [
+    [
+     [
+      21.96,
+      -9.147
+     ],
+     [
+      -26.834,
+      -9.056
+     ],
+     [
+      -26.214,
+      9.473
+     ],
+     [
+      26.834,
+      9.473
+     ]
+    ]
+   ]
+  },
+  {
+   "y": 71.4286,
+   "thickness": 5.3571,
+   "pieces": [
+    [
+     [
+      21.96,
+      -9.147
+     ],
+     [
+      -26.834,
+      -9.056
+     ],
+     [
+      -26.214,
+      9.473
+     ],
+     [
+      26.834,
+      9.473
+     ]
+    ]
+   ]
+  }
+ ],
+ "core": {
+  "minX": -19.825,
+  "minZ": -7.343,
+  "maxX": 17.7101,
+  "maxZ": 7.7599
+ },
+ "sourceInfo": {
+  "origin": "world_triangles.npz horizontal sections",
+  "sourceKey": "11_12796_1253_9180",
+  "planBottom": 73.4,
+  "fbxBottom": 73.4,
+  "fbxTop": 152.4,
+  "baseExtension": 0.0,
+  "greyBase": 73.4,
+  "greyTop": 177.2,
+  "bandCount": 1,
+  "roofClutterTrimmed": 0.0,
+  "crownTrimmed": 7.0,
+  "exactLevels": 5,
+  "roofLevels": 0,
+  "coreShrunkToFit": true,
+  "simplifyEscalated": 0,
+  "ringsDropped": 0,
+  "replaces": [
+   "BuildingSmooth_11_12796_1253_9180"
+  ],
+  "measuredMembers": 1,
+  "greyOversizeFactor": 1.0
+ }
+}

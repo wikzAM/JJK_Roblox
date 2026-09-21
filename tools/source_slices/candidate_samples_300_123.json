@@ -1,0 +1,58 @@
+{
+  "height": 300.123,
+  "candidateCount": 2,
+  "candidates": [
+    {
+      "sliceIndex": 14,
+      "centroid": [
+        -2172.077,
+        429.553
+      ],
+      "bounds": [
+        -2288.9,
+        310.05,
+        -2055.25,
+        549.05
+      ],
+      "area": 28417.346,
+      "vertices": 4,
+      "holes": 0,
+      "lowerIoU": 0.9996,
+      "upperIoU": 0.9998,
+      "liveOverlapSum": 0.9999,
+      "liveModels": [
+        {
+          "name": "BuildingSmooth_1_-21438_3207_4019",
+          "sourceFraction": 0.9999,
+          "liveFraction": 0.9998
+        }
+      ]
+    },
+    {
+      "sliceIndex": 33,
+      "centroid": [
+        -1173.895,
+        -1030.328
+      ],
+      "bounds": [
+        -1247.4,
+        -1105.35,
+        -1100.4,
+        -955.3
+      ],
+      "area": 11345.174,
+      "vertices": 4,
+      "holes": 0,
+      "lowerIoU": 0.9997,
+      "upperIoU": 0.0,
+      "liveOverlapSum": 0.9962,
+      "liveModels": [
+        {
+          "name": "Building2",
+          "sourceFraction": 0.9962,
+          "liveFraction": 0.9988
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,168 @@
+{
+ "id": "fbx_9_-17166_1915_10650",
+ "origin": {
+  "x": -1709.75,
+  "y": 122.9,
+  "z": 1037.4,
+  "yaw": 1.884608
+ },
+ "levels": [
+  {
+   "y": 0.0,
+   "thickness": 5.3571,
+   "pieces": [
+    [
+     [
+      -26.975,
+      9.907
+     ],
+     [
+      26.975,
+      9.907
+     ],
+     [
+      26.975,
+      -9.907
+     ],
+     [
+      -26.975,
+      -9.907
+     ]
+    ]
+   ]
+  },
+  {
+   "y": 17.8571,
+   "thickness": 5.3571,
+   "pieces": [
+    [
+     [
+      -26.975,
+      9.907
+     ],
+     [
+      26.976,
+      9.906
+     ],
+     [
+      26.975,
+      -9.907
+     ],
+     [
+      -26.976,
+      -9.906
+     ]
+    ]
+   ]
+  },
+  {
+   "y": 35.7143,
+   "thickness": 5.3571,
+   "pieces": [
+    [
+     [
+      -26.975,
+      9.907
+     ],
+     [
+      26.976,
+      9.906
+     ],
+     [
+      26.975,
+      -9.907
+     ],
+     [
+      -26.976,
+      -9.906
+     ]
+    ]
+   ]
+  },
+  {
+   "y": 53.5714,
+   "thickness": 5.3571,
+   "pieces": [
+    [
+     [
+      -26.975,
+      9.907
+     ],
+     [
+      22.252,
+      9.896
+     ],
+     [
+      22.248,
+      -9.917
+     ],
+     [
+      -26.98,
+      -9.906
+     ]
+    ]
+   ]
+  },
+  {
+   "y": 71.4286,
+   "thickness": 5.3571,
+   "pieces": [
+    [
+     [
+      -26.975,
+      9.907
+     ],
+     [
+      13.205,
+      9.904
+     ],
+     [
+      13.203,
+      -9.908
+     ],
+     [
+      -26.977,
+      -9.906
+     ]
+    ]
+   ]
+  }
+ ],
+ "core": {
+  "minX": -24.9089,
+  "minZ": -8.9005,
+  "maxX": 11.1374,
+  "maxZ": 8.8927
+ },
+ "sourceInfo": {
+  "origin": "world_triangles.npz horizontal sections",
+  "sourceKey": "9_-17166_1915_10650",
+  "planBottom": 122.9,
+  "fbxBottom": 126.9,
+  "fbxTop": 215.9,
+  "baseExtension": 4.0,
+  "greyBase": 122.9,
+  "greyTop": 260.2,
+  "bandCount": 2,
+  "roofClutterTrimmed": 0.0,
+  "crownTrimmed": 43.0,
+  "exactLevels": 3,
+  "coreShrunkToFit": true,
+  "simplifyEscalated": 0,
+  "ringsDropped": 0,
+  "replaces": [
+   "BuildingSmooth_9_-17098_1577_10374",
+   "BuildingSmooth_9_-17166_1915_10650_ResidualBody03",
+   "BuildingSmooth_9_-17166_1915_10650_ResidualBody05",
+   "BuildingSmooth_9_-17166_1915_10650_Residual_d54382aa_Body01",
+   "BuildingSmooth_9_-17166_1915_10650_Residual_d54382aa_Body02",
+   "BuildingSmooth_9_-17166_1915_10650_Residual_d54382aa_Body03"
+  ],
+  "measuredMembers": 5,
+  "greyOversizeFactor": 2.057,
+  "mergedFrom": [
+   "fbx_9_-17098_1577_10374",
+   "fbx_9_-17098_1577_10374"
+  ]
+ }
+}

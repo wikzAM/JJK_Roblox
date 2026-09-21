@@ -1,0 +1,146 @@
+{
+ "id": "fbx_6_4255_1119_-19034",
+ "origin": {
+  "x": 410.2089,
+  "y": 88.2,
+  "z": -1902.5754,
+  "yaw": 2.033034
+ },
+ "levels": [
+  {
+   "y": 0.0,
+   "thickness": 5.3571,
+   "pieces": [
+    [
+     [
+      10.917,
+      0.681
+     ],
+     [
+      -37.559,
+      -29.169
+     ],
+     [
+      -37.387,
+      -2.829
+     ],
+     [
+      -39.467,
+      -2.58
+     ],
+     [
+      -39.467,
+      29.15
+     ],
+     [
+      39.467,
+      29.151
+     ],
+     [
+      38.946,
+      8.781
+     ],
+     [
+      33.794,
+      2.303
+     ],
+     [
+      26.253,
+      -1.51
+     ],
+     [
+      18.093,
+      -0.38
+     ],
+     [
+      10.876,
+      3.901
+     ]
+    ]
+   ]
+  },
+  {
+   "y": 17.8571,
+   "thickness": 5.3571,
+   "pieces": [
+    [
+     [
+      10.943,
+      3.319
+     ],
+     [
+      10.917,
+      0.681
+     ],
+     [
+      -37.559,
+      -29.169
+     ],
+     [
+      -37.387,
+      -2.829
+     ],
+     [
+      -39.467,
+      -2.58
+     ],
+     [
+      -39.467,
+      29.15
+     ],
+     [
+      39.467,
+      29.151
+     ],
+     [
+      38.946,
+      8.781
+     ],
+     [
+      33.794,
+      2.303
+     ],
+     [
+      26.253,
+      -1.51
+     ],
+     [
+      18.093,
+      -0.38
+     ]
+    ]
+   ]
+  }
+ ],
+ "core": {
+  "minX": -31.0167,
+  "minZ": 4.1487,
+  "maxX": 28.9833,
+  "maxZ": 28.9924
+ },
+ "sourceInfo": {
+  "origin": "world_triangles.npz horizontal sections",
+  "sourceKey": "6_4255_1119_-19034",
+  "planBottom": 88.2,
+  "fbxBottom": 90.2,
+  "fbxTop": 123.2,
+  "baseExtension": 2.0,
+  "greyBase": 88.2,
+  "greyTop": 135.6,
+  "bandCount": 1,
+  "roofClutterTrimmed": 0.0,
+  "crownTrimmed": 11.0,
+  "exactLevels": 2,
+  "roofLevels": 0,
+  "coreShrunkToFit": false,
+  "simplifyEscalated": 0,
+  "ringsDropped": 0,
+  "replaces": [
+   "BuildingSmooth_6_4255_1119_-19034_ResidualBody05",
+   "BuildingSmooth_6_4255_1119_-19034_Residual_2e216f73_Body01",
+   "BuildingSmooth_6_4255_1119_-19034_Residual_2e216f73_Body02"
+  ],
+  "measuredMembers": 3,
+  "greyOversizeFactor": 0.167
+ }
+}

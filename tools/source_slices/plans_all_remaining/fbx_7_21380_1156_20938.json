@@ -1,0 +1,153 @@
+{
+ "id": "fbx_7_21380_1156_20938",
+ "origin": {
+  "x": 2137.6041,
+  "y": 73.4,
+  "z": 2094.1397,
+  "yaw": 0.833505
+ },
+ "levels": [
+  {
+   "y": 0.0,
+   "thickness": 5.3571,
+   "pieces": [
+    [
+     [
+      -39.945,
+      16.346
+     ],
+     [
+      -29.896,
+      16.405
+     ],
+     [
+      -29.913,
+      17.501
+     ],
+     [
+      40.701,
+      17.538
+     ],
+     [
+      40.759,
+      -17.501
+     ],
+     [
+      -40.587,
+      -16.639
+     ]
+    ]
+   ]
+  },
+  {
+   "y": 17.8571,
+   "thickness": 5.3571,
+   "pieces": [
+    [
+     [
+      40.759,
+      -17.501
+     ],
+     [
+      -40.587,
+      -16.639
+     ],
+     [
+      -40.759,
+      16.342
+     ],
+     [
+      -29.855,
+      16.301
+     ],
+     [
+      -29.913,
+      17.501
+     ],
+     [
+      40.701,
+      17.538
+     ]
+    ]
+   ]
+  },
+  {
+   "y": 35.7143,
+   "thickness": 5.3571,
+   "pieces": [
+    [
+     [
+      40.759,
+      -17.501
+     ],
+     [
+      -40.587,
+      -16.639
+     ],
+     [
+      -40.759,
+      16.342
+     ],
+     [
+      40.701,
+      17.538
+     ]
+    ]
+   ]
+  },
+  {
+   "y": 53.5714,
+   "thickness": 5.3571,
+   "pieces": [
+    [
+     [
+      -29.895,
+      -17.538
+     ],
+     [
+      -29.913,
+      17.501
+     ],
+     [
+      40.741,
+      17.538
+     ],
+     [
+      40.759,
+      -17.501
+     ]
+    ]
+   ]
+  }
+ ],
+ "core": {
+  "minX": -22.7041,
+  "minZ": -15.3741,
+  "maxX": 32.5781,
+  "maxZ": 15.0312
+ },
+ "sourceInfo": {
+  "origin": "world_triangles.npz horizontal sections",
+  "sourceKey": "7_21380_1156_20938",
+  "planBottom": 73.4,
+  "fbxBottom": 73.4,
+  "fbxTop": 138.4,
+  "baseExtension": 0.0,
+  "greyBase": 73.4,
+  "greyTop": 157.9,
+  "bandCount": 2,
+  "roofClutterTrimmed": 6.0,
+  "crownTrimmed": 15.0,
+  "exactLevels": 4,
+  "roofLevels": 0,
+  "coreShrunkToFit": true,
+  "simplifyEscalated": 0,
+  "ringsDropped": 0,
+  "replaces": [
+   "BuildingSmooth_7_21380_1156_20938_ResidualBody01",
+   "BuildingSmooth_7_21380_1156_20938_Residual_0cf5cc07_Body01"
+  ],
+  "measuredMembers": 2,
+  "greyOversizeFactor": 0.922
+ }
+}

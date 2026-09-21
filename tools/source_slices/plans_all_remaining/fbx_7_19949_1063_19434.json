@@ -1,0 +1,142 @@
+{
+ "id": "fbx_7_19949_1063_19434",
+ "origin": {
+  "x": 1994.9,
+  "y": 74.1,
+  "z": 1943.425,
+  "yaw": -2.473264
+ },
+ "levels": [
+  {
+   "y": 0.0,
+   "thickness": 5.3571,
+   "pieces": [
+    [
+     [
+      -26.199,
+      9.823
+     ],
+     [
+      26.199,
+      9.823
+     ],
+     [
+      26.199,
+      -9.823
+     ],
+     [
+      -26.199,
+      -9.823
+     ]
+    ]
+   ]
+  },
+  {
+   "y": 17.8571,
+   "thickness": 5.3571,
+   "pieces": [
+    [
+     [
+      -26.199,
+      9.823
+     ],
+     [
+      26.199,
+      9.823
+     ],
+     [
+      26.199,
+      -9.823
+     ],
+     [
+      -26.199,
+      -9.823
+     ]
+    ]
+   ]
+  },
+  {
+   "y": 35.7143,
+   "thickness": 5.3571,
+   "pieces": [
+    [
+     [
+      -26.199,
+      9.823
+     ],
+     [
+      26.199,
+      9.823
+     ],
+     [
+      26.199,
+      -9.823
+     ],
+     [
+      -26.199,
+      -9.823
+     ]
+    ]
+   ]
+  },
+  {
+   "y": 53.5714,
+   "thickness": 5.3571,
+   "pieces": [
+    [
+     [
+      -26.199,
+      9.823
+     ],
+     [
+      26.199,
+      9.823
+     ],
+     [
+      26.199,
+      -9.823
+     ],
+     [
+      -26.199,
+      -9.823
+     ]
+    ]
+   ]
+  }
+ ],
+ "core": {
+  "minX": -20.3994,
+  "minZ": -7.5698,
+  "maxX": 20.3994,
+  "maxZ": 7.5698
+ },
+ "sourceInfo": {
+  "origin": "world_triangles.npz horizontal sections",
+  "sourceKey": "7_19949_1063_19434",
+  "planBottom": 74.1,
+  "fbxBottom": 74.1,
+  "fbxTop": 138.1,
+  "baseExtension": 0.0,
+  "greyBase": 74.1,
+  "greyTop": 138.4,
+  "bandCount": 1,
+  "roofClutterTrimmed": 0.0,
+  "crownTrimmed": 0.0,
+  "exactLevels": 4,
+  "roofLevels": 0,
+  "coreShrunkToFit": true,
+  "simplifyEscalated": 0,
+  "ringsDropped": 0,
+  "replaces": [
+   "BuildingSmooth_7_19949_1063_19434",
+   "BuildingSmooth_7_20085_1228_19580_ResidualBody02",
+   "BuildingSmooth_7_20085_1228_19580_Residual_39f58436_Body01"
+  ],
+  "measuredMembers": 1,
+  "greyOversizeFactor": 1.001,
+  "mergedFrom": [
+   "fbx_7_20085_1228_19580",
+   "fbx_7_20085_1228_19580"
+  ]
+ }
+}

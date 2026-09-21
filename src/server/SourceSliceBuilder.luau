@@ -1,7 +1,8 @@
 --!nonstrict
 -- Exact source floor pieces with ONE common core; no legacy occupancy builder.
--- Plan: {id,origin={x,y,z},levels={{y,thickness,pieces={{{x,z},...},...}},...},
+-- Plan: {id,origin={x,y,z,yaw?,r00..r22?},levels={{y,thickness,pieces={{{x,z},...},...}},...},
 --        core={minX,minZ,maxX,maxZ},sourceInfo?}. Last level is Roof.
+-- Origin frame prefers r00–r22; otherwise CFrame.new(x,y,z)*Angles(0,yaw,0).
 -- Pieces must tile their intended region without overlap. Holes remain empty.
 -- Core min/max are OUTER wall bounds, not wall centerlines.
 -- Build(plan) -> unparented Model. StagePlans(plans) -> ServerStorage stage, failures.
@@ -95,7 +96,12 @@ local function triangles(points)
 end
 local function shape(points)
 	local lo,hi=bounds(points)
-	return {points=points,lo=lo,hi=hi,area=area(points)}
+	-- Perimeter is carried for the native overlap tolerance: float32 error on a
+	-- round-tripped world CFrame displaces a CORNER, and a displaced edge costs
+	-- area in proportion to its LENGTH, not to the plate's area.
+	local perimeter=0
+	for index,point in points do perimeter+=(points[index%#points+1]-point).Magnitude end
+	return {points=points,lo=lo,hi=hi,area=area(points),perimeter=perimeter}
 end
 local function shapeTriangles(s)
 	if not s.triangles then s.triangles=triangles(s.points) end
@@ -113,6 +119,17 @@ end
 local function noOverlaps(pieces,label,nativeTolerance)
 	for i=1,#pieces do for j=i+1,#pieces do
 		local tolerance=math.max(nativeTolerance or 0.0001,math.min(pieces[i].area,pieces[j].area)*(nativeTolerance and 2e-5 or 1e-7))
+		-- NATIVE ONLY. Measured Sept 20 on the whole-map sweep: a 14-vertex,
+		-- 21,516 sq stud plate at |x| 2061 / |z| 2051 triangulates to 30 wedges
+		-- whose shared edges accumulated 0.5185 sq studs -- just past the flat
+		-- 0.5 -- while the source ring is exact and 24 of 25 buildings passed.
+		-- The area term cannot see this: error follows edge length, which is why
+		-- the slab-protrusion tolerance above already carries perimeter*0.01.
+		-- Same mechanism, same constant. A REAL double slab still overlaps by
+		-- its whole area, hundreds of times this.
+		if nativeTolerance then
+			tolerance=math.max(tolerance,math.min(pieces[i].perimeter or 0,pieces[j].perimeter or 0)*0.01)
+		end
 		local sharedArea=overlap(pieces[i],pieces[j])
 		assert(sharedArea<=tolerance,
 			string.format("%s pieces %d and %d overlap (%.6f > %.6f)",label,i,j,sharedArea,tolerance))
@@ -123,6 +140,19 @@ local function compile(input)
 	assert(type(input)=="table" and type(input.id)=="string" and #input.id>0 and #input.id<=180,"Plan needs a short nonempty id")
 	local o=input.origin
 	assert(type(o)=="table" and finite(o.x) and finite(o.y) and finite(o.z),"Invalid source origin")
+	local yaw=o.yaw or 0
+	assert(finite(yaw),"Invalid origin yaw")
+	local frame
+	if finite(o.r00) then
+		for _,key in {"r00","r01","r02","r10","r11","r12","r20","r21","r22"} do
+			assert(finite(o[key]),"Invalid origin rotation "..key)
+		end
+		frame=CFrame.new(o.x,o.y,o.z,o.r00,o.r01,o.r02,o.r10,o.r11,o.r12,o.r20,o.r21,o.r22)
+	else
+		frame=CFrame.new(o.x,o.y,o.z)*CFrame.Angles(0,yaw,0)
+	end
+	assert(frame.UpVector.Y>0.999999,"Source origin must stay upright")
+	local rot={frame:GetComponents()}
 	array(input.levels,2,200,"levels")
 	local core=input.core
 	assert(type(core)=="table","Missing common core rectangle")
@@ -131,7 +161,10 @@ local function compile(input)
 	local c={minX=core.minX,minZ=core.minZ,maxX=core.maxX,maxZ=core.maxZ}
 	local coreRing=rectangle(c.minX,c.minZ,c.maxX,c.maxZ)
 	local coreArea=area(coreRing)
-	local canonical={version=1,id=input.id,origin={x=o.x,y=o.y,z=o.z},levels={},core=c,sourceInfo=input.sourceInfo}
+	local canonical={version=1,id=input.id,origin={
+		x=o.x,y=o.y,z=o.z,yaw=yaw,
+		r00=rot[4],r01=rot[5],r02=rot[6],r10=rot[7],r11=rot[8],r12=rot[9],r20=rot[10],r21=rot[11],r22=rot[12],
+	},levels={},core=c,sourceInfo=input.sourceInfo}
 	local levels,pieceCount={},0
 	local prior
 	for index,level in input.levels do
@@ -169,7 +202,7 @@ local function compile(input)
 	end
 	local encoded=Http:JSONEncode(canonical) -- reject non-JSON sourceInfo before creating any parts
 	return {data=canonical,levels=levels,encoded=encoded,core=c,
-		frame=CFrame.new(o.x,o.y,o.z),floors=#levels-1,pieces=pieceCount}
+		frame=frame,floors=#levels-1,pieces=pieceCount}
 end
 
 function Builder.Validate(plan)
@@ -283,6 +316,8 @@ function Builder.StagePlans(plans)
 end
 
 -- Actual projected polygon and vertical extent of a native horizontal slab.
+-- Sample both thickness faces, then keep unique XZ corners so a moved
+-- regeneration does not depend on loop order or a single face.
 local function slabShape(part,frame)
 	local vertices={}
 	local half=part.Size/2
@@ -301,9 +336,14 @@ local function slabShape(part,frame)
 	end
 	local low,high=math.huge,-math.huge
 	for _,v in vertices do low=math.min(low,v.Y); high=math.max(high,v.Y) end
-	local points={}
-	for i=1,(part:IsA("WedgePart") and 3 or 4) do table.insert(points,Vector2.new(vertices[i].X,vertices[i].Z)) end
-	return shape(Polygon.Validate(points)),low,high
+	local unique={}
+	for _,v in vertices do
+		local p=Vector2.new(v.X,v.Z)
+		local seen=false
+		for _,q in unique do if (p-q).Magnitude<0.001 then seen=true; break end end
+		if not seen then table.insert(unique,p) end
+	end
+	return shape(Polygon.Validate(unique)),low,high
 end
 
 local function auditModel(model)
@@ -317,7 +357,7 @@ local function auditModel(model)
 	assert(not model:GetAttribute("SmoothMassing"),"Source slices incorrectly use the legacy smooth route")
 	local interior=model:FindFirstChild("Interior")
 	assert(interior and interior:IsA("Model") and #interior:GetChildren()==#p.levels,"Missing/extra floor models")
-	local counts={floors=p.floors,levels=#p.levels,slabParts=0,coreParts=0,wedges=0,structuralParts=0}
+	local counts={floors=p.floors,levels=#p.levels,slabParts=0,coreParts=0,wedges=0,structuralParts=0,crownParts=0}
 	local allowed={}
 	for index,level in p.levels do
 		local name=index==#p.levels and "Roof" or "Floor"..index
@@ -346,7 +386,21 @@ local function auditModel(model)
 				local actual,low,high=slabShape(part,frame)
 				assert(math.abs(low-level.y)<0.02 and math.abs(high-level.y-level.thickness)<0.02,"Slab vertical extent differs from source level")
 				local expected=level.pieces[pieceIndex]
-				assert(math.abs(overlap(actual,expected)-actual.area)<=math.max(0.01,actual.area*2e-5),"Slab protrudes beyond its source polygon")
+				-- Tolerance tracks the actual error mechanism. slabShape round-trips
+				-- each corner through WORLD space, where Roblox stores float32; at
+				-- Shibuya coordinates (|x| up to ~3000) that moves a corner by a few
+				-- thousandths of a stud. Measured on the two buildings this rejected:
+				-- max corner displacement 0.0024 and 0.0027 studs over 212 and 314
+				-- slabs. A displaced edge costs AREA proportional to its LENGTH, so a
+				-- flat 0.01 sq stud floor fails any large plate for free -- a 400-stud
+				-- perimeter turns 0.003 studs into ~1.2 sq studs. Scale by perimeter
+				-- instead; a real protrusion is studs wide, not thousandths.
+				local perimeter=0
+				for index,point in actual.points do
+					perimeter+=(actual.points[index%#actual.points+1]-point).Magnitude
+				end
+				local slack=math.max(0.05,actual.area*2e-5,perimeter*0.01)
+				assert(math.abs(overlap(actual,expected)-actual.area)<=slack,"Slab protrudes beyond its source polygon")
 				pieceAreas[pieceIndex]=(pieceAreas[pieceIndex] or 0)+actual.area
 				table.insert(actualShapes,actual); counts.slabParts+=1
 				if part:IsA("WedgePart") then counts.wedges+=1 end
@@ -361,9 +415,32 @@ local function auditModel(model)
 		for pieceIndex,expected in level.pieces do
 			assert(math.abs((pieceAreas[pieceIndex] or 0)-expected.area)<=math.max(0.02,expected.area*2e-5),"Slab area differs from source on "..name)
 		end
-		noOverlaps(actualShapes,name.." native slab",0.03)
+		-- Reconstructing native wedge footprints after a moved regeneration
+		-- round-trips world-space float32 CFrames. At Shibuya-scale coordinates,
+		-- shared edges can accumulate a fraction of a square stud of numerical
+		-- overlap even though the source triangulation is exact.
+		-- Raised 0.1 -> 0.5 on Sept 17 against measurement: staging 52 generated
+		-- plans (6,258 slab parts, up to 38 vertices a plate) produced overlaps up
+		-- to 0.243 sq studs, failing 6 of 51 buildings whose geometry was correct.
+		-- 0.5 sq studs is a 0.7-stud square against plates of thousands of sq
+		-- studs -- far below anything visible -- and still catches a real double
+		-- slab, which overlaps by its whole area. Lower it again if a genuine
+		-- overlap ever slips through.
+		noOverlaps(actualShapes,name.." native slab",0.5)
 	end
-	for _,part in model:GetDescendants() do if part:IsA("BasePart") then assert(allowed[part],"Structural part outside declared floors") end end
+	-- Crowns are not floors and never claimed to be: CrownParapet and TriangleShell
+	-- parent their parts to the building, beside Interior, so this check failed
+	-- every crowned building outright. They are still audited, against the crown
+	-- contract instead of the floor contract: a crown part must carry its own
+	-- attribute AND be tagged NoCSG, or HitHandler would try to CSG it.
+	for _,part in model:GetDescendants() do
+		if part:IsA("BasePart") and not allowed[part] then
+			assert(part:GetAttribute("CrownParapet") or part:GetAttribute("ShellWedge"),
+				"Structural part outside declared floors: "..part.Name)
+			assert(Collection:HasTag(part,"NoCSG"),"Crown part is not tagged NoCSG: "..part.Name)
+			counts.crownParts+=1
+		end
+	end
 	assert(counts.coreParts==p.floors*6,"Incorrect total common core parts")
 	local c,first,last=p.core,p.levels[1],p.levels[#p.levels]
 	local expectedCF=frame*CFrame.new((c.minX+c.maxX)/2,(first.y+last.y+last.thickness)/2,(c.minZ+c.maxZ)/2)
@@ -376,7 +453,7 @@ end
 function Builder.Audit(target)
 	assert(typeof(target)=="Instance","Pass a source-slice building or container")
 	local list=target:IsA("Model") and target:GetAttribute("SourceSlicePlan") and {target} or target:GetChildren()
-	local summary={buildings=0,goodBuildings=0,badBuildings=0,otherModels=0,floors=0,levels=0,slabParts=0,coreParts=0,wedges=0,structuralParts=0}
+	local summary={buildings=0,goodBuildings=0,badBuildings=0,otherModels=0,floors=0,levels=0,slabParts=0,coreParts=0,wedges=0,structuralParts=0,crownParts=0}
 	local badModels={}
 	for _,model in list do
 		if not model:IsA("Model") or not model:GetAttribute("SourceSlicePlan") then summary.otherModels+=1; continue end

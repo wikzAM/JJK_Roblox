@@ -1,0 +1,149 @@
+{
+ "id": "fbx_3_-7066_1530_18987",
+ "origin": {
+  "x": -698.6796,
+  "y": 148.6,
+  "z": 1898.8523,
+  "yaw": -1.886027
+ },
+ "levels": [
+  {
+   "y": 0.0,
+   "thickness": 5.3571,
+   "pieces": [
+    [
+     [
+      28.798,
+      29.284
+     ],
+     [
+      28.67,
+      30.331
+     ],
+     [
+      35.859,
+      31.768
+     ],
+     [
+      52.006,
+      26.472
+     ],
+     [
+      55.503,
+      22.026
+     ],
+     [
+      38.364,
+      -32.641
+     ],
+     [
+      36.411,
+      -32.942
+     ],
+     [
+      35.797,
+      -27.926
+     ],
+     [
+      22.05,
+      -29.548
+     ],
+     [
+      -31.242,
+      -8.938
+     ],
+     [
+      -35.398,
+      29.281
+     ]
+    ]
+   ]
+  },
+  {
+   "y": 17.8571,
+   "thickness": 5.3571,
+   "pieces": [
+    [
+     [
+      23.502,
+      -29.363
+     ],
+     [
+      -31.261,
+      -8.928
+     ],
+     [
+      -35.415,
+      29.294
+     ],
+     [
+      27.642,
+      29.294
+     ],
+     [
+      35.415,
+      -27.989
+     ]
+    ]
+   ]
+  },
+  {
+   "y": 35.7143,
+   "thickness": 5.3571,
+   "pieces": [
+    [
+     [
+      23.881,
+      -29.329
+     ],
+     [
+      -31.261,
+      -8.928
+     ],
+     [
+      -35.415,
+      29.294
+     ],
+     [
+      27.642,
+      29.294
+     ],
+     [
+      35.415,
+      -27.989
+     ]
+    ]
+   ]
+  }
+ ],
+ "core": {
+  "minX": -28.6711,
+  "minZ": -7.4794,
+  "maxX": 25.5873,
+  "maxZ": 27.8264
+ },
+ "sourceInfo": {
+  "origin": "world_triangles.npz horizontal sections",
+  "sourceKey": "3_-7066_1530_18987",
+  "planBottom": 148.6,
+  "fbxBottom": 148.6,
+  "fbxTop": 192.6,
+  "baseExtension": 0.0,
+  "greyBase": 150.6,
+  "greyTop": 227.4,
+  "bandCount": 1,
+  "roofClutterTrimmed": 0.0,
+  "crownTrimmed": 0.0,
+  "exactLevels": 2,
+  "roofLevels": 1,
+  "coreShrunkToFit": true,
+  "simplifyEscalated": 0,
+  "ringsDropped": 0,
+  "replaces": [
+   "BuildingSmooth_3_-7066_1530_18987_ResidualBody12",
+   "BuildingSmooth_3_-7066_1530_18987_Residual_bff232e4_Body01"
+  ],
+  "measuredMembers": 2,
+  "greyOversizeFactor": 0.673
+ }
+}

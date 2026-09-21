@@ -1,0 +1,141 @@
+{
+ "id": "fbx_11_22175_1521_2029",
+ "origin": {
+  "x": 2216.3714,
+  "y": 119.3,
+  "z": 201.0661,
+  "yaw": 1.663322
+ },
+ "levels": [
+  {
+   "y": 0.0,
+   "thickness": 5.3571,
+   "pieces": [
+    [
+     [
+      33.687,
+      34.89
+     ],
+     [
+      33.618,
+      3.7
+     ],
+     [
+      41.39,
+      3.819
+     ],
+     [
+      42.16,
+      -15.844
+     ],
+     [
+      33.61,
+      -16.236
+     ],
+     [
+      32.384,
+      -33.874
+     ],
+     [
+      -42.165,
+      -35.168
+     ],
+     [
+      -42.165,
+      35.183
+     ]
+    ]
+   ]
+  },
+  {
+   "y": 17.8571,
+   "thickness": 5.3571,
+   "pieces": [
+    [
+     [
+      -42.154,
+      35.191
+     ],
+     [
+      32.992,
+      35.016
+     ],
+     [
+      32.36,
+      -8.785
+     ],
+     [
+      24.136,
+      -9.683
+     ],
+     [
+      17.178,
+      -3.078
+     ],
+     [
+      17.261,
+      -10.321
+     ],
+     [
+      11.548,
+      -10.851
+     ],
+     [
+      7.989,
+      -6.789
+     ],
+     [
+      8.026,
+      -11.178
+     ],
+     [
+      -8.868,
+      -12.745
+     ],
+     [
+      -7.466,
+      -16.231
+     ],
+     [
+      -6.063,
+      -35.194
+     ],
+     [
+      -42.189,
+      -35.167
+     ]
+    ]
+   ]
+  }
+ ],
+ "core": {
+  "minX": -34.9898,
+  "minZ": -3.0509,
+  "maxX": 25.0102,
+  "maxZ": 33.4484
+ },
+ "sourceInfo": {
+  "origin": "world_triangles.npz horizontal sections",
+  "sourceKey": "11_22175_1521_2029",
+  "planBottom": 119.3,
+  "fbxBottom": 119.3,
+  "fbxTop": 159.3,
+  "baseExtension": 0.0,
+  "greyBase": 119.3,
+  "greyTop": 184.9,
+  "bandCount": 1,
+  "roofClutterTrimmed": 0.0,
+  "crownTrimmed": 24.0,
+  "exactLevels": 1,
+  "roofLevels": 1,
+  "coreShrunkToFit": false,
+  "simplifyEscalated": 0,
+  "ringsDropped": 0,
+  "replaces": [
+   "BuildingSmooth_11_22175_1521_2029_ResidualBody01",
+   "BuildingSmooth_11_22175_1521_2029_Residual_97a11e5b_Body01"
+  ],
+  "measuredMembers": 2,
+  "greyOversizeFactor": 0.317
+ }
+}

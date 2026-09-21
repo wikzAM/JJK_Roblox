@@ -1,0 +1,396 @@
+{
+  "height": 200.123,
+  "candidateCount": 15,
+  "candidates": [
+    {
+      "sliceIndex": 52,
+      "centroid": [
+        -1876.263,
+        967.426
+      ],
+      "bounds": [
+        -1950.9,
+        899.75,
+        -1791.9,
+        1029.1
+      ],
+      "area": 9052.448,
+      "vertices": 9,
+      "holes": 0,
+      "lowerIoU": 0.9991,
+      "upperIoU": 0.8999,
+      "liveOverlapSum": 1.0,
+      "liveModels": [
+        {
+          "name": "BuildingSmooth_9_-18714_1977_9644_Residual_bb8205ba_Body01",
+          "sourceFraction": 1.0,
+          "liveFraction": 0.4432
+        }
+      ]
+    },
+    {
+      "sliceIndex": 28,
+      "centroid": [
+        -2984.411,
+        692.232
+      ],
+      "bounds": [
+        -3029.4,
+        649.0,
+        -2939.25,
+        735.5
+      ],
+      "area": 3943.88,
+      "vertices": 4,
+      "holes": 0,
+      "lowerIoU": 0.996,
+      "upperIoU": 0.0,
+      "liveOverlapSum": 1.0,
+      "liveModels": [
+        {
+          "name": "BuildingSmooth_1_-29843_1860_6924",
+          "sourceFraction": 1.0,
+          "liveFraction": 0.9897
+        }
+      ]
+    },
+    {
+      "sliceIndex": 34,
+      "centroid": [
+        -2631.82,
+        846.795
+      ],
+      "bounds": [
+        -2667.6,
+        813.1,
+        -2596.0,
+        880.5
+      ],
+      "area": 2361.064,
+      "vertices": 4,
+      "holes": 0,
+      "lowerIoU": 0.75,
+      "upperIoU": 0.0,
+      "liveOverlapSum": 1.0,
+      "liveModels": [
+        {
+          "name": "BuildingSmooth_1_-26239_1900_8409",
+          "sourceFraction": 1.0,
+          "liveFraction": 0.7415
+        }
+      ]
+    },
+    {
+      "sliceIndex": 216,
+      "centroid": [
+        -1058.299,
+        1110.918
+      ],
+      "bounds": [
+        -1206.35,
+        1028.65,
+        -910.1,
+        1192.45
+      ],
+      "area": 25965.991,
+      "vertices": 20,
+      "holes": 0,
+      "lowerIoU": 0.7714,
+      "upperIoU": 0.0,
+      "liveOverlapSum": 1.0,
+      "liveModels": [
+        {
+          "name": "BuildingSmooth_9_-10581_2338_11079",
+          "sourceFraction": 1.0,
+          "liveFraction": 0.3719
+        }
+      ]
+    },
+    {
+      "sliceIndex": 29,
+      "centroid": [
+        -2345.165,
+        957.42
+      ],
+      "bounds": [
+        -2373.55,
+        924.75,
+        -2316.8,
+        990.1
+      ],
+      "area": 1272.913,
+      "vertices": 4,
+      "holes": 0,
+      "lowerIoU": 0.9988,
+      "upperIoU": 0.8867,
+      "liveOverlapSum": 0.9999,
+      "liveModels": [
+        {
+          "name": "BuildingSmooth_1_-23452_1931_9574",
+          "sourceFraction": 0.9999,
+          "liveFraction": 0.9978
+        }
+      ]
+    },
+    {
+      "sliceIndex": 16,
+      "centroid": [
+        171.786,
+        -87.456
+      ],
+      "bounds": [
+        117.4,
+        -128.55,
+        226.2,
+        -46.4
+      ],
+      "area": 4704.243,
+      "vertices": 5,
+      "holes": 0,
+      "lowerIoU": 0.9995,
+      "upperIoU": 0.0,
+      "liveOverlapSum": 0.9996,
+      "liveModels": [
+        {
+          "name": "BuildingSmooth_14_1718_1726_-875",
+          "sourceFraction": 0.9996,
+          "liveFraction": 0.9996
+        }
+      ]
+    },
+    {
+      "sliceIndex": 23,
+      "centroid": [
+        -2925.867,
+        425.549
+      ],
+      "bounds": [
+        -2941.3,
+        409.45,
+        -2910.45,
+        441.6
+      ],
+      "area": 502.169,
+      "vertices": 4,
+      "holes": 0,
+      "lowerIoU": 0.4459,
+      "upperIoU": 0.0,
+      "liveOverlapSum": 0.9989,
+      "liveModels": [
+        {
+          "name": "BuildingSmooth_1_-29159_1613_4184",
+          "sourceFraction": 0.9989,
+          "liveFraction": 0.4428
+        }
+      ]
+    },
+    {
+      "sliceIndex": 139,
+      "centroid": [
+        -1173.894,
+        -1030.334
+      ],
+      "bounds": [
+        -1247.4,
+        -1105.35,
+        -1100.4,
+        -955.3
+      ],
+      "area": 11347.34,
+      "vertices": 4,
+      "holes": 0,
+      "lowerIoU": 0.9998,
+      "upperIoU": 0.9997,
+      "liveOverlapSum": 0.996,
+      "liveModels": [
+        {
+          "name": "Building2",
+          "sourceFraction": 0.996,
+          "liveFraction": 0.9989
+        }
+      ]
+    },
+    {
+      "sliceIndex": 42,
+      "centroid": [
+        -2862.443,
+        171.357
+      ],
+      "bounds": [
+        -2885.85,
+        134.05,
+        -2839.1,
+        208.85
+      ],
+      "area": 3223.037,
+      "vertices": 7,
+      "holes": 0,
+      "lowerIoU": 0.9988,
+      "upperIoU": 0.2266,
+      "liveOverlapSum": 0.9711,
+      "liveModels": [
+        {
+          "name": "BuildingSmooth_1_-28625_1888_1714",
+          "sourceFraction": 0.9711,
+          "liveFraction": 0.9995
+        }
+      ]
+    },
+    {
+      "sliceIndex": 33,
+      "centroid": [
+        -2833.582,
+        800.237
+      ],
+      "bounds": [
+        -2868.65,
+        765.95,
+        -2798.7,
+        833.5
+      ],
+      "area": 2320.466,
+      "vertices": 4,
+      "holes": 1,
+      "lowerIoU": 0.5116,
+      "upperIoU": 0.0,
+      "liveOverlapSum": 0.9444,
+      "liveModels": [
+        {
+          "name": "BuildingSmooth_1_-28341_2122_8002_Body01",
+          "sourceFraction": 0.9444,
+          "liveFraction": 0.9553
+        }
+      ]
+    },
+    {
+      "sliceIndex": 180,
+      "centroid": [
+        557.003,
+        -553.067
+      ],
+      "bounds": [
+        493.5,
+        -607.0,
+        619.1,
+        -500.45
+      ],
+      "area": 7790.215,
+      "vertices": 8,
+      "holes": 0,
+      "lowerIoU": 0.0,
+      "upperIoU": 0.9799,
+      "liveOverlapSum": 0.9045,
+      "liveModels": [
+        {
+          "name": "BuildingSmooth_16_5563_1862_-5537",
+          "sourceFraction": 0.9045,
+          "liveFraction": 0.9986
+        }
+      ]
+    },
+    {
+      "sliceIndex": 227,
+      "centroid": [
+        -1792.527,
+        947.314
+      ],
+      "bounds": [
+        -1824.0,
+        878.2,
+        -1761.05,
+        1016.4
+      ],
+      "area": 3917.308,
+      "vertices": 4,
+      "holes": 0,
+      "lowerIoU": 0.9994,
+      "upperIoU": 0.9994,
+      "liveOverlapSum": 0.4419,
+      "liveModels": [
+        {
+          "name": "BuildingSmooth_9_-18714_1977_9644_Residual_bb8205ba_Body01",
+          "sourceFraction": 0.4419,
+          "liveFraction": 0.0848
+        }
+      ]
+    },
+    {
+      "sliceIndex": 1,
+      "centroid": [
+        -1999.981,
+        1601.106
+      ],
+      "bounds": [
+        -2068.3,
+        1545.3,
+        -1926.4,
+        1665.5
+      ],
+      "area": 8684.869,
+      "vertices": 6,
+      "holes": 0,
+      "lowerIoU": 0.9991,
+      "upperIoU": 0.8345,
+      "liveOverlapSum": 0.0993,
+      "liveModels": [
+        {
+          "name": "BuildingSmooth_13_-20630_1924_16565_Residual_d7a51e27_Body01",
+          "sourceFraction": 0.0993,
+          "liveFraction": 0.1211
+        }
+      ]
+    },
+    {
+      "sliceIndex": 217,
+      "centroid": [
+        -800.356,
+        1160.368
+      ],
+      "bounds": [
+        -878.65,
+        1088.65,
+        -711.2,
+        1261.5
+      ],
+      "area": 19847.31,
+      "vertices": 10,
+      "holes": 0,
+      "lowerIoU": 0.9996,
+      "upperIoU": 0.0,
+      "liveOverlapSum": 0.0619,
+      "liveModels": [
+        {
+          "name": "BuildingSmooth_9_-10581_2338_11079",
+          "sourceFraction": 0.0619,
+          "liveFraction": 0.0176
+        }
+      ]
+    },
+    {
+      "sliceIndex": 140,
+      "centroid": [
+        7.228,
+        -630.704
+      ],
+      "bounds": [
+        -23.0,
+        -676.4,
+        39.0,
+        -593.2
+      ],
+      "area": 2831.352,
+      "vertices": 4,
+      "holes": 0,
+      "lowerIoU": 0.0,
+      "upperIoU": 0.6893,
+      "liveOverlapSum": 0.0115,
+      "liveModels": [
+        {
+          "name": "BuildingSmooth_16_684_1488_-6799_Residual_05a86456_Body01",
+          "sourceFraction": 0.0115,
+          "liveFraction": 0.0032
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,78 @@
+1287 plans -> 1254 pass the gate, 33 dropped, 46 kept but UNMEASURED (the FBX has holes where their levels sit)
+  DROP fbx_10_-22886_1279_-9502: IoU 0.532 < 0.95
+  DROP fbx_10_-26110_1656_-5007: IoU 0.549 < 0.95
+  DROP fbx_11_13020_2635_11293: IoU 0.515 < 0.95
+  DROP fbx_11_21584_1675_3131: IoU 0.913 < 0.95
+  DROP fbx_12_19012_2284_-13370: IoU 0.545 < 0.95
+  DROP fbx_12_20749_2458_-21172: IoU 0.585 < 0.95
+  DROP fbx_12_25865_2499_-13998: IoU 0.843 < 0.95
+  DROP fbx_13_-14865_2161_20401: IoU 0.941 < 0.95
+  DROP fbx_14_-77_855_-813: IoU 0.736 < 0.95
+  DROP fbx_14_2621_2300_317: IoU 0.813 < 0.95
+  DROP fbx_16_16825_2115_-1688: IoU 0.891 < 0.95
+  DROP fbx_1_-19855_2800_5973: IoU 0.475 < 0.95
+  DROP fbx_1_-21322_1641_12301: IoU 0.935 < 0.95
+  DROP fbx_1_-23980_1840_7519: IoU 0.949 < 0.95
+  DROP fbx_1_-24708_1785_7978: IoU 0.000 < 0.95
+  DROP fbx_1_-26562_2124_12003: IoU 0.734 < 0.95
+  DROP fbx_2_19320_2353_-10295: IoU 0.897 < 0.95
+  DROP fbx_3_-1849_1361_13147: IoU 0.826 < 0.95
+  DROP fbx_3_1935_2058_19463: IoU 0.518 < 0.95
+  DROP fbx_3_2680_2185_17899: IoU 0.794 < 0.95
+  ... and 13 more
+crown data: 1287 classified, 204 with triangles
+  chunk_01: 25 buildings, 36 greys, 0 shell crowns, 54 KB
+  chunk_02: 25 buildings, 38 greys, 1 shell crowns, 61 KB
+  chunk_03: 25 buildings, 47 greys, 4 shell crowns, 119 KB
+  chunk_04: 25 buildings, 49 greys, 2 shell crowns, 74 KB
+  chunk_05: 25 buildings, 44 greys, 3 shell crowns, 74 KB
+  chunk_06: 25 buildings, 46 greys, 4 shell crowns, 111 KB
+  chunk_07: 25 buildings, 38 greys, 8 shell crowns, 180 KB
+  chunk_08: 25 buildings, 40 greys, 6 shell crowns, 193 KB
+  chunk_09: 25 buildings, 40 greys, 5 shell crowns, 147 KB
+  chunk_10: 25 buildings, 43 greys, 5 shell crowns, 161 KB
+  chunk_11: 25 buildings, 48 greys, 5 shell crowns, 133 KB
+  chunk_12: 25 buildings, 34 greys, 10 shell crowns, 195 KB
+  chunk_13: 25 buildings, 38 greys, 4 shell crowns, 89 KB
+  chunk_14: 25 buildings, 39 greys, 8 shell crowns, 171 KB
+  chunk_15: 25 buildings, 48 greys, 1 shell crowns, 71 KB
+  chunk_16: 25 buildings, 43 greys, 5 shell crowns, 148 KB
+  chunk_17: 25 buildings, 63 greys, 6 shell crowns, 199 KB
+  chunk_18: 25 buildings, 50 greys, 2 shell crowns, 87 KB
+  chunk_19: 25 buildings, 38 greys, 4 shell crowns, 135 KB
+  chunk_20: 25 buildings, 61 greys, 4 shell crowns, 146 KB
+  chunk_21: 25 buildings, 48 greys, 6 shell crowns, 153 KB
+  chunk_22: 25 buildings, 42 greys, 6 shell crowns, 151 KB
+  chunk_23: 25 buildings, 38 greys, 1 shell crowns, 63 KB
+  chunk_24: 25 buildings, 41 greys, 1 shell crowns, 80 KB
+  chunk_25: 25 buildings, 31 greys, 6 shell crowns, 183 KB
+  chunk_26: 25 buildings, 33 greys, 2 shell crowns, 75 KB
+  chunk_27: 25 buildings, 34 greys, 4 shell crowns, 144 KB
+  chunk_28: 25 buildings, 32 greys, 3 shell crowns, 86 KB
+  chunk_29: 25 buildings, 37 greys, 9 shell crowns, 216 KB
+  chunk_30: 25 buildings, 37 greys, 5 shell crowns, 132 KB
+  chunk_31: 25 buildings, 55 greys, 3 shell crowns, 100 KB
+  chunk_32: 25 buildings, 34 greys, 3 shell crowns, 81 KB
+  chunk_33: 25 buildings, 40 greys, 0 shell crowns, 47 KB
+  chunk_34: 25 buildings, 36 greys, 2 shell crowns, 87 KB
+  chunk_35: 25 buildings, 54 greys, 4 shell crowns, 185 KB
+  chunk_36: 25 buildings, 28 greys, 3 shell crowns, 94 KB
+  chunk_37: 25 buildings, 49 greys, 3 shell crowns, 84 KB
+  chunk_38: 25 buildings, 53 greys, 1 shell crowns, 67 KB
+  chunk_39: 25 buildings, 29 greys, 9 shell crowns, 136 KB
+  chunk_40: 25 buildings, 39 greys, 3 shell crowns, 103 KB
+  chunk_41: 25 buildings, 40 greys, 4 shell crowns, 158 KB
+  chunk_42: 25 buildings, 42 greys, 4 shell crowns, 112 KB
+  chunk_43: 25 buildings, 44 greys, 3 shell crowns, 104 KB
+  chunk_44: 25 buildings, 48 greys, 5 shell crowns, 173 KB
+  chunk_45: 25 buildings, 43 greys, 3 shell crowns, 116 KB
+  chunk_46: 25 buildings, 36 greys, 2 shell crowns, 61 KB
+  chunk_47: 25 buildings, 51 greys, 6 shell crowns, 168 KB
+  chunk_48: 25 buildings, 49 greys, 3 shell crowns, 107 KB
+  chunk_49: 25 buildings, 53 greys, 5 shell crowns, 161 KB
+  chunk_50: 25 buildings, 51 greys, 5 shell crowns, 131 KB
+  chunk_51: 4 buildings, 6 greys, 0 shell crowns, 6 KB
+
+51 chunks -> D:\GameDownloads\JJK_Roblox\tools\source_slices\sweep\chunks
+1254 buildings replacing 2136 greys
+largest chunk 216 KB

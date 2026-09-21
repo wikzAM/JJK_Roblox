@@ -1,0 +1,84 @@
+{
+  "height": 400.123,
+  "candidateCount": 3,
+  "candidates": [
+    {
+      "sliceIndex": 3,
+      "centroid": [
+        -2172.06,
+        429.551
+      ],
+      "bounds": [
+        -2288.9,
+        310.05,
+        -2055.25,
+        549.05
+      ],
+      "area": 28415.969,
+      "vertices": 4,
+      "holes": 0,
+      "lowerIoU": 0.9997,
+      "upperIoU": 0.9997,
+      "liveOverlapSum": 1.0,
+      "liveModels": [
+        {
+          "name": "BuildingSmooth_1_-21438_3207_4019",
+          "sourceFraction": 1.0,
+          "liveFraction": 0.9998
+        }
+      ]
+    },
+    {
+      "sliceIndex": 12,
+      "centroid": [
+        -1099.663,
+        338.319
+      ],
+      "bounds": [
+        -1310.45,
+        169.7,
+        -889.8,
+        505.05
+      ],
+      "area": 83748.107,
+      "vertices": 8,
+      "holes": 0,
+      "lowerIoU": 0.0,
+      "upperIoU": 0.9998,
+      "liveOverlapSum": 0.7875,
+      "liveModels": [
+        {
+          "name": "BuildingSmooth_9_-12600_4488_4064_Body02",
+          "sourceFraction": 0.7875,
+          "liveFraction": 0.9866
+        }
+      ]
+    },
+    {
+      "sliceIndex": 8,
+      "centroid": [
+        1124.398,
+        2533.405
+      ],
+      "bounds": [
+        1058.5,
+        2502.2,
+        1190.35,
+        2564.6
+      ],
+      "area": 5018.27,
+      "vertices": 4,
+      "holes": 0,
+      "lowerIoU": 0.1486,
+      "upperIoU": 0.0,
+      "liveOverlapSum": 0.5869,
+      "liveModels": [
+        {
+          "name": "BuildingSmooth_7_10897_4051_25094_Body01",
+          "sourceFraction": 0.5869,
+          "liveFraction": 1.0
+        }
+      ]
+    }
+  ]
+}

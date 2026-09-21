@@ -1,0 +1,22 @@
+{
+  "id": "1_-21438_3207_4019",
+  "origin": {
+    "x": -2172.070556640625,
+    "y": 118.6995849609375,
+    "z": 429.55316162109377,
+    "yaw": 2.508013
+  },
+  "floors": 19,
+  "rectangle": [
+    [-78.214, -90.843],
+    [78.214, -90.843],
+    [78.214, 90.843],
+    [-78.214, 90.843]
+  ],
+  "core": {"minX": -37, "minZ": -49, "maxX": 37, "maxZ": 49},
+  "baseY": 118.6995849609375,
+  "sourceClosedEnvelopeY0": 247.623,
+  "sourceCleanTopY": 475.123,
+  "strippedRoofEquipmentY": [477.623, 512.623],
+  "note": "Yawed rectangle on the live neighborhood base. Lower stories extend the source prism to grade; roof equipment holes were not filled."
+}

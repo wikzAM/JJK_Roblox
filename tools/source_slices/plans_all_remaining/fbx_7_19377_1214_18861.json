@@ -1,0 +1,150 @@
+{
+ "id": "fbx_7_19377_1214_18861",
+ "origin": {
+  "x": 1941.2837,
+  "y": 72.2,
+  "z": 1884.8908,
+  "yaw": 0.663397
+ },
+ "levels": [
+  {
+   "y": 0.0,
+   "thickness": 5.3571,
+   "pieces": [
+    [
+     [
+      30.709,
+      22.362
+     ],
+     [
+      31.2,
+      -22.437
+     ],
+     [
+      -29.874,
+      -22.322
+     ],
+     [
+      -31.18,
+      -21.057
+     ],
+     [
+      -31.2,
+      13.639
+     ],
+     [
+      2.808,
+      13.566
+     ],
+     [
+      2.862,
+      22.428
+     ]
+    ]
+   ]
+  },
+  {
+   "y": 17.8571,
+   "thickness": 5.3571,
+   "pieces": [
+    [
+     [
+      30.709,
+      22.362
+     ],
+     [
+      31.2,
+      -22.437
+     ],
+     [
+      -29.874,
+      -22.322
+     ],
+     [
+      -31.18,
+      -21.057
+     ],
+     [
+      -31.2,
+      13.639
+     ],
+     [
+      2.808,
+      13.566
+     ],
+     [
+      2.862,
+      22.428
+     ]
+    ]
+   ]
+  },
+  {
+   "y": 35.7143,
+   "thickness": 5.3571,
+   "pieces": [
+    [
+     [
+      30.709,
+      22.362
+     ],
+     [
+      31.2,
+      -22.437
+     ],
+     [
+      -29.874,
+      -22.322
+     ],
+     [
+      -31.18,
+      -21.057
+     ],
+     [
+      -31.2,
+      13.639
+     ],
+     [
+      2.808,
+      13.566
+     ],
+     [
+      2.862,
+      22.428
+     ]
+    ]
+   ]
+  }
+ ],
+ "core": {
+  "minX": -25.5969,
+  "minZ": -18.3483,
+  "maxX": 25.4021,
+  "maxZ": 10.8566
+ },
+ "sourceInfo": {
+  "origin": "world_triangles.npz horizontal sections",
+  "sourceKey": "7_19377_1214_18861",
+  "planBottom": 72.2,
+  "fbxBottom": 112.2,
+  "fbxTop": 125.2,
+  "baseExtension": 40.0,
+  "greyBase": 72.2,
+  "greyTop": 170.7,
+  "bandCount": 1,
+  "roofClutterTrimmed": 0.0,
+  "crownTrimmed": 43.0,
+  "exactLevels": 0,
+  "roofLevels": 0,
+  "coreShrunkToFit": true,
+  "simplifyEscalated": 0,
+  "ringsDropped": 0,
+  "replaces": [
+   "BuildingSmooth_7_19377_1214_18861_Body01",
+   "BuildingSmooth_7_19377_1214_18861_Body02",
+   "BuildingSmooth_7_19377_1214_18861_Body03"
+  ],
+  "measuredMembers": 3,
+  "greyOversizeFactor": 0.534
+ }
+}

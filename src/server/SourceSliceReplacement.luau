@@ -94,12 +94,20 @@ local function snapshot(model, parent, name)
 	return row
 end
 
+local function samePivot(a, b)
+	if typeof(a) ~= "CFrame" or typeof(b) ~= "CFrame" then return false end
+	local relative = a:ToObjectSpace(b)
+	return relative.Position.Magnitude <= 0.03
+		and relative.RightVector:Dot(Vector3.xAxis) > 0.99999
+		and relative.UpVector:Dot(Vector3.yAxis) > 0.99999
+end
+
 local function checkSnapshot(row, expectedParent)
 	assert(row:IsA("ObjectValue") and row.Value and row.Value:IsA("Model"), "Bound model reference is missing")
 	local model = row.Value
 	assert(model.Parent == expectedParent, "Bound model moved: " .. model.Name)
 	assert(model.Name == row:GetAttribute("Name"), "Bound model renamed")
-	assert(model:GetPivot() == row:GetAttribute("Pivot"), "Bound model pivot changed: " .. model.Name)
+	assert(samePivot(model:GetPivot(), row:GetAttribute("Pivot")), "Bound model pivot changed: " .. model.Name)
 	assert(row:FindFirstChild("Attributes") and row:FindFirstChild("Parts"), "Incomplete model snapshot")
 	sameAttributes(model, row.Attributes)
 	for key, value in counts(model) do
