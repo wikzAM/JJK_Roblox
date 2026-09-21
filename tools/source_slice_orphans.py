@@ -76,10 +76,32 @@ def live_plans():
         plan = json.loads(Path(path).read_text())
         if plan["id"] not in dropped:
             plans[plan["id"]] = plan
-    for path in sorted(glob.glob(str(DATA / "sweep" / "chunks" / "chunk_*.json"))) + \
-            sorted(glob.glob(str(DATA / "sweep" / "chunks" / "rebuild_*.json"))):
+    for path in sorted(glob.glob(str(DATA / "sweep" / "chunks" / "chunk_*.json"))) + rebuild_files():
         for plan in json.loads(Path(path).read_text())["plans"]:
             plans[plan["id"]] = plan
+    return plans
+
+
+def rebuild_files():
+    """Rebuild chunks in the order they were WRITTEN, which is the order they
+    were applied. Sorting by name was chronological only by luck: `cleantops`
+    sorts before `hybrid`/`levelcurves`/`referee`/`topfix`, so the last pass
+    applied was shadowed by older ones in every audit."""
+    files = glob.glob(str(DATA / "sweep" / "chunks" / "rebuild_*.json"))
+    return sorted(files, key=lambda f: (Path(f).stat().st_mtime, f))
+
+
+def current_plans():
+    """Exactly what the map holds now: live plans, the current orphan set, and
+    every rebuild on top in the order it was applied."""
+    plans = live_plans()
+    for path in sorted(glob.glob(str(DATA / "sweep" / "chunks" / "orphans_lc_*.json"))):
+        for plan in json.loads(Path(path).read_text())["plans"]:
+            plans[plan["id"]] = plan
+    for path in rebuild_files():
+        for plan in json.loads(Path(path).read_text())["plans"]:
+            if plan["id"] in plans:
+                plans[plan["id"]] = plan
     return plans
 
 

@@ -79,13 +79,8 @@ class Envelope:
 
 
 def live_plans():
-    """What is in the map: sector plans, sweep chunks overlaid by every rebuild,
-    plus the current orphan set."""
-    plans = O.live_plans()
-    for f in sorted(glob.glob(str(CHUNKS / "orphans_lc_*.json"))):
-        for p in json.loads(Path(f).read_text())["plans"]:
-            plans[p["id"]] = p
-    return plans
+    """What the map holds now (see source_slice_orphans.current_plans)."""
+    return O.current_plans()
 
 
 def accept(old, new):

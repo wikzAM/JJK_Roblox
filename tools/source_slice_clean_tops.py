@@ -40,15 +40,8 @@ GRID_TOLERANCE = 0.5
 
 
 def live_plans():
-    plans = O.live_plans()
-    for f in sorted(glob.glob(str(CHUNKS / "orphans_lc_*.json"))):
-        for p in json.loads(Path(f).read_text())["plans"]:
-            plans[p["id"]] = p
-    for f in sorted(glob.glob(str(CHUNKS / "rebuild_*.json"))):
-        for p in json.loads(Path(f).read_text())["plans"]:
-            if p["id"] in plans:
-                plans[p["id"]] = p
-    return plans
+    """What the map holds now (see source_slice_orphans.current_plans)."""
+    return O.current_plans()
 
 
 def area(level):
@@ -58,13 +51,16 @@ def area(level):
 def clean(plan):
     """Return (changed plan or None, what was done)."""
     levels = plan["levels"]
-    if len(levels) < 3:
+    if len(levels) < 2:
         return None, None
     gap = levels[-1]["y"] - levels[-2]["y"]
     if abs(gap - B.PITCH) < GRID_TOLERANCE:
         return None, None
     new = json.loads(json.dumps(plan))
-    if area(levels[-1]) < SMALL_SHARE * area(levels[-2]):
+    # A two-floor building cannot lose its top (the contract needs two levels),
+    # but a lifted roof still goes back on the grid: the first pass skipped every
+    # two-floor building and left 158 orphans with a tall top storey.
+    if len(levels) >= 3 and area(levels[-1]) < SMALL_SHARE * area(levels[-2]):
         new["levels"].pop()
         how = "dropped small top slab"
     elif gap > B.PITCH:
