@@ -10,6 +10,49 @@
 Updated **September 17, 2026, 07:00**. Isolated resume file. Read `src/client/ProjectFiles.luau`
 first, then this file.
 
+## LEVEL CURVES Sept 21 (day) — every floor is the building's filled slice, up to its real roof
+
+The map owner's framing: treat a building's FBX shape as a 3-D function; each floor is its level
+curve -- the slice at that height, bounded by the perimeter and FILLED inside it. Measured faults it
+fixes: PARCO's floors were split by 3.28-stud roof seams into 2-7 pieces; wall cuts stopped where the
+export's walls open (fbx_9_-10581 floored to Y 160 of a 372 roof); a fixed storey grid left the top
+slab up to a storey under the roof; unchecked wall cuts spilled outside the building.
+
+**`source_slice_roofs.slice_at`** closes roof seams up to 6 studs and fills the inside; specks under
+3% of a floor are dropped (PARCO gets 8-stud seams, per the owner). **Section builder**: a wall cut
+is kept only if >= 60% of it lies inside the building's own slice, and is clipped to it; floors
+continue up the slice past the last wall cut, each inside the floor below (without that, a taller
+NEIGHBOUR's roof edge stacked two storeys on the control building); the top slab is added or lifted
+onto the main roof, and a lifted top floor shrinks to the part under that roof (lifting the whole
+outline was the worst floor in 403 spilling buildings). Core minimum gets 0.001 studs of margin
+(a 4.00-stud core rounded to 3.9999 and failed).
+
+**The wall-cut gate is the wrong referee for this.** It refused 488 of 1,218 changed plans, largely
+for floors reaching heights where the walls stop. `tools/source_slice_referee.py` scores old vs new
+against the FBX ROOF ENVELOPE instead (height to the roof, worst-floor spill with a one-cell edge
+tolerance -- a 2-stud grid otherwise reads ~20% spill on a small building) and accepted 375 of them
+(median height error 30 -> 5 studs, spill 21% -> 12%). `tools/source_slice_buildable_fix.py` checks
+EVERY ring against the triangulator's full budget before Studio does (small degenerate rings
+failed after 6 search states): the next 1,105 rebuilds had **zero** Studio rejections.
+
+Applied IN PLACE (no rollback copies; the place is backed up as GitHub release
+`place-files-2026-09-21` and in Roblox version history, and every plan is in the repo): 1,102
+rebuilt, 699 orphans re-added, then 100 top-floor fixes and 82 orphan fixes. Old archives deleted
+from the live session (193,026 parts); the older-generation `ShibuyaBefore{Smooth,Residual,
+GridSplit}_*` archives (~150k parts) were NOT -- they were not in scope of the owner's answer.
+
+| (fair metric, same 2-stud grid) | before level curves | now |
+|---|---|---|
+| median top vs FBX roof | -20.8 studs | **-5.5** |
+| > one storey short | 1,161 | **511** |
+| > two storeys short | 422 | **130** |
+| a floor > 10% outside the FBX | 260 | **140** |
+| a floor > 30% outside the FBX | 98 | **70** |
+
+Still open: 511 buildings more than a storey short (the 122 sector buildings were never
+regenerated; 113 kept old versions on the referee; those need a look), floors under overhangs and
+bridges (the envelope fills the passage beneath), viaduct decks.
+
 ## ROOF ENVELOPE + ORPHANS Sept 21 (overnight) — coverage 49.8% -> 86.5%. UNSAVED at time of writing.
 
 The map owner's red-FBX screenshots showed the real problem: whole buildings missing (Shibuya PARCO

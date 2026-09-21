@@ -298,7 +298,12 @@ def main():
                 if top is not None and top.area >= B.MIN_FOOTPRINT:
                     plates.append((want, top))
             elif want > last_y + 0.5 and (len(plates) < 2 or want - (plates[-2][0] + B.SLAB) >= B.MIN_CLEAR):
-                plates[-1] = (want, last_plate)
+                # Lift only the part of the top floor that is under that roof
+                # (lifting the whole outline hung it over the lower roofs).
+                top = slice_at(roofs, roof_y - 2.0, reach, seam)
+                top = areal(top.intersection(last_plate, grid_size=0.01)) if top is not None else None
+                if top is not None and top.area >= B.MIN_FOOTPRINT:
+                    plates[-1] = (want, top)
         widest = max((p.area for _, p in plates), default=0)
         while len(plates) > 2 and plates[-1][1].area < B.SLIVER_SHARE * widest:
             plates.pop()

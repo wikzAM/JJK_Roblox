@@ -761,8 +761,23 @@ def build_plan(key, members, slicer):
                 overlap = overlap.intersection(shape) if overlap is not None else shape
                 snapped = want - last_y
         elif want > last_y + 0.5 and (prev_top is None or want - prev_top >= MIN_CLEAR):
-            snapped = want - last_y
-            levels[-1]["y"] = round(want - bottom, 4)
+            # Lift the top floor onto the roof -- but only the part of it that IS
+            # under that roof. Lifting the whole outline left it hanging over the
+            # lower roofs around it: the worst floor was the top one in 403 of
+            # the 1,010 buildings that spilled outside the FBX.
+            top_world = slice_at(my_roofs, roof_y - 2.0, reach, LEVEL_SEAM)
+            if top_world is not None:
+                top_world = top_world.intersection(last_world)
+            if top_world is not None and top_world.area >= MIN_FOOTPRINT:
+                rings, shape = local_of(top_world)
+                if shape is not None:
+                    joint = overlap.intersection(shape) if overlap is not None else shape
+                    if not joint.is_empty and largest_core(joint) is not None:
+                        levels[-1]["pieces"] = [[[round(float(a), 3), round(float(b), 3)] for a, b in piece]
+                                                for piece in rings]
+                        levels[-1]["y"] = round(want - bottom, 4)
+                        overlap = joint
+                        snapped = want - last_y
     # --- repair two measured artifacts before the plan is emitted ----------
     # Both come from the export being non-watertight, and both are what makes a
     # building read as several different buildings stacked on each other.
