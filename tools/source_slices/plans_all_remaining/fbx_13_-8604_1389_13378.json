@@ -13,11 +13,11 @@
    "pieces": [
     [
      [
-      -32.671,
+      -32.672,
       -15.789
      ],
      [
-      -32.671,
+      -32.672,
       15.792
      ],
      [
@@ -150,6 +150,30 @@
      ]
     ]
    ]
+  },
+  {
+   "y": 107.3799,
+   "thickness": 5.3571,
+   "pieces": [
+    [
+     [
+      -32.677,
+      -15.741
+     ],
+     [
+      -32.663,
+      15.812
+     ],
+     [
+      32.686,
+      15.783
+     ],
+     [
+      32.672,
+      -15.77
+     ]
+    ]
+   ]
   }
  ],
  "core": {
@@ -172,6 +196,8 @@
   "crownTrimmed": 0.0,
   "exactLevels": 6,
   "roofLevels": 0,
+  "extendedLevels": 0,
+  "topSnapped": 18.09,
   "coreShrunkToFit": true,
   "simplifyEscalated": 0,
   "ringsDropped": 0,

@@ -1,0 +1,143 @@
+{
+ "id": "fbx_11_13644_1347_3244",
+ "origin": {
+  "x": 1364.425,
+  "y": 107.4,
+  "z": 324.4,
+  "yaw": -0.881547
+ },
+ "levels": [
+  {
+   "y": 0.0,
+   "thickness": 5.3571,
+   "pieces": [
+    [
+     [
+      -14.001,
+      -8.719
+     ],
+     [
+      -14.001,
+      8.719
+     ],
+     [
+      14.001,
+      8.719
+     ],
+     [
+      14.001,
+      -8.719
+     ]
+    ]
+   ]
+  },
+  {
+   "y": 17.8571,
+   "thickness": 5.3571,
+   "pieces": [
+    [
+     [
+      -14.001,
+      -8.719
+     ],
+     [
+      -14.001,
+      8.719
+     ],
+     [
+      14.001,
+      8.719
+     ],
+     [
+      14.001,
+      -8.719
+     ]
+    ]
+   ]
+  },
+  {
+   "y": 35.7143,
+   "thickness": 5.3571,
+   "pieces": [
+    [
+     [
+      -14.001,
+      -8.719
+     ],
+     [
+      -14.001,
+      8.719
+     ],
+     [
+      14.001,
+      8.719
+     ],
+     [
+      14.001,
+      -8.719
+     ]
+    ]
+   ]
+  },
+  {
+   "y": 49.3156,
+   "thickness": 5.3571,
+   "pieces": [
+    [
+     [
+      14.001,
+      -8.719
+     ],
+     [
+      -14.001,
+      -8.719
+     ],
+     [
+      -14.001,
+      8.719
+     ],
+     [
+      14.001,
+      8.719
+     ]
+    ]
+   ]
+  }
+ ],
+ "core": {
+  "minX": -10.9237,
+  "minZ": -6.7054,
+  "maxX": 10.9237,
+  "maxZ": 6.7054
+ },
+ "sourceInfo": {
+  "origin": "world_triangles.npz horizontal sections",
+  "sourceKey": "11_13644_1347_3244",
+  "planBottom": 107.4,
+  "fbxBottom": 107.4,
+  "fbxTop": 161.4,
+  "baseExtension": 0.0,
+  "greyBase": 107.4,
+  "greyTop": 162.1,
+  "bandCount": 1,
+  "roofClutterTrimmed": 0.0,
+  "crownTrimmed": 0.0,
+  "exactLevels": 3,
+  "roofLevels": 0,
+  "extendedLevels": 0,
+  "topSnapped": 13.6,
+  "coreShrunkToFit": true,
+  "simplifyEscalated": 0,
+  "ringsDropped": 0,
+  "replaces": [
+   "BuildingSmooth_11_13644_1347_3244",
+   "BuildingSmooth_11_13842_1435_2949_ResidualBody01",
+   "BuildingSmooth_11_13842_1435_2949_Residual_6d4b6f3a_Body01"
+  ],
+  "measuredMembers": 1,
+  "greyOversizeFactor": 1.001,
+  "mergedFrom": [
+   "fbx_11_13842_1435_2949"
+  ]
+ }
+}

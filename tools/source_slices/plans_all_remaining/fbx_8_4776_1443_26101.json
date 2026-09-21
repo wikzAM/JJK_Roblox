@@ -13,10 +13,6 @@
    "pieces": [
     [
      [
-      16.1,
-      -15.311
-     ],
-     [
       -15.815,
       -10.768
      ],
@@ -25,8 +21,12 @@
       15.311
      ],
      [
-      15.148,
-      15.311
+      15.134,
+      14.408
+     ],
+     [
+      16.1,
+      -15.311
      ]
     ]
    ]
@@ -37,10 +37,6 @@
    "pieces": [
     [
      [
-      16.1,
-      -15.311
-     ],
-     [
       -15.82,
       -10.818
      ],
@@ -49,18 +45,46 @@
       15.311
      ],
      [
-      15.148,
-      15.311
+      15.144,
+      14.407
+     ],
+     [
+      16.1,
+      -15.311
+     ]
+    ]
+   ]
+  },
+  {
+   "y": 34.2258,
+   "thickness": 5.3571,
+   "pieces": [
+    [
+     [
+      -15.799,
+      -10.81
+     ],
+     [
+      -15.932,
+      6.666
+     ],
+     [
+      15.387,
+      6.868
+     ],
+     [
+      16.093,
+      -15.31
      ]
     ]
    ]
   }
  ],
  "core": {
-  "minX": -12.7933,
-  "minZ": -8.3372,
-  "maxX": 12.4459,
-  "maxZ": 12.8796
+  "minX": -15.2459,
+  "minZ": -9.2004,
+  "maxX": 15.3858,
+  "maxZ": 6.5808
  },
  "sourceInfo": {
   "origin": "world_triangles.npz horizontal sections",
@@ -76,7 +100,9 @@
   "crownTrimmed": 0.0,
   "exactLevels": 2,
   "roofLevels": 0,
-  "coreShrunkToFit": true,
+  "extendedLevels": 0,
+  "topSnapped": 16.37,
+  "coreShrunkToFit": false,
   "simplifyEscalated": 0,
   "ringsDropped": 0,
   "replaces": [

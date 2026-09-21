@@ -317,8 +317,14 @@ end
 -- goes to an archive folder, never deleted, and the new one gets a rim. The
 -- plan's greys were archived by the original apply, so this swaps building for
 -- building rather than going through Replacement.Capture, which binds greys.
-function Sweep.Rebuild(chunkName)
+function Sweep.Rebuild(chunkName, options)
 	editOnly()
+	options = options or {}
+	-- options.inPlace: DESTROY the old model instead of archiving it. Chosen by
+	-- the map owner once the place was backed up (GitHub release
+	-- place-files-2026-09-21 + Roblox version history): Studio holds ~26 KB a
+	-- part, and archiving ~2,000 old buildings would exceed the machine's memory.
+	-- Every old plan is still in the repo, so any building rebuilds exactly.
 	local lock = Storage:FindFirstChild(LOCK_PREFIX .. chunkName)
 	if lock then
 		return string.format("REPLAY %s: %s", chunkName, tostring(lock:GetAttribute("Summary")))
@@ -355,7 +361,11 @@ function Sweep.Rebuild(chunkName)
 			local value = old:GetAttribute(key)
 			if value ~= nil then fresh:SetAttribute(key, value) end
 		end
-		old.Parent = archive
+		if options.inPlace then
+			old:Destroy()
+		else
+			old.Parent = archive
+		end
 		fresh.Parent = live
 		if not fresh:GetAttribute("CrownNeedsManualDesign") then
 			local entry = rimEntryFor(fresh)
@@ -365,8 +375,9 @@ function Sweep.Rebuild(chunkName)
 		rebuilt += 1
 		if index % 5 == 0 then task.wait() end
 	end
-	local summary = string.format("rebuilt %d, rejected %d, not live %d | old models in %s%s",
-		rebuilt, #rejected, missing, archive.Name,
+	if options.inPlace then archive:Destroy() end
+	local summary = string.format("rebuilt %d, rejected %d, not live %d | old models %s%s",
+		rebuilt, #rejected, missing, options.inPlace and "replaced in place" or ("in " .. archive.Name),
 		#rejected > 0 and (" | REJECTED: " .. table.concat(rejected, "; ")) or "")
 	lock:SetAttribute("Summary", summary)
 	lock:SetAttribute("Done", true)
@@ -432,6 +443,20 @@ function Sweep.Add(chunkName)
 	lock:SetAttribute("Summary", summary)
 	lock:SetAttribute("Done", true)
 	return chunkName .. ": " .. summary
+end
+
+-- Remove every building added by an earlier orphan pass, before adding the
+-- regenerated set. Identified by the SweepOrphan attribute Sweep.Add sets.
+function Sweep.RemoveOrphans()
+	editOnly()
+	local n = 0
+	for _, m in buildings():GetChildren() do
+		if m:GetAttribute("SweepOrphan") then
+			m:Destroy()
+			n += 1
+		end
+	end
+	return "removed " .. n .. " orphan buildings"
 end
 
 function Sweep.Run(chunkName, options)

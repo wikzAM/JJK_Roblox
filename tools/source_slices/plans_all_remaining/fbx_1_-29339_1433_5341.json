@@ -1,0 +1,150 @@
+{
+ "id": "fbx_1_-29339_1433_5341",
+ "origin": {
+  "x": -2935.7,
+  "y": 121.1,
+  "z": 534.075,
+  "yaw": 0.623695
+ },
+ "levels": [
+  {
+   "y": 0.0,
+   "thickness": 5.3571,
+   "pieces": [
+    [
+     [
+      -36.978,
+      -17.951
+     ],
+     [
+      -37.081,
+      23.799
+     ],
+     [
+      37.144,
+      23.799
+     ],
+     [
+      37.122,
+      -23.77
+     ],
+     [
+      23.502,
+      -23.59
+     ],
+     [
+      23.483,
+      -17.999
+     ]
+    ]
+   ]
+  },
+  {
+   "y": 17.8571,
+   "thickness": 5.3571,
+   "pieces": [
+    [
+     [
+      38.62,
+      -22.975
+     ],
+     [
+      38.214,
+      -17.994
+     ],
+     [
+      -36.974,
+      -17.973
+     ],
+     [
+      -37.097,
+      23.787
+     ],
+     [
+      37.127,
+      23.787
+     ],
+     [
+      37.184,
+      6.039
+     ],
+     [
+      38.635,
+      6.06
+     ]
+    ]
+   ]
+  },
+  {
+   "y": 37.9383,
+   "thickness": 5.3571,
+   "pieces": [
+    [
+     [
+      37.184,
+      6.039
+     ],
+     [
+      40.139,
+      6.058
+     ],
+     [
+      40.118,
+      -16.12
+     ],
+     [
+      38.265,
+      -16.147
+     ],
+     [
+      38.54,
+      4.034
+     ],
+     [
+      -37.044,
+      4.262
+     ],
+     [
+      -37.065,
+      11.466
+     ],
+     [
+      37.16,
+      11.208
+     ]
+    ]
+   ]
+  }
+ ],
+ "core": {
+  "minX": -29.9525,
+  "minZ": 4.376,
+  "maxX": 30.0475,
+  "maxZ": 11.0948
+ },
+ "sourceInfo": {
+  "origin": "world_triangles.npz horizontal sections",
+  "sourceKey": "1_-29339_1433_5341",
+  "planBottom": 121.1,
+  "fbxBottom": 121.1,
+  "fbxTop": 140.1,
+  "baseExtension": 0.0,
+  "greyBase": 121.1,
+  "greyTop": 165.5,
+  "bandCount": 1,
+  "roofClutterTrimmed": 0.0,
+  "crownTrimmed": 23.0,
+  "exactLevels": 1,
+  "roofLevels": 0,
+  "extendedLevels": 2,
+  "topSnapped": 2.22,
+  "coreShrunkToFit": false,
+  "simplifyEscalated": 0,
+  "ringsDropped": 0,
+  "replaces": [
+   "BuildingSmooth_1_-29339_1433_5341"
+  ],
+  "measuredMembers": 1,
+  "greyOversizeFactor": 0.903
+ }
+}

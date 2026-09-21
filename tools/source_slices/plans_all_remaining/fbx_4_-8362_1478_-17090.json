@@ -121,8 +121,8 @@
       -9.314
      ],
      [
-      -42.56,
-      17.321
+      -42.5,
+      17.358
      ],
      [
       42.583,
@@ -177,10 +177,10 @@
   }
  ],
  "core": {
-  "minX": -3.8447,
-  "minZ": -17.0532,
-  "maxX": 12.3897,
-  "maxZ": -5.3501
+  "minX": -3.7566,
+  "minZ": -17.0557,
+  "maxX": 12.0246,
+  "maxZ": -5.3526
  },
  "sourceInfo": {
   "origin": "world_triangles.npz horizontal sections",
@@ -194,8 +194,10 @@
   "bandCount": 2,
   "roofClutterTrimmed": 0.0,
   "crownTrimmed": 0.0,
-  "exactLevels": 3,
-  "roofLevels": 0,
+  "exactLevels": 2,
+  "roofLevels": 1,
+  "extendedLevels": 0,
+  "topSnapped": 16.02,
   "coreShrunkToFit": false,
   "simplifyEscalated": 0,
   "ringsDropped": 0,

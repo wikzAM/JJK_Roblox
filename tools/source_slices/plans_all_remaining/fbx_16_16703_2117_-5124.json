@@ -428,6 +428,8 @@
   "crownTrimmed": 0.0,
   "exactLevels": 8,
   "roofLevels": 0,
+  "extendedLevels": 0,
+  "topSnapped": 5.04,
   "coreShrunkToFit": false,
   "simplifyEscalated": 0,
   "ringsDropped": 0,

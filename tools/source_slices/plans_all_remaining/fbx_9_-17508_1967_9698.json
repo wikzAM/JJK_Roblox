@@ -232,7 +232,7 @@
    ]
   },
   {
-   "y": 125.0,
+   "y": 132.0127,
    "thickness": 5.3571,
    "pieces": [
     [
@@ -284,6 +284,8 @@
   "crownTrimmed": 0.0,
   "exactLevels": 8,
   "roofLevels": 0,
+  "extendedLevels": 0,
+  "topSnapped": 7.01,
   "coreShrunkToFit": true,
   "simplifyEscalated": 0,
   "ringsDropped": 0,
