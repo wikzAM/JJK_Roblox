@@ -10,6 +10,34 @@
 Updated **September 17, 2026, 07:00**. Isolated resume file. Read `src/client/ProjectFiles.luau`
 first, then this file.
 
+## THE TWO PHOTOGRAPHED BUILDINGS, Sept 22 (day) — found by selection, not by class
+
+The overnight pass fixed classes of fault and never confirmed the two buildings in the owner's photos
+were among them. Neither was.
+
+**"Rotated"** was a leftover grey, `BuildingSmooth_3_-2300_1261_18696_Residual_26e00f2c_Body01`, turned
+45° and standing inside the correct building `orph_-230_1868`. The orphan pass archived only greys
+at least 50% inside its footprint, and this one was not. Every grey was measured with a 5×5 grid of
+vertical rays against source-slice buildings. **138 greys at 50% or more were moved to
+`ServerStorage.GreysDuplicatedBySourceSlice`** (160 greys left; 21 at 30-50% still live).
+
+**The "I-beam / arch"** is `fbx_6_15630_3432_-8769`: one SOLID block in the FBX (about 380 × 220
+studs, up to 540). Its section-built floors came out as two towers with nothing between them, and
+grey crown slabs (`BuildingSmooth_6_15565_5654_-8725_Body01`, `_6_17364_5399_-9169`) floated across
+the gap. It was untouched because it is on `protected_live.txt` for its manual-design CROWN, and that
+protection also blocked every floor fix. New `tools/source_slice_replan.py` re-plans named buildings
+with level curves from their FBX group and keeps the id, so the crown note carries over:
+floor area 14,458 -> 44,954 sq studs, 24 floors (`rebuild_replan_01`). The two greys were archived.
+
+Dry run over the other 21 protected buildings (Cerulean excluded): none shows this split. Most are
+40-85 studs "short" because their shell crowns fill the top, so re-planned floors would run into
+the crowns. None was applied.
+
+**Still open: 192 pairs of source-slice buildings overlap in volume** (plan > 200 sq studs, > 1
+storey of height), e.g. `fbx_16_12511_1928_-1064` / `fbx_16_14004_2243_-984`,
+`fbx_7_16357_4749_19216` sitting in the top of `fbx_7_16421_3031_19328`. They need a referee: keep
+the one that fits the FBX, and clip or drop the other.
+
 ## FLOATING, PARTIAL, ROADS Sept 22 (overnight) — the owner's "I-beam / missing / rotated" photos
 
 The owner photographed three kinds of wrong building and asked for them fixed automatically, and
