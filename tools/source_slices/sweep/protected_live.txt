@@ -1,0 +1,25 @@
+# Live buildings no automatic pass may replace: hand-approved shell crowns
+# (CrownInteresting) and crowns left for manual design. Exported from Studio 2026-09-22.
+fbx_6_4510_4915_-8852 interesting
+fbx_16_8787_1956_-4372 interesting
+fbx_16_4653_1225_-3292 interesting
+fbx_6_4125_1771_-11600 interesting
+fbx_6_2510_2462_-12844 interesting
+fbx_6_5706_1800_-12229 interesting
+fbx_4_-2192_1412_-10100 interesting
+fbx_11_15140_1502_1489 interesting
+fbx_5_10677_1681_2148 interesting
+fbx_16_7018_1383_-4192 interesting
+fbx_16_13294_1839_-3533 interesting
+fbx_4_-340_1440_-6069 interesting
+fbx_6_7740_1620_-11913 interesting
+fbx_16_5801_1092_-2190 interesting
+fbx_14_1718_1726_-875 interesting
+fbx_16_7376_1371_-4412 interesting
+fbx_16_14352_1848_-4149 interesting
+fbx_16_9556_1800_-4394 interesting
+fbx_4_-4353_1130_-8788 interesting
+fbx_14_4610_1234_-617 interesting
+fbx_4_-1982_1316_-9445 interesting
+fbx_14_5223_1224_-658 interesting
+fbx_6_15630_3432_-8769 manual

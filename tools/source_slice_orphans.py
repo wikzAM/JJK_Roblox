@@ -49,6 +49,11 @@ MIN_TRIANGLES = 6        # below this a component is a fragment, not a building
 STACK_SHARE = 0.3        # plan overlap (of the smaller) that means "stacked, merge"
 LIVE_COVER_MAX = 0.2     # a building already this covered by live buildings is skipped
 LIVE_CLEARANCE = 0.5     # studs kept between an orphan's plates and a live building
+# Elevated roads and rail viaducts the orphan pass floored as buildings; moved to
+# ServerStorage.RemovedInfrastructure in the map, so no audit counts them.
+REMOVED = {"orph_-451_1605", "orph_-1035_-125", "orph_-2291_-0", "orph_-2003_-2053",
+           "orph_1639_-1158", "orph_-233_-363", "orph_2158_-1201",
+           "orph_-1016_-1000"}
 # Shibuya Sky (Building1) is furnished and hand-made; never plan over it.
 PROTECTED = [(-630.0, 48.0, 260.0)]
 # Level curves: every floor is the building's filled slice at its height, with
@@ -98,10 +103,21 @@ def current_plans():
     for path in sorted(glob.glob(str(DATA / "sweep" / "chunks" / "orphans_lc_*.json"))):
         for plan in json.loads(Path(path).read_text())["plans"]:
             plans[plan["id"]] = plan
-    for path in rebuild_files():
+    # Rebuilds and partial replacements (source_slice_partial.py) in the order
+    # they were written: a partial plan retires the live buildings it replaces,
+    # and a later rebuild may target the partial plan itself.
+    partial = glob.glob(str(DATA / "sweep" / "chunks" / "partial_*.json"))
+    for path in sorted(rebuild_files() + partial, key=lambda f: (Path(f).stat().st_mtime, f)):
+        is_partial = Path(path).name.startswith("partial_")
         for plan in json.loads(Path(path).read_text())["plans"]:
-            if plan["id"] in plans:
+            if is_partial:
+                for pid in plan.get("sourceInfo", {}).get("replacesLive", []):
+                    plans.pop(pid, None)
                 plans[plan["id"]] = plan
+            elif plan["id"] in plans:
+                plans[plan["id"]] = plan
+    for pid in REMOVED:
+        plans.pop(pid, None)
     return plans
 
 
@@ -172,12 +188,9 @@ def components(triangles):
     return connected_components(graph, directed=False)[1]
 
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--out", default=str(DATA / "orphans"))
-    args = parser.parse_args()
-
-    triangles = np.load(DATA / "world_triangles.npz")["triangles"]
+def building_groups(triangles):
+    """FBX buildings: mesh components, stacked ones merged. Returns (comps,
+    member lists largest first)."""
     labels = components(triangles)
     order = np.argsort(labels, kind="stable")
     bounds = np.flatnonzero(np.diff(labels[order])) + 1
@@ -219,68 +232,37 @@ def main():
     for i in range(len(comps)):
         buildings.setdefault(find(i), []).append(i)
     print(f"{len(buildings)} buildings after merging stacked components", flush=True)
+    ordered = sorted(buildings.values(), key=lambda m: -sum(comps[i]["fp"].area for i in m))
+    return comps, ordered
 
-    live = live_plans()
-    live_fp = [f for f in (unary_union(list(world_levels(p))) for p in live.values()) if not f.is_empty]
-    live_tree = STRtree(live_fp)
 
-    greys = {}
-    with open(DATA / "live_extents.csv", newline="") as fh:
-        for row in csv.DictReader(fh):
-            greys["BuildingSmooth_" + row["n"]] = box(float(row["x0"]), float(row["z0"]),
-                                                      float(row["x1"]), float(row["z1"]))
-    claimed = {n.strip() for n in (DATA / "applied_greys.txt").read_text().splitlines() if n.strip()}
-    for plan in live.values():
-        claimed.update(plan.get("sourceInfo", {}).get("replaces", []))
-    open_greys = {n: g for n, g in greys.items() if n not in claimed}
-    grey_names = list(open_greys)
-    grey_tree = STRtree([open_greys[n] for n in grey_names])
+class Planner:
+    """Level-curve plan of one FBX building (a member list of building_groups)."""
 
-    out = Path(args.out)
-    out.mkdir(parents=True, exist_ok=True)
-    for stale in out.glob("*.json"):
-        stale.unlink()
-    made, skipped, absorbed = 0, {}, set()
-    tri_lo = triangles[:, :, [0, 2]].min(axis=1)
-    tri_hi = triangles[:, :, [0, 2]].max(axis=1)
+    def __init__(self, triangles, comps):
+        self.triangles, self.comps = triangles, comps
+        self.tri_lo = triangles[:, :, [0, 2]].min(axis=1)
+        self.tri_hi = triangles[:, :, [0, 2]].max(axis=1)
 
-    def skip(why):
-        skipped[why] = skipped.get(why, 0) + 1
+    def footprint(self, members):
+        return union_all([self.comps[i]["fp"] for i in members], grid_size=0.01)
 
-    # Largest first, and each later building keeps clear of those already
-    # planned exactly as it keeps clear of live ones: an outline can reach over
-    # a neighbour's roof, and 23 pairs overlapped (worst 2,728 sq studs).
-    planned_fp = []
-    planned_tree = None
-    ordered = sorted(buildings.values(),
-                     key=lambda m: -sum(comps[i]["fp"].area for i in m))
-    for members in ordered:
+    def outline(self, members):
+        return union_all([self.comps[i]["filled"] for i in members], grid_size=0.01)
+
+    def plan(self, members, blocked, prefix="orph"):
+        """(plan, plates, None) or (None, None, why skipped). `blocked` is kept
+        clear of (live and already-planned buildings), or None."""
+        comps, triangles = self.comps, self.triangles
         idx = np.concatenate([comps[i]["idx"] for i in members])
-        fp = union_all([comps[i]["fp"] for i in members], grid_size=0.01)
-        if fp.area < B.MIN_FOOTPRINT:
-            skip("footprint under 400 sq studs")
-            continue
-        c = fp.centroid
-        if any((c.x - px) ** 2 + (c.y - pz) ** 2 <= pr * pr for px, pz, pr in PROTECTED):
-            skip("protected (Shibuya Sky)")
-            continue
-        near_live = [live_fp[k] for k in live_tree.query(fp)]
-        if near_live:
-            covered = union_all([fp.intersection(f, grid_size=0.01) for f in near_live], grid_size=0.01)
-            if covered.area > LIVE_COVER_MAX * fp.area:
-                skip("already covered by a live building")
-                continue
-        near_planned = [f for f in planned_fp if f.intersects(fp)]
-        others = near_live + near_planned
-        blocked = union_all([f.buffer(LIVE_CLEARANCE) for f in others], grid_size=0.01) if others else None
-
         tris = triangles[idx]
         # Every roof face inside the building's outline counts, whichever mesh
         # component it came from, and plates stay inside that outline.
         outline = union_all([comps[i]["filled"] for i in members], grid_size=0.01)
         reach = outline.buffer(1.0)
         bx0, bz0, bx1, bz1 = reach.bounds
-        near = (tri_hi[:, 0] >= bx0) & (tri_lo[:, 0] <= bx1) & (tri_hi[:, 1] >= bz0) & (tri_lo[:, 1] <= bz1)
+        near = (self.tri_hi[:, 0] >= bx0) & (self.tri_lo[:, 0] <= bx1) \
+            & (self.tri_hi[:, 1] >= bz0) & (self.tri_lo[:, 1] <= bz1)
         roofs = roofs_in(triangles[near], reach)
         base = float(tris[:, :, 1].min())
         seam = SEAM
@@ -331,26 +313,110 @@ def main():
         while len(plates) > 2 and plates[-1][1].area < B.SLIVER_SHARE * widest:
             plates.pop()
         if len(plates) < 2:
-            skip("under two storeys")
-            continue
+            return None, None, "under two storeys"
         ox, oz, yaw = B.frame_of(plates[0][1].convex_hull)
-        levels, overlap = [], None
+        levels, overlap, pending = [], None, []
         for py, plate in plates:
             rings = B.to_local(plate, ox, oz, yaw)
             shape = B._rings_shape(rings) if rings else None
             if shape is None:
+                # Never leave a storey out mid-building: that gap is the I-beam
+                # (5 storeys of bare core under a roof slab). Plates only shrink
+                # going up, so the next good level above lies inside this one.
+                pending.append(py)
                 continue
-            levels.append(dict(y=round(py - base, 4), thickness=round(B.SLAB, 4),
-                               pieces=[[[round(float(a), 3), round(float(b), 3)] for a, b in r] for r in rings]))
+            pieces = [[[round(float(a), 3), round(float(b), 3)] for a, b in r] for r in rings]
+            for gy in pending + [py]:
+                levels.append(dict(y=round(gy - base, 4), thickness=round(B.SLAB, 4),
+                                   pieces=json.loads(json.dumps(pieces))))
+            pending = []
             overlap = shape if overlap is None else overlap.intersection(shape)
         if len(levels) < 2 or overlap is None or overlap.is_empty:
-            skip("no common core area")
-            continue
+            return None, None, "no common core area"
         core = B.largest_core(overlap)
         if core is None:
-            skip("no 4-stud core")
-            continue
+            return None, None, "no 4-stud core"
         hx, hz = min(core[1], 30.0), min(core[2], 30.0)
+        foot = plates[0][1]
+        plan = dict(
+            id=f"{prefix}_{foot.centroid.x:.0f}_{foot.centroid.y:.0f}",
+            origin=dict(x=round(ox, 4), y=round(base, 4), z=round(oz, 4), yaw=round(yaw, 6)),
+            levels=levels,
+            core=dict(minX=round(core[3] - hx, 4), minZ=round(core[4] - hz, 4),
+                      maxX=round(core[3] + hx, 4), maxZ=round(core[4] + hz, 4)),
+            sourceInfo=dict(origin="mesh component + roof envelope", base=round(base, 2),
+                            components=len(members), triangles=int(len(idx)),
+                            footprintArea=round(foot.area, 1), replaces=[]))
+        problems = B.validate(plan)
+        if problems:
+            return None, None, "contract: " + problems[0].split(":")[0]
+        return plan, plates, None
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--out", default=str(DATA / "orphans"))
+    args = parser.parse_args()
+
+    triangles = np.load(DATA / "world_triangles.npz")["triangles"]
+    comps, ordered = building_groups(triangles)
+    planner = Planner(triangles, comps)
+
+    live = live_plans()
+    live_fp = [f for f in (unary_union(list(world_levels(p))) for p in live.values()) if not f.is_empty]
+    live_tree = STRtree(live_fp)
+
+    greys = {}
+    with open(DATA / "live_extents.csv", newline="") as fh:
+        for row in csv.DictReader(fh):
+            greys["BuildingSmooth_" + row["n"]] = box(float(row["x0"]), float(row["z0"]),
+                                                      float(row["x1"]), float(row["z1"]))
+    claimed = {n.strip() for n in (DATA / "applied_greys.txt").read_text().splitlines() if n.strip()}
+    for plan in live.values():
+        claimed.update(plan.get("sourceInfo", {}).get("replaces", []))
+    open_greys = {n: g for n, g in greys.items() if n not in claimed}
+    grey_names = list(open_greys)
+    grey_tree = STRtree([open_greys[n] for n in grey_names])
+
+    out = Path(args.out)
+    out.mkdir(parents=True, exist_ok=True)
+    for stale in out.glob("*.json"):
+        stale.unlink()
+    made, skipped, absorbed = 0, {}, set()
+
+    def skip(why):
+        skipped[why] = skipped.get(why, 0) + 1
+
+    # Largest first, and each later building keeps clear of those already
+    # planned exactly as it keeps clear of live ones: an outline can reach over
+    # a neighbour's roof, and 23 pairs overlapped (worst 2,728 sq studs).
+    planned_fp = []
+    for members in ordered:
+        fp = planner.footprint(members)
+        if fp.area < B.MIN_FOOTPRINT:
+            skip("footprint under 400 sq studs")
+            continue
+        c = fp.centroid
+        if any((c.x - px) ** 2 + (c.y - pz) ** 2 <= pr * pr for px, pz, pr in PROTECTED):
+            skip("protected (Shibuya Sky)")
+            continue
+        near_live = [live_fp[k] for k in live_tree.query(fp)]
+        if near_live:
+            covered = union_all([fp.intersection(f, grid_size=0.01) for f in near_live], grid_size=0.01)
+            if covered.area > LIVE_COVER_MAX * fp.area:
+                skip("already covered by a live building")
+                continue
+        near_planned = [f for f in planned_fp if f.intersects(fp)]
+        others = near_live + near_planned
+        blocked = union_all([f.buffer(LIVE_CLEARANCE) for f in others], grid_size=0.01) if others else None
+
+        plan, plates, why = planner.plan(members, blocked)
+        if plan is None:
+            skip(why)
+            continue
+        if plan["id"] in REMOVED:
+            skip("road / viaduct (REMOVED)")
+            continue
         foot = plates[0][1]
         replaces = []
         for k in grey_tree.query(foot):
@@ -359,19 +425,7 @@ def main():
             if name not in absorbed and g.intersection(foot).area >= 0.5 * g.area:
                 replaces.append(name)
         absorbed.update(replaces)
-        plan = dict(
-            id=f"orph_{foot.centroid.x:.0f}_{foot.centroid.y:.0f}",
-            origin=dict(x=round(ox, 4), y=round(base, 4), z=round(oz, 4), yaw=round(yaw, 6)),
-            levels=levels,
-            core=dict(minX=round(core[3] - hx, 4), minZ=round(core[4] - hz, 4),
-                      maxX=round(core[3] + hx, 4), maxZ=round(core[4] + hz, 4)),
-            sourceInfo=dict(origin="mesh component + roof envelope", base=round(base, 2),
-                            components=len(members), triangles=int(len(idx)),
-                            footprintArea=round(foot.area, 1), replaces=sorted(replaces)))
-        problems = B.validate(plan)
-        if problems:
-            skip("contract: " + problems[0].split(":")[0])
-            continue
+        plan["sourceInfo"]["replaces"] = sorted(replaces)
         (out / f"{plan['id']}.json").write_text(json.dumps(plan))
         planned_fp.append(union_all([pl for _, pl in plates], grid_size=0.01))
         made += 1

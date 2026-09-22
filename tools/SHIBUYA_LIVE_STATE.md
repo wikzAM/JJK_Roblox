@@ -8,6 +8,13 @@ measured, not estimated.
 > If Studio was closed without saving, the applied buildings are gone and the greys come back from
 > the archives listed below — re-run the pipeline from *Rebuilding from scratch*.
 
+> **UPDATE Sept 22 (overnight):** **2,069 source-slice buildings, 298 greys.** 13 floating stubs
+> extended to the ground, 56 partly covered FBX buildings planned whole (57 live replaced;
+> protected crowns in `sweep/protected_live.txt`), 5 more roads/ramps moved to
+> `ServerStorage.RemovedInfrastructure`, mid-building gaps filled, 78 one-storey greys given a mid
+> slab. Handoff: "FLOATING, PARTIAL, ROADS". `ServerStorage.SweepReload5` is a clone of the Server
+> scripts holding the module with `Sweep.Replace`; delete it once Studio restarts. **Save the place.**
+>
 > **UPDATE Sept 21 (overnight):** the map now covers **86.5%** of the FBX's building footprint
 > (was 49.8%): **1,998 source-slice buildings, 352 greys**. 626 buildings the map never had were added
 > from roofs (Shibuya PARCO = `orph_703_1736`), 155 had their floors rebuilt, every roof carries a rim

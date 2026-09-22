@@ -5,6 +5,18 @@ START HERE: tools/SHIBUYA_LIVE_STATE.md — measured census of the live place,
   no MCP calls to know where things stand. Then tools/SHIBUYA_SOURCE_SLICE_HANDOFF.md
   for the reasoning record. THE MAP IS UNSAVED.
 
+September 22, 2026 — FLOATING, PARTIAL, ROADS (the owner's I-beam photos).
+  Floating roof-only stubs extended to where the FBX walls end
+  (tools/source_slice_extend_floating.py, 13). Storeys missing mid-building are
+  filled with the next level above (Planner in source_slice_orphans.py, and
+  tools/source_slice_gapfill.py); 78 one-storey greys got a mid slab.
+  tools/source_slice_partial.py plans FBX buildings that live buildings only
+  partly covered (the "missing / rotated" ones) whole: 56 replaced 57 live, via
+  Sweep.Replace. NEVER touches tools/source_slices/sweep/protected_live.txt (the
+  22 shell crowns + Cerulean). 5 more roads to RemovedInfrastructure;
+  orphans.REMOVED lists them all. Live: 2,069 buildings, 298 greys.
+  Details: tools/SHIBUYA_SOURCE_SLICE_HANDOFF.md, "FLOATING, PARTIAL, ROADS".
+
 September 21, 2026 — ROOF ENVELOPE + ORPHANS. FBX coverage 49.8% -> 86.5%.
   The pipeline was GREY-DRIVEN (only sliced the FBX under an existing grey), so
   buildings with no grey -- Shibuya PARCO among them -- were never generated, and

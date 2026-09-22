@@ -10,6 +10,64 @@
 Updated **September 17, 2026, 07:00**. Isolated resume file. Read `src/client/ProjectFiles.luau`
 first, then this file.
 
+## FLOATING, PARTIAL, ROADS Sept 22 (overnight) — the owner's "I-beam / missing / rotated" photos
+
+The owner photographed three kinds of wrong building and asked for them fixed automatically, and
+for the big roads and viaducts (not buildings) to go. `tools/source_slice_diagnose.py` finds them
+(FLOATING, ROAD, ROTATED) and writes `sweep/diagnose.json`.
+
+**Floating stubs, the I-beam.** When a roof is its own mesh piece, not welded to the walls, the
+roof alone was generated: two floors hanging 90-130 studs up. `tools/source_slice_extend_floating.py`
+extends those down to where the FBX walls under the footprint end. It does this only where the
+walls exist; a bridge has none. It stacks down from the stub at a steady storey pitch, and the ground
+storey takes the remainder (up to 1.66 storeys: a tall lobby, not a gap). A building below, such as
+a podium, stops the extension at its roof, and the referee refuses any extension that spills.
+13 buildings (`rebuild_floating3_01`).
+
+**Storeys missing mid-building, a second I-beam.** `Planner.plan` used to `continue` past a level
+whose rings failed to convert, leaving floors, then bare core, then a roof slab (`part_1898_-1335`:
+floors to 35.7, next at 125). It now fills the missing storeys with copies of the next good level
+ABOVE, which lies inside every floor beneath it because slices only shrink going up.
+`tools/source_slice_gapfill.py` did the same for the 4 live plans (`rebuild_gapfill_01`). 78
+one-storey greys (27-36 studs, floor slab + roof slab + core) read the same way; each got a
+mid-height slab cloned from its roof slab (`GreyMidSlab` attribute, 412 parts).
+
+**Missing and "rotated" buildings.** The orphan pass skips an FBX building that live buildings cover
+more than 20%. A small or turned live building on one corner of a large FBX building therefore hid
+the rest of it, and it read as rotated. The screenshot's rotated candidate
+(`fbx_5_11404_945_7873`) is aligned; the fault was coverage. `tools/source_slice_partial.py` plans
+each partly covered FBX building whole, using the orphan planner, now refactored into
+`building_groups()` and `Planner` in `source_slice_orphans.py`. It replaces live buildings that
+lie >= 60% inside the building's outline and keeps clear of neighbours. It accepts only if coverage
+gains >= 15%, or a building > 2 storeys short gains >= a storey; it never accepts a lower building
+or more spill. **Protected**: `sweep/protected_live.txt` (22 hand-approved shell crowns + 1
+manual-design crown, the Cerulean among them). The first trial read the Cerulean as "85 studs too
+tall": the 95th-percentile roof over a grown footprint misreads a tower. 56 plans replaced 57 live
+buildings (`partial_partial_01..03` + `partial_partialretry_01`, applied by the new
+`Sweep.Replace`); 2 had failed triangulation until `buildable_fix` ran. `current_plans()` follows
+partial chunks in write order.
+
+**Roads.** 5 more elevated roads and ramps were removed to `ServerStorage.RemovedInfrastructure`
+(7 models there now). Three of them were viaducts removed before and re-added by the level-curve
+orphan pass under the same ids (Route 246 expressway deck, 1,300 x 117 studs). `orphans.REMOVED`
+now lists every one: `current_plans()` drops them and the orphan planner skips them.
+
+Also: `orph_1840_1137` was never in the map (native slab overlap in Studio), so it was re-added
+with rings simplified 1 stud (`orphans_lc_retry_01`). `Sweep.Rebuild` now carries `SweepOrphan`
+and `SweepPartial`. Map and repo agree: 2,069 source-slice buildings, 298 greys.
+
+| (same audit as below) | before tonight | now |
+|---|---|---|
+| median top vs FBX roof | -14.8 studs | -14.7 |
+| > one storey short | 916 | 906 |
+| > two storeys short | 191 | 172 |
+| a floor > 10% / > 30% outside the FBX | 108 / 55 | 106 / 55 |
+| storeys missing mid-building | 6 | 0 (4 tall lobbies) |
+
+Still open: about 900 buildings more than a storey short, mostly by the storey grid (the
+top-snap was disabled for floating boxes; see clean_tops). One idea: stretch the storey pitch per
+building so the last floor meets the roof, instead of adding a slab.
+
 ## LEVEL CURVES Sept 21 (day) — every floor is the building's filled slice, up to its real roof
 
 The map owner's framing: treat a building's FBX shape as a 3-D function; each floor is its level

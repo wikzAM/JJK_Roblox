@@ -363,7 +363,7 @@ function Sweep.Rebuild(chunkName, options)
 			continue
 		end
 		-- Carry the notes a human may have left on the old building.
-		for _, key in {"CrownNeedsManualDesign", "CrownInteresting"} do
+		for _, key in {"CrownNeedsManualDesign", "CrownInteresting", "SweepOrphan", "SweepPartial"} do
 			local value = old:GetAttribute(key)
 			if value ~= nil then fresh:SetAttribute(key, value) end
 		end
@@ -445,6 +445,75 @@ function Sweep.Add(chunkName)
 	end
 	local summary = string.format("added %d, greys archived %d, already live %d, rejected %d%s",
 		added, greys, already, #rejected,
+		#rejected > 0 and (" | " .. table.concat(rejected, "; ")) or "")
+	lock:SetAttribute("Summary", summary)
+	lock:SetAttribute("Done", true)
+	return chunkName .. ": " .. summary
+end
+
+-- REPLACE live buildings that only partly covered an FBX building with the whole
+-- of it (a "partial_*" chunk from source_slice_partial.py). Each new building is
+-- built and audited first; only then are the live buildings it lists in
+-- sourceInfo.replacesLive destroyed (every old plan is in the repo) and the open
+-- greys in sourceInfo.replaces archived.
+function Sweep.Replace(chunkName)
+	editOnly()
+	local lock = Storage:FindFirstChild(LOCK_PREFIX .. chunkName)
+	if lock then
+		return string.format("REPLAY %s: %s", chunkName, tostring(lock:GetAttribute("Summary")))
+	end
+	lock = Instance.new("Folder")
+	lock.Name = LOCK_PREFIX .. chunkName
+	lock.Parent = Storage
+
+	local live = buildings()
+	local chunk = fetch(chunkName)
+	local archive = Instance.new("Folder")
+	archive.Name = "SweepAddedOverGreys_" .. chunkName
+	archive.Parent = Storage
+	local added, replaced, greys, rejected, already = 0, 0, 0, {}, 0
+	for index, plan in chunk.plans do
+		if live:FindFirstChild("BuildingSourceSlice_" .. plan.id) then
+			already += 1
+			continue
+		end
+		local ok, fresh = pcall(Builder.Build, plan)
+		if ok then
+			local audit = Builder.Audit(fresh)
+			if audit.summary.badBuildings > 0 then
+				ok, fresh = false, tostring(audit.badModels[1].reasons[1])
+			end
+		end
+		if not ok then
+			table.insert(rejected, plan.id .. " :: " .. tostring(fresh))
+			continue
+		end
+		local info = plan.sourceInfo or {}
+		for _, id in info.replacesLive or {} do
+			local old = live:FindFirstChild("BuildingSourceSlice_" .. id)
+			if old then
+				old:Destroy()
+				replaced += 1
+			end
+		end
+		for _, name in info.replaces or {} do
+			local grey = live:FindFirstChild(name)
+			if grey then
+				grey.Parent = archive
+				greys += 1
+			end
+		end
+		fresh:SetAttribute("SweepPartial", true)
+		fresh.Parent = live
+		local entry = rimEntryFor(fresh)
+		if entry then pcall(CrownParapet.BuildRim, fresh, entry, {tag = NO_CSG}) end
+		fresh:SetAttribute("SweepCrowned", true)
+		added += 1
+		if index % 5 == 0 then task.wait() end
+	end
+	if #archive:GetChildren() == 0 then archive:Destroy() end
+	local summary = string.format("added %d, live replaced %d, greys archived %d, already live %d, rejected %d%s",
+		added, replaced, greys, already, #rejected,
 		#rejected > 0 and (" | " .. table.concat(rejected, "; ")) or "")
 	lock:SetAttribute("Summary", summary)
 	lock:SetAttribute("Done", true)
