@@ -27,6 +27,11 @@ first, then this file.
     smooth ground around flat pads). It is capped by a cone of 0.5 studs rise per stud above every
     nearby floor, so the street eases down to a lower building instead of burying its ground floor.
 - The old terrain was cleared. `HitHandler` already carves Terrain for the trench.
+- **`FACE_DROP` = 1.5**: the cap keeps the street 1.5 studs BELOW a nearby floor, not level with it,
+  so a ground-floor (storefront) facade is never buried by the ground. Measured at 1 stud outside
+  1,490 building faces: terrain above the floor-1 top fell 23.7% -> 11.9% of faces, and above it by
+  more than a stud 1.3% (max +4.5). The facade design that assumes this: glass sill at slab top + 2
+  with a 2-stud kickplate, and a plinth run 8-10 studs down through the terrain.
 - The part-built TIN (`tools/ground_tin.py` + `GroundBuilder.luau`) is kept as an alternative. It
   went 96,996 → 50,438 wedges along the way:
   - adaptive squares;

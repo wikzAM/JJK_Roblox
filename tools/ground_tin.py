@@ -45,6 +45,8 @@ MAX_SQUARE = 512.0
 STREET_SIGMA = 32.0  # studs: smoothing of the street surface
 PLINTH = 5.2         # studs a pad edge may sit under its floor (slab is 5.36 thick)
 CONE = 0.5           # studs of rise per stud of distance allowed above a nearby floor
+FACE_DROP = 1.5      # studs the street stays below a building's floor at its face,
+                     # so a ground-floor facade is never buried by the ground
 BURY = 0.0           # studs a pad edge may sit above its floor. 2.0 showed ground slivers on top of ground-floor slabs
 MIN_SQUARE = 64.0
 SAMPLES = ((1 / 3, 1 / 3, 1 / 3), (.5, .5, 0), (0, .5, .5), (.5, 0, .5),
@@ -86,7 +88,7 @@ def main():
     # distance: near a building lower than the street, the street eases down to
     # its floor instead of burying its ground floor (17% of ground inside
     # footprints stood above the floor without this).
-    U = floors.copy()
+    U = floors - FACE_DROP
     step, diag = CONE * cell, CONE * cell * 2 ** 0.5
     for _ in range(400):
         p = np.pad(U, 1, mode="edge")

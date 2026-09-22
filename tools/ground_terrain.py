@@ -32,6 +32,8 @@ VOXEL = 4.0
 CHUNK = 128          # voxels per chunk side (512 studs)
 STREET_SIGMA = 32.0
 CONE = 0.5
+FACE_DROP = 1.5      # studs the street stays below a building's floor at its face,
+                     # so a ground-floor facade is never buried by the ground
 UNDER = 1.0          # studs under a floor top inside its footprint (pins are already floor - 0.1)
 DEPTH = 12.0         # studs of solid terrain below the lowest surface in a chunk
 
@@ -41,7 +43,7 @@ def main():
     H, known, hx0, hz0, cell = d["H"], d["known"], float(d["x0"]), float(d["z0"]), float(d["cell"])
     floors = np.where(known, H, np.inf)
     street = ndimage.gaussian_filter(H, STREET_SIGMA / cell, mode="nearest")
-    U = floors.copy()
+    U = floors - FACE_DROP
     step, diag = CONE * cell, CONE * cell * 2 ** 0.5
     for _ in range(400):
         p = np.pad(U, 1, mode="edge")
