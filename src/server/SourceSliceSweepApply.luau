@@ -520,6 +520,51 @@ function Sweep.Replace(chunkName)
 	return chunkName .. ": " .. summary
 end
 
+-- Merge every live source-slice building's per-storey core walls into one
+-- full-height wall per name, in Floor1 -- exactly what SourceSliceBuilder now
+-- builds. Same footprint, same bottom (floor-1 slab top), same top (roof slab
+-- underside); the walls pass through the intermediate slabs. Idempotent: a
+-- building whose core is already one wall per name is skipped.
+function Sweep.MergeCores(limit)
+	editOnly()
+	local merged, removed, skipped = 0, 0, 0
+	for _, model in buildings():GetChildren() do
+		if not model.Name:match("^BuildingSourceSlice_") then continue end
+		local interior = model:FindFirstChild("Interior")
+		local floor1 = interior and interior:FindFirstChild("Floor1")
+		if not floor1 then skipped += 1; continue end
+		local byName = {}
+		for _, d in interior:GetDescendants() do
+			if d:IsA("BasePart") and d:GetAttribute("SourceSliceCore") then
+				byName[d.Name] = byName[d.Name] or {}
+				table.insert(byName[d.Name], d)
+			end
+		end
+		local need = false
+		for _, list in byName do if #list > 1 then need = true end end
+		if not need then continue end
+		for _, list in byName do
+			local bottom, top, keep = math.huge, -math.huge, nil
+			for _, part in list do
+				bottom = math.min(bottom, part.Position.Y - part.Size.Y / 2)
+				top = math.max(top, part.Position.Y + part.Size.Y / 2)
+				if not keep or part.Position.Y < keep.Position.Y then keep = part end
+			end
+			local cf = keep.CFrame
+			keep.Size = Vector3.new(keep.Size.X, top - bottom, keep.Size.Z)
+			keep.CFrame = cf + Vector3.new(0, (bottom + top) / 2 - cf.Position.Y, 0)
+			keep.Parent = floor1
+			for _, part in list do
+				if part ~= keep then part:Destroy(); removed += 1 end
+			end
+		end
+		merged += 1
+		if limit and merged >= limit then break end
+		if merged % 50 == 0 then task.wait() end
+	end
+	return string.format("cores merged in %d buildings (%d parts removed), %d without Floor1", merged, removed, skipped)
+end
+
 -- Remove every building added by an earlier orphan pass, before adding the
 -- regenerated set. Identified by the SweepOrphan attribute Sweep.Add sets.
 function Sweep.RemoveOrphans()

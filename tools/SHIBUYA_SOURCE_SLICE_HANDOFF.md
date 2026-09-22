@@ -10,6 +10,86 @@
 Updated **September 17, 2026, 07:00**. Isolated resume file. Read `src/client/ProjectFiles.luau`
 first, then this file.
 
+## GROUND AS TERRAIN + ONE CORE PER BUILDING, Sept 23 — about 100k fewer parts
+
+**The ground is now Roblox Terrain, with zero parts.**
+- `tools/ground_terrain.py` writes one surface height per 4-stud voxel column into
+  `ground/terrain/chunk_*.json` (182 chunks of 512 studs).
+- `src/server/GroundTerrain.luau` builds it with `WriteVoxels`. Each column is solid below the
+  surface, the voxel the surface passes through is written as a fraction, and air sits above.
+- Smooth terrain places the surface by occupancy, so slopes come out smooth rather than 4-stud
+  stairs. The failed heightmap import never used this.
+- Measured: the surface sits about 2 studs (half a voxel) above the encoded height (median +2.00,
+  p5 +1.21, p95 +2.84 over 200 probes). `SURFACE_BIAS` corrects for it.
+- **Surface:**
+  - Inside a grounded footprint, the floor-1 top less 1 stud, hidden inside the slab.
+  - Elsewhere, the STREET surface: the pinned field blurred by 32 studs (Cities: Skylines style,
+    smooth ground around flat pads). It is capped by a cone of 0.5 studs rise per stud above every
+    nearby floor, so the street eases down to a lower building instead of burying its ground floor.
+- The old terrain was cleared. `HitHandler` already carves Terrain for the trench.
+- The part-built TIN (`tools/ground_tin.py` + `GroundBuilder.luau`) is kept as an alternative. It
+  went 96,996 → 50,438 wedges along the way:
+  - adaptive squares;
+  - pad edges clamped to [floor-5.2, floor];
+  - the smoothed street.
+  Its offline checks are `tools/ground_check.py` (holes, cracks, `--poke`).
+
+**Cores: 54,990 → 12,414 parts.**
+- `SourceSliceBuilder` builds 6 full-height core walls per building, stored in Floor1, spanning
+  the floor-1 slab top to the roof slab's underside. The audit checks exactly that.
+- `Sweep.MergeCores()` converted all 2,069 live buildings. Spot-checked with `Builder.Audit`:
+  0 bad buildings.
+- **For a future collapse system:** each plan attribute still has every floor's height. Split a
+  building's 6 tall walls into per-floor pieces when the collapse logic first touches that
+  building, so the split cost is paid only for buildings actually collapsing.
+
+**Also:** a "sliver" top floor must now be under 2,000 sq studs as well as under 15% of the widest
+floor. The old rule trimmed real towers off podiums: `fbx_3_3335_1747_13588` was 45 studs under
+its roof, and after re-planning it is within 9 studs.
+
+## THE GROUND, Sept 22 (night) — a part-built street surface pinned to every building
+
+Studio's terrain was a failed heightmap import: flat at 26-36 studs everywhere, while building bases
+run 45-260. The only reliable elevation in the map is the buildings, so the ground is built from them.
+
+1. **`tools/ground_heightfield.py`** builds a 4-stud height field from the buildings:
+   - Every building footprint is pinned at its floor-1 top minus 0.1. That means all live plans,
+     plus the lowest parts of greys and other models from `ground_other_buildings.csv`, which Studio
+     dumps through the sink.
+   - Where footprints overlap, the lowest pin wins.
+   - **Perched pins are dropped: 206 of them** (listed in `ground/perched.txt`). These are buildings
+     more than 36 studs above the median of their neighbours within 40 studs, such as tower stubs on
+     podiums, grey crown fragments and floating decks; one of them had put a street at 427 studs. Pins
+     smaller than 150 sq studs are also dropped.
+   - Streets and open ground are a **harmonic membrane** between the pins (multigrid Jacobi, 8 s).
+   - Beyond 100 studs from any building, the field blends into a 100-stud Gaussian trend so isolated
+     pins don't raise cones.
+   - The result reproduces Shibuya's valley: the station axis is low (about 40 studs), with hills to
+     the east and west (170). `tools/ground_preview.py` renders a hillshade PNG of it.
+2. **`tools/ground_tin.py`** meshes it:
+   - Grounded buildings are merged into blocks: 3-stud gaps closed, outlines simplified by 1.5 studs,
+     then inset 1.5 studs so the ground tucks under every slab edge (no crack down to the terrain).
+   - Each 64-stud square takes its share of the space between blocks and is split with a constrained
+     Delaunay triangulation, so streets span from one block edge to the opposite one.
+   - An outline vertex takes the lowest floor among the buildings it touches, so the pavement meets
+     each building flush. Every other vertex takes the field.
+   - Shared square edges carry the same vertices on both sides, so there are no cracks. There is no
+     ground under buildings; floor 1 is the ground there.
+   - Output: **45,015 triangles, about 90,000 wedges, in 182 tiles of 512 studs**.
+   - A quadtree over the raw field was tried first. It needed 0.6-1.4M wedges because it followed
+     every stair-stepped footprint edge.
+3. **`src/server/GroundBuilder.luau`** builds the tiles into `workspace.Ground.<tile>`:
+   - Each triangle becomes 2 wedges via TriangleShell, 2 studs thick, growing downward.
+   - Material is Concrete, colour 98,98,102 (asphalt). `HitHandler` already carves ground parts and
+     takes debris colour from them.
+   - Usage: `BuildTile(name)` / `BuildAll()` / `Clear()`, with the sink running.
+
+**Known and by design:**
+- Where adjacent buildings' ground floors differ a lot across a narrow gap, the ground between them
+  is steep. PLATEAU records a real drop there, since each building's base is its lowest ground point.
+  2% of the ground area is steeper than 35°.
+- Perched and floating buildings now visibly stand above the ground.
+
 ## THE TWO PHOTOGRAPHED BUILDINGS, Sept 22 (day) — found by selection, not by class
 
 The overnight pass fixed classes of fault and never confirmed the two buildings in the owner's photos

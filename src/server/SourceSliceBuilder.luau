@@ -261,8 +261,13 @@ local function buildCompiled(p,frame,name)
 					partCount+=1; if part:IsA("WedgePart") then wedgeCount+=1 end
 				end
 			end
-			if index<=p.floors then
-				for _,spec in coreSpecs(p.core,level.y+level.thickness,p.levels[index+1].y) do makeCore(floor,spec,frame) end
+		end
+		-- One full-height core per building, not one per storey: 6 walls instead
+		-- of 6 x floors (55k of the map's ~320k building parts). The walls pass
+		-- through the intermediate slabs; hits carve them like any structure.
+		if p.floors>=1 then
+			for _,spec in coreSpecs(p.core,p.levels[1].y+p.levels[1].thickness,p.levels[#p.levels].y) do
+				makeCore(interior:FindFirstChild("Floor1"),spec,frame)
 			end
 		end
 		local first,last=p.levels[1],p.levels[#p.levels]
@@ -364,8 +369,9 @@ local function auditModel(model)
 		local floor=interior:FindFirstChild(name)
 		assert(floor and floor:IsA("Model"),"Missing "..name)
 		local coreExpected={}
-		if index<=p.floors then
-			for _,spec in coreSpecs(p.core,level.y+level.thickness,p.levels[index+1].y) do coreExpected[spec[1]]=spec end
+		if index==1 and p.floors>=1 then
+			-- the full-height core lives in Floor1 (see buildCompiled)
+			for _,spec in coreSpecs(p.core,level.y+level.thickness,p.levels[#p.levels].y) do coreExpected[spec[1]]=spec end
 		end
 		local pieceAreas,actualShapes={},{}
 		for _,part in floor:GetChildren() do
@@ -441,7 +447,7 @@ local function auditModel(model)
 			counts.crownParts+=1
 		end
 	end
-	assert(counts.coreParts==p.floors*6,"Incorrect total common core parts")
+	assert(counts.coreParts==(p.floors>=1 and 6 or 0),"Incorrect total common core parts")   -- one full-height core
 	local c,first,last=p.core,p.levels[1],p.levels[#p.levels]
 	local expectedCF=frame*CFrame.new((c.minX+c.maxX)/2,(first.y+last.y+last.thickness)/2,(c.minZ+c.maxZ)/2)
 	local expectedSize=Vector3.new(c.maxX-c.minX,last.y+last.thickness-first.y,c.maxZ-c.minZ)

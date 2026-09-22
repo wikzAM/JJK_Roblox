@@ -27,3 +27,6 @@ __pycache__/
 /tools/source_slices/sweep/tiles/
 /tools/source_slices/sweep/gate_shards/
 /tools/source_slices/sweep/crown_shards/
+
+# generated ground data (tools/ground_heightfield.py, ground_tin.py, ground_terrain.py)
+tools/source_slices/ground/

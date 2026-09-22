@@ -61,6 +61,7 @@ PROTECTED = [(-630.0, 48.0, 260.0)]
 # studs apart and its podium up to seven pieces; the map owner asked for PARCO
 # to be filled within its perimeter at each section, so it gets a wider close.
 SEAM = 3.0
+SLIVER_ABS = 2000.0   # sq studs; see the sliver trim in Planner.plan
 TOP_SNAP = False   # see the plan builder: floating roof slabs; ledge on the top floor instead
 SEAM_OVERRIDES = [((705.0, 1720.0), 8.0, "Shibuya PARCO")]
 
@@ -310,7 +311,10 @@ class Planner:
                 if top is not None and top.area >= B.MIN_FOOTPRINT:
                     plates[-1] = (want, top)
         widest = max((p.area for _, p in plates), default=0)
-        while len(plates) > 2 and plates[-1][1].area < B.SLIVER_SHARE * widest:
+        # A sliver is small against the widest floor AND small outright: a real
+        # 78 x 78 tower on a big podium is 11% of it and was trimmed off
+        # (fbx_3_3335_1747_13588 stopped 45 studs under its roof).
+        while len(plates) > 2 and plates[-1][1].area < B.SLIVER_SHARE * widest                 and plates[-1][1].area < SLIVER_ABS:
             plates.pop()
         if len(plates) < 2:
             return None, None, "under two storeys"
