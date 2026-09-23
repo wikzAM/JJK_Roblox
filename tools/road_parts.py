@@ -98,6 +98,12 @@ def main():
     lat0, lon0, mlat, mlon = fit["lat0"], fit["lon0"], fit["m_per_deg_lat"], fit["m_per_deg_lon"]
     c, sn = math.cos(rot), math.sin(rot)
     S, x0, z0, cell = surface()
+    inside = np.load(DATA / "heights.npz")["known"]      # building footprints
+
+    def in_building(x, z):
+        i = int(round((x - x0) / cell))
+        j = int(round((z - z0) / cell))
+        return 0 <= i < inside.shape[0] and 0 <= j < inside.shape[1] and bool(inside[i, j])
 
     def ground(x, z):
         fi = min(max((x - x0) / cell, 0), S.shape[0] - 1.001)
@@ -139,6 +145,12 @@ def main():
                 qx, qz = ax + (bx - ax) * t1, az + (bz - az) * t1
                 if not (x0 < px < x1 and z0 < pz < z1):
                     continue
+                cx_, cz_ = (px + qx) / 2, (pz + qz) / 2
+                # a roadway inside a footprint is buried under that building's
+                # floor: OSM and PLATEAU disagree by ~11 m (their building
+                # outlines differ), so some slabs land there. Skip them.
+                if in_building(cx_, cz_):
+                    continue
                 length = math.hypot(qx - px, qz - pz) + 2.0      # overlap the next slab
                 cx, cz = (px + qx) / 2, (pz + qz) / 2
                 yaw = math.atan2(qz - pz, qx - px)
@@ -152,7 +164,7 @@ def main():
                              round(length, 2), round(THICKNESS, 2), round(road_w, 2), kind, w["id"]])
                 counts["roadway"] += 1
                 if walk_w >= 2.0:
-                    for side in (-1, 1):
+                    for side in (-1, 1):   # pavements MAY run under buildings: that is what hides their outer edge
                         ox = -math.sin(yaw) * side * (road_w + walk_w) / 2
                         oz = math.cos(yaw) * side * (road_w + walk_w) / 2
                         wx, wz = cx + ox, cz + oz
