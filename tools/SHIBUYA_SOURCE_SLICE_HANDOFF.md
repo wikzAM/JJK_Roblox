@@ -2174,3 +2174,46 @@ where a slab clips a building corner, which is what it should be.
 tuned by eye, not conversions; a "5 m" storey is really 4.27 m. Changing them would rebuild
 every building for no visual gain. Use 4.182937 for anything georeferenced and leave the
 storey grid alone. See `src/client/ProjectFiles.luau` "Units".
+
+## WHERE THE PARTS ACTUALLY ARE Sept 23 — and the one change that moves the number
+
+Measured from the staged chunk plans (2,231 distinct buildings, 15,793 rings), reconciled
+against the ~290,000 parts observed live:
+
+| | parts | share |
+|---|---|---|
+| slabs (ear-clipped rings, 1-2 wedges per triangle) | ~188,000 | 52% |
+| perimeter walls (one part per ring edge) | ~161,000 | 44% |
+| cores (6 per building, after the merge) | ~13,400 | 4% |
+
+Mean 136 parts per building; the median building has 4 floors. **Roads are 8,811 parts — 3% of
+the map. Stop optimising them.** Two things were measured and rejected before the one that works:
+
+* **Quadtree aprons** (merge the 64-stud apron grid where the ground is planar): 4,847 -> 4,128
+  at a 1-stud tolerance. 15% of 3% of the map. Not worth the risk of a larger slab poking
+  through. Do not retry.
+* **Rectangle partition instead of ear clipping** for rectilinear rings: saves ~18,350 parts
+  (5%). Only 33% of rings are rectilinear enough (>=95% of edge length axis-aligned), and the
+  4-vertex case -- by far the most common -- is *already* one Part via `isRectangle`. A real
+  change to PolygonSlab's contract for 5%. Park it.
+
+**What works: simplify the rings.** Every vertex is paid for twice, as a wall and inside the
+slab, so vertex count drives 96% of the map. The rings hold far more detail than a 0.24 m/stud
+world renders. `tools/source_slice_simplify.py` drops vertices with an adaptive tolerance
+(3% of sqrt(footprint area), capped at 3 studs = 0.72 m):
+
+```
+34,153 rings, 12,357 simplified -> 15% of the parts gone
+refused: 163 self-intersecting, 145 too few vertices, 77 Studio could not triangulate
+worst area change 6.1% (a 5-vertex ring losing a corner); median 0.00%
+```
+
+Adaptive, not fixed: a flat 2-stud tolerance saves marginally more but spends the error on the
+smallest buildings. Every ring is gated on simplicity, winding, area, minimum edge, and
+`polygon_slab_sim.buildable` at the full 2048-state budget -- so a ring Studio would refuse
+never reaches Studio. A ring that fails any check keeps its original outline.
+
+**It has not been applied.** `--apply` rewrites the chunks (originals to `chunks_presimplify/`),
+but the live buildings were built from those chunks, so taking the saving means a
+`Sweep.Rebuild` over every building. That is the owner's call and needs Studio, which has been
+unreachable all session.
