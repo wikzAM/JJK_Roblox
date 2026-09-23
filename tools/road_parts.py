@@ -34,6 +34,9 @@ SIMPLIFY = 2.0      # studs: way simplification before segmenting
 THICKNESS = 8.0     # studs: slab depth, covering terrain steps under it
 CURB = 1.0          # studs the pavement stands above the roadway
 TILE = 512.0
+APRON = 64.0        # studs: the grid of plaza/apron slabs that cover open ground
+APRON_MIN = 0.12    # emit an apron where at least this much of its square is open ground
+APRON_SINK = 0.15   # studs below the surface, so roads and pavements read on top
 LANE_M = 3.25       # metres per lane when a way tags lanes
 
 # metres: roadway width, pavement width each side, and draw priority
@@ -172,6 +175,46 @@ def main():
                                      round(wz, 2), round(yaw, 5), round(pitch, 5),
                                      round(length, 2), round(THICKNESS, 2), round(walk_w, 2), kind, w["id"]])
                         counts["pavement"] += 1
+    # APRONS: the ground between the roads. Terrain alone terraces on gentle
+    # slopes (it rebuilds its surface from voxel occupancy), so the open space
+    # gets flat slabs too -- they may overlap buildings and roads, exactly as the
+    # pavements do, which is what keeps them to one part per 64-stud square.
+    covered = np.zeros(inside.shape, bool)
+    for rows in tiles.values():
+        for r in rows:
+            _, cx_, _, cz_, yaw_, _, length_, _, width_ = r[:9]
+            cc, ss = math.cos(yaw_), math.sin(yaw_)
+            for a in np.linspace(-length_ / 2, length_ / 2, max(2, int(length_ / cell) + 1)):
+                for b in np.linspace(-width_ / 2, width_ / 2, max(2, int(width_ / cell) + 1)):
+                    i = int(round((cx_ + a * cc - b * ss - x0) / cell))
+                    j = int(round((cz_ + a * ss + b * cc - z0) / cell))
+                    if 0 <= i < inside.shape[0] and 0 <= j < inside.shape[1]:
+                        covered[i, j] = True
+    from scipy import ndimage as _nd
+    city = _nd.binary_dilation(inside, iterations=int(150 / cell))
+    bare = (~inside) & city & (~covered)
+    n_apron = 0
+    steps = int(APRON / cell)
+    for i0 in range(0, inside.shape[0] - steps, steps):
+        for j0 in range(0, inside.shape[1] - steps, steps):
+            block = bare[i0:i0 + steps, j0:j0 + steps]
+            if block.mean() < APRON_MIN:
+                continue
+            cx_ = x0 + (i0 + steps / 2) * cell
+            cz_ = z0 + (j0 + steps / 2) * cell
+            h00, h10 = ground(cx_ - APRON / 2, cz_ - APRON / 2), ground(cx_ + APRON / 2, cz_ - APRON / 2)
+            h01, h11 = ground(cx_ - APRON / 2, cz_ + APRON / 2), ground(cx_ + APRON / 2, cz_ + APRON / 2)
+            # one plane through the square: yaw 0, pitched along x, rolled along z
+            pitch = math.atan2(((h10 + h11) - (h00 + h01)) / 2, APRON)
+            roll = math.atan2(((h01 + h11) - (h00 + h10)) / 2, APRON)
+            y = (h00 + h10 + h01 + h11) / 4 - APRON_SINK
+            key = (int(math.floor(cx_ / TILE)), int(math.floor(cz_ / TILE)))
+            tiles.setdefault(key, []).append(
+                ["apron", round(cx_, 2), round(y, 2), round(cz_, 2), round(roll, 5), round(pitch, 5),
+                 round(APRON + 2, 2), round(THICKNESS, 2), round(APRON + 2, 2), "apron", 0])
+            n_apron += 1
+    counts["apron"] = n_apron
+
     out = DATA / "roads"
     out.mkdir(parents=True, exist_ok=True)
     for f in out.glob("*.json"):
@@ -182,8 +225,8 @@ def main():
         (out / f"{name}.json").write_text(json.dumps({"name": name, "slabs": rows}))
         names.append([name, len(rows)])
     (out / "index.json").write_text(json.dumps(names))
-    print(f"{counts['roadway']} roadway + {counts['pavement']} pavement slabs = "
-          f"{counts['roadway'] + counts['pavement']} parts over {len(names)} tiles; "
+    print(f"{counts['roadway']} roadway + {counts['pavement']} pavement + {counts['apron']} apron slabs = "
+          f"{counts['roadway'] + counts['pavement'] + counts['apron']} parts over {len(names)} tiles; "
           f"{total_len:,.0f} studs of roadway ({total_len * 0.28 / 1000:.1f} km)")
     print(f"largest tile {max(n for _, n in names)} parts -> {out}")
 
