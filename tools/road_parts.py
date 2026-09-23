@@ -1,9 +1,12 @@
 """Road and pavement slabs from OpenStreetMap, laid on the map's ground.
 
 OSM gives the real street network (classes, lanes, one-ways, pedestrian
-streets); `osm_fit.json` puts it in stud coordinates (fitted from three landmark
-buildings: Shibuya Scramble Square, PARCO, the Cerulean Tower). Each way is cut
-into segments of at most SEGMENT studs, and each segment becomes:
+streets); `tile_georef.json` puts it in stud coordinates -- an exact
+georeference through JGD2011 CS IX, not a fit (see jgd_cs9.py, and the handoff
+doc's "THE STUD SIZE" for why fitting it failed three times). Roads are clipped
+to CITY_MARGIN studs past the outermost building, because OSM's bbox is wider
+than the FBX and the rest would hang over nothing. Each way is cut into
+segments of at most SEGMENT studs, and each segment becomes:
 
   * one ROADWAY slab, tilted to the ground's slope, its top at the ground
     surface, THICKNESS studs deep so it covers the terrain's voxel steps;
@@ -37,6 +40,7 @@ TILE = 512.0
 APRON = 64.0        # studs: the grid of plaza/apron slabs that cover open ground
 APRON_MIN = 0.12    # emit an apron where at least this much of its square is open ground
 APRON_SINK = 0.15   # studs below the surface, so roads and pavements read on top
+CITY_MARGIN = 150.0 # studs past the outermost building that the map still covers
 LANE_M = 3.25       # metres per lane when a way tags lanes
 
 # metres: roadway width, pavement width each side, and draw priority
@@ -114,6 +118,16 @@ def main():
         return x * c - y * sn + toff[0], x * sn + y * c + toff[1]
     S, x0, z0, cell = surface()
     inside = np.load(DATA / "heights.npz")["known"]      # building footprints
+    # OSM covers a wider area than the FBX does, so a third of the slabs landed
+    # past the edge of the ground we actually built and would hang over nothing.
+    # The map ends where the buildings end: keep roads inside the same margin the
+    # aprons use, so the roadway and the ground under it run out together.
+    city = ndimage.binary_dilation(inside, iterations=int(CITY_MARGIN / cell))
+
+    def in_city(x, z):
+        i = int(round((x - x0) / cell))
+        j = int(round((z - z0) / cell))
+        return 0 <= i < city.shape[0] and 0 <= j < city.shape[1] and bool(city[i, j])
 
     def in_building(x, z):
         i = int(round((x - x0) / cell))
@@ -162,6 +176,8 @@ def main():
                 # outlines differ), so some slabs land there. Skip them.
                 if in_building(cx_, cz_):
                     continue
+                if not in_city(cx_, cz_):
+                    continue
                 length = math.hypot(qx - px, qz - pz) + 2.0      # overlap the next slab
                 cx, cz = (px + qx) / 2, (pz + qz) / 2
                 yaw = math.atan2(qz - pz, qx - px)
@@ -198,8 +214,6 @@ def main():
                     j = int(round((cz_ + a * ss + b * cc - z0) / cell))
                     if 0 <= i < inside.shape[0] and 0 <= j < inside.shape[1]:
                         covered[i, j] = True
-    from scipy import ndimage as _nd
-    city = _nd.binary_dilation(inside, iterations=int(150 / cell))
     bare = (~inside) & city & (~covered)
     n_apron = 0
     steps = int(APRON / cell)
