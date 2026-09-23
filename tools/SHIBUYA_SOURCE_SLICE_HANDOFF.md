@@ -10,17 +10,24 @@
 Updated **September 17, 2026, 07:00**. Isolated resume file. Read `src/client/ProjectFiles.luau`
 first, then this file.
 
-## GROUND AS TERRAIN + ONE CORE PER BUILDING, Sept 23 — about 100k fewer parts
+## GROUND: PARTS ON TOP, TERRAIN UNDERNEATH + ONE CORE PER BUILDING, Sept 23
 
-**The ground is now Roblox Terrain, with zero parts.**
-- `tools/ground_terrain.py` writes one surface height per 4-stud voxel column into
-  `ground/terrain/chunk_*.json` (182 chunks of 512 studs).
-- `src/server/GroundTerrain.luau` builds it with `WriteVoxels`. Each column is solid below the
-  surface, the voxel the surface passes through is written as a fraction, and air sits above.
-- Smooth terrain places the surface by occupancy, so slopes come out smooth rather than 4-stud
-  stairs. The failed heightmap import never used this.
-- Measured: the surface sits about 2 studs (half a voxel) above the encoded height (median +2.00,
-  p5 +1.21, p95 +2.84 over 200 probes). `SURFACE_BIAS` corrects for it.
+**Terrain cannot be the visible ground.** Smooth terrain reconstructs its surface from voxel
+occupancy, and the surface steps by ~2 studs whenever a height crosses a voxel boundary. On
+Shibuya's streets (median slope 1.2 degrees) that reads as contour TERRACES with long flat treads --
+the map owner photographed them. Measured: a written column of 1,1,0.988,0 rendered its surface at
+the voxel top, not at the encoded height; a 2-voxel density ramp (0.5 + (h - centre)/8) only
+softened the steps. This is the same artefact as the original failed heightmap import, so the
+import was never the whole story. **The visible ground is therefore the part mesh**
+(`tools/ground_tin.py` + `src/server/GroundBuilder.luau`), and terrain is written SUBSURFACE = 8
+studs BELOW it (`tools/ground_terrain.py` + `src/server/GroundTerrain.luau`): solid mass for the
+trench to carve, no gaps under the parts. Map-wide check: terrain stands above the part ground at
+6 of 3,146 sample points (0.2%).
+
+**The ground as parts (live): 192 tiles, 63,552 wedges.**
+- Adaptive squares 512 -> 128 studs, constrained Delaunay against building outlines.
+- Buildings are holes, inset 1 stud so the ground tucks under every slab edge.
+- 96,996 wedges in the first build -> 63,552 now.
 - **Surface:**
   - Inside a grounded footprint, the floor-1 top less 1 stud, hidden inside the slab.
   - Elsewhere, the STREET surface: the pinned field blurred by 32 studs (Cities: Skylines style,

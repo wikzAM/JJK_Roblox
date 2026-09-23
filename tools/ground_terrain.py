@@ -1,4 +1,12 @@
-"""The ground as Roblox TERRAIN: zero parts, smooth slopes.
+"""Terrain UNDER the part-built ground: solid mass, never the visible surface.
+
+Terrain was tried as the ground itself and cannot hold a gently sloped surface:
+smooth terrain reconstructs its surface from voxel occupancy and steps by ~2
+studs wherever a height crosses a voxel boundary, which on Shibuya's 1.2-degree
+streets reads as contour terraces (the same artefact as the original failed
+heightmap import; a 2-voxel density ramp only softened it). So the visible
+ground is ground_tin.py's part mesh, and terrain is written SUBSURFACE studs
+below it: solid mass for the trench to carve, and no gaps under the parts.
 
 Studio's smooth terrain stores an occupancy per 4-stud voxel, and the mesher
 places the surface INSIDE a voxel by it -- so a height field written as
@@ -35,6 +43,7 @@ CONE = 0.5
 FACE_DROP = 1.5      # studs the street stays below a building's floor at its face,
                      # so a ground-floor facade is never buried by the ground
 UNDER = 1.0          # studs under a floor top inside its footprint (pins are already floor - 0.1)
+SUBSURFACE = 8.0     # studs below the part ground (terrain renders ~2 studs high and terraces, so keep well clear)
 DEPTH = 12.0         # studs of solid terrain below the lowest surface in a chunk
 
 
@@ -54,7 +63,7 @@ def main():
         U = new
     street = np.minimum(street, U)
     street = np.minimum(ndimage.gaussian_filter(street, 2.0, mode="nearest"), U)
-    S = np.where(known, H - (UNDER - 0.1), street)
+    S = np.where(known, H - (UNDER - 0.1), street) - SUBSURFACE
 
     # voxel columns, aligned to the 4-stud terrain grid
     vx0 = math.ceil(hx0 / VOXEL) * VOXEL

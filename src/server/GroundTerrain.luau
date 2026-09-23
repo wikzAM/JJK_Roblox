@@ -14,10 +14,17 @@ local GroundTerrain = {}
 local Http = game:GetService("HttpService")
 local SINK = "http://127.0.0.1:58999/get/tools/source_slices/ground/terrain/"
 local VOXEL = 4
+-- The density ramp spans 2 voxels: with a 1-voxel ramp a height sitting
+-- mid-voxel clamps its neighbours to full and empty, leaving the mesher a
+-- single partial voxel and a terraced surface.
+local RAMP = 8
 local MATERIAL = Enum.Material.Concrete
--- Measured: smooth terrain puts the surface ~2 studs (half a voxel) above the
--- height the occupancy encodes (200 probes: median +2.00, p5 +1.21, p95 +2.84).
-local SURFACE_BIAS = 2.0
+-- Smooth terrain puts its surface where occupancy crosses 0.5 BETWEEN VOXEL
+-- CENTRES. Filling everything below solid and giving the surface voxel a
+-- fraction therefore steps the surface by half a voxel whenever the height
+-- passes a centre: 2-stud terraces across every slope, and a +2 stud bias.
+-- Writing occupancy as a ramp instead -- 0.5 + (height - voxel centre)/4,
+-- clamped -- puts the 0.5 crossing exactly on the height, smoothly.
 
 local function fetch(name)
 	local ok, body = pcall(function() return Http:GetAsync(SINK .. name .. ".json", true) end)
@@ -34,7 +41,8 @@ function GroundTerrain.WriteChunk(name)
 	local c = fetch(name)
 	local top = -math.huge
 	for _, h in c.h do if h > top then top = h end end
-	local ny = math.max(1, math.ceil((top + VOXEL - c.y0) / VOXEL))
+	-- one more layer, so the ramp's upper (mostly empty) voxel exists
+	local ny = math.max(1, math.ceil((top + RAMP - c.y0) / VOXEL))
 	local materials, occupancy = {}, {}
 	for i = 1, c.nx do
 		local mi, oi = {}, {}
@@ -44,8 +52,8 @@ function GroundTerrain.WriteChunk(name)
 			mi[j], oi[j] = mj, oj
 			local yb = c.y0 + (j - 1) * VOXEL
 			for k = 1, c.nz do
-				local h = c.h[(i - 1) * c.nz + k] - SURFACE_BIAS
-				local occ = math.clamp((h - yb) / VOXEL, 0, 1)
+				local h = c.h[(i - 1) * c.nz + k]
+				local occ = math.clamp(0.5 + (h - (yb + VOXEL / 2)) / RAMP, 0, 1)
 				mj[k] = occ > 0 and MATERIAL or Enum.Material.Air
 				oj[k] = occ
 			end
