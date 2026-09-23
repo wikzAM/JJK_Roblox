@@ -203,7 +203,8 @@ Windows resolves `localhost` to `::1` first, so an IPv4-only proxy is invisible 
    AC units, so generate them rather than try to recover them.
 5. **~2,900 greys remain** — a batch for 2,136 of them is generated and gated, see 6b. Apply it
    chunk by chunk; the 848 that produce no plan stay grey deliberately.
-6. **Nothing is committed to git.** 50+ changed or new paths.
+6. **Nothing is committed to git.** 50+ changed or new paths. (The Sept 23 georeference and road
+   work IS committed: see 8cefdc9, e8f7cec.)
 
 ## 8. Why the crown pipeline looks the way it does
 
@@ -218,3 +219,38 @@ The FBX itself is clean: the Cerulean crown is 89 triangles over 100 distinct ve
 slivers and a 533 sq stud median face. Do not go looking for a mesh problem to fix.
 
 See `SHIBUYA_SOURCE_SLICE_HANDOFF.md` for the full record of what was measured and rejected.
+
+## 9. Roads Sept 23 — data is correct and staged; Studio has not accepted it yet
+
+The road data on disk is **final and verified**. It has NOT been built in Studio: the MCP plugin
+channel has been unresponsive all session (the Studio process itself is alive and responding at the
+OS level — it is the plugin link, see 6c). The sink is up and serving the new index.
+
+**What is staged:** `source_slices/ground/roads/` — 130 tiles, 8,811 parts
+(1,664 roadway + 2,300 pavement + 4,847 apron), 48.5 km of roadway.
+
+**To build it, in this order:**
+
+```lua
+local R = require(game.ServerScriptService.Server.RoadBuilder)  -- or a RoadReload* copy
+R.Clear()          -- the old 188-tile set is stale; do not skip this
+R.BuildAll()       -- batch with R.BuildAll(first, last) if it stalls
+R.LiftOverTerrain()
+```
+
+`Clear()` is not optional: the previous build had 188 tiles against today's 130, and the extras are
+in the void past the map edge.
+
+**The alignment is settled, and the reason it kept failing is in the handoff doc's "THE STUD SIZE".**
+Short version: 1 stud is 0.2391 m, not the 0.28 m this repo documented, and no rotation or offset
+search can absorb a 17% scale error. Do not re-fit it. It is an exact georeference through
+JGD2011 CS IX now, not a fit.
+
+**How good it is.** 11.2% of roadway area lands on a building footprint. That is the floor, not a
+defect: displacing the whole network makes it worse monotonically — 11.8% at 25 studs, 19.1% at 50,
+34% at 200 (chance). Zero shift is a true minimum, so the fit is good to a few studs, and the
+residual is OSM centrelines disagreeing with PLATEAU outlines by ~11 m. **Do not try to fit that
+away** — it is two datasets, not an error.
+
+**Still open on roads:** crossings and markings (Phase 3 of the roadmap) are not started. Nothing
+has been visually confirmed in Studio; every screenshot this session timed out.
