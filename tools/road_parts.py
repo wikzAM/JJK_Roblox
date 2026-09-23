@@ -145,6 +145,7 @@ def main():
     d = json.loads((DATA / "osm_roads.json").read_text())
     x1, z1 = x0 + (S.shape[0] - 1) * cell, z0 + (S.shape[1] - 1) * cell
     tiles, counts, total_len = {}, {"roadway": 0, "pavement": 0}, 0.0
+    pending_walks = []      # pavements are filtered once every carriageway is known
     for w in d["elements"]:
         g = w.get("geometry")
         tags = w.get("tags", {})
@@ -195,10 +196,40 @@ def main():
                         ox = -math.sin(yaw) * side * (road_w + walk_w) / 2
                         oz = math.cos(yaw) * side * (road_w + walk_w) / 2
                         wx, wz = cx + ox, cz + oz
-                        rows.append(["pavement", round(wx, 2), round(ground(wx, wz) + CURB + priority * 0.05, 2),
-                                     round(wz, 2), round(yaw, 5), round(pitch, 5),
-                                     round(length, 2), round(THICKNESS, 2), round(walk_w, 2), kind, w["id"]])
-                        counts["pavement"] += 1
+                        pending_walks.append((key, [
+                            "pavement", round(wx, 2), round(ground(wx, wz) + CURB + priority * 0.05, 2),
+                            round(wz, 2), round(yaw, 5), round(pitch, 5),
+                            round(length, 2), round(THICKNESS, 2), round(walk_w, 2), kind, w["id"]]))
+    # A pavement is offset clear of its OWN roadway, so a pavement sitting on a
+    # carriageway belongs to a different way -- a service road or a parallel way
+    # that OSM draws over a main road. 23% of them landed there, which reads as
+    # pale slabs strewn across the asphalt and a scalloped mess at junctions.
+    # Drop those; a gap where a pavement crosses a side road is the right look
+    # anyway, and the strips are deliberately oversized to hide the join.
+    road_cov = np.zeros(inside.shape, bool)
+    for rows in tiles.values():
+        for r in rows:
+            if r[0] != "roadway":
+                continue
+            _, cx_, _, cz_, yaw_, _, length_, _, width_ = r[:9]
+            cc, ss = math.cos(yaw_), math.sin(yaw_)
+            for a in np.linspace(-length_ / 2, length_ / 2, max(2, int(length_ / cell) + 1)):
+                for b in np.linspace(-width_ / 2, width_ / 2, max(2, int(width_ / cell) + 1)):
+                    i = int(round((cx_ + a * cc - b * ss - x0) / cell))
+                    j = int(round((cz_ + a * ss + b * cc - z0) / cell))
+                    if 0 <= i < inside.shape[0] and 0 <= j < inside.shape[1]:
+                        road_cov[i, j] = True
+    dropped_walks = 0
+    for key, row in pending_walks:
+        i = int(round((row[1] - x0) / cell))
+        j = int(round((row[3] - z0) / cell))
+        if 0 <= i < road_cov.shape[0] and 0 <= j < road_cov.shape[1] and road_cov[i, j]:
+            dropped_walks += 1
+            continue
+        tiles.setdefault(key, []).append(row)
+        counts["pavement"] += 1
+    print(f"{dropped_walks} pavement slabs dropped for sitting on a carriageway")
+
     # APRONS: the ground between the roads. Terrain alone terraces on gentle
     # slopes (it rebuilds its surface from voxel occupancy), so the open space
     # gets flat slabs too -- they may overlap buildings and roads, exactly as the
