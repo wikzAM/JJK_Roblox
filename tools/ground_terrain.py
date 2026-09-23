@@ -43,7 +43,8 @@ CONE = 0.5
 FACE_DROP = 1.5      # studs the street stays below a building's floor at its face,
                      # so a ground-floor facade is never buried by the ground
 UNDER = 1.0          # studs under a floor top inside its footprint (pins are already floor - 0.1)
-SUBSURFACE = 8.0     # studs below the part ground (terrain renders ~2 studs high and terraces, so keep well clear)
+SUBSURFACE = 3.0     # studs below the intended surface: terrain is the visible ground again, and road
+                     # slabs (8 studs thick, top at the surface) cover its voxel steps where they run
 DEPTH = 12.0         # studs of solid terrain below the lowest surface in a chunk
 
 
