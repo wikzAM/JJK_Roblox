@@ -37,6 +37,8 @@ def main():
     for f in glob.glob(str(DATA / "roads" / "tile_*.json")):
         for s in json.loads(Path(f).read_text())["slabs"]:
             kind, cx, _y, cz, yaw, _pitch, length, _th, width = s[:9]
+            if kind == "apron":      # aprons cover everything; they would hide the blocks
+                continue
             c, sn = math.cos(yaw), math.sin(yaw)
             # rasterise the rectangle
             n = max(2, int(length / cell) + 1)
@@ -52,9 +54,10 @@ def main():
     img = np.zeros(shape + (3,))
     img[:] = [0.62, 0.62, 0.58]
     img[kn] = [0.22, 0.22, 0.26]
-    img[walk] = [0.80, 0.78, 0.72]
-    img[road] = [0.15, 0.15, 0.17]
-    img[road & kn] = [1.0, 0.55, 0.0]
+    img[walk] = [0.86, 0.85, 0.80]
+    img[kn] = [0.35, 0.52, 0.72]           # buildings: blue
+    img[road & ~kn] = [0.85, 0.15, 0.10]   # roadway on open ground: red  (good)
+    img[road & kn] = [0.15, 0.85, 0.30]    # roadway over a building: green (bad)
     if args.crop:
         cx0, cz0, cx1, cz1 = args.crop
         i0, i1 = int((cx0 - x0) / cell), int((cx1 - x0) / cell)

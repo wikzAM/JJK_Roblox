@@ -1,0 +1,15 @@
+{
+ "studs_per_m": 4.182937332341842,
+ "rotation_deg": 181.17193058194403,
+ "mirror_y": true,
+ "t": [
+  -53512.99977836637,
+  157519.31750844335
+ ],
+ "tile_code": "53393586",
+ "tile_sw_lat": 35.650000000000006,
+ "tile_sw_lon": 139.7,
+ "matched": 164,
+ "of": 289,
+ "source": "PLATEAU tile in EPSG:6677, 100 m units"
+}

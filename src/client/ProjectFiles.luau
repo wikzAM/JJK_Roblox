@@ -1079,7 +1079,16 @@ September 13, 2026 — automated Shibuya reconstruction
       sampled grid is stored as the InteriorGrid attribute, so regeneration
       rebuilds WITHOUT re-sampling, even after the shell is gone. Regenerate
       BEFORE moving a generated building (stored grid is world-space).
-    - Units: 1 stud = 0.28 m. Floor-to-ceiling clear = 3.5 m; slab = 1.5 m.
+    - Units: the storey grid is authored as "metres / 0.28" — clear 3.5 m =
+      12.5 studs, slab 1.5 m = 5.36 studs. Treat those as STUD constants that
+      were tuned by eye, not as a scale conversion: the imported Shibuya
+      geometry is really 4.182937 studs/m (0.2391 m per stud), measured against
+      the original PLATEAU tiles (tools/tile_georef.py) and confirmed to four
+      decimals by sweep/alignment.json. So a "5 m" storey is actually 4.27 m.
+      That is fine for looks and MUST NOT be changed (it would rebuild every
+      building), but anything georeferenced — roads, OSM, real coordinates —
+      has to use 4.182937, never 1/0.28. Pinning fits to 0.28 was a 17% error
+      and the root cause of every failed road alignment.
       FLOOR COUNT: pass an exact floor count (e.g. .Generate(model, 47)) and it
       makes exactly that many uniform floors — the SLAB stays fixed and the
       floor-to-ceiling height is what gives (shrinks, down to MIN_FLOOR_CLEAR

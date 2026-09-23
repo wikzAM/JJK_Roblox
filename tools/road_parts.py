@@ -96,10 +96,22 @@ def surface():
 
 
 def main():
-    fit = json.loads((DATA / "osm_fit.json").read_text())
-    s, rot, tx, tz = fit["studs_per_m"], math.radians(fit["rotation_deg"]), fit["tx"], fit["tz"]
-    lat0, lon0, mlat, mlon = fit["lat0"], fit["lon0"], fit["m_per_deg_lat"], fit["m_per_deg_lon"]
+    # EXACT georeference: lat/lon -> JGD2011 CS IX metres (the projection the
+    # PLATEAU tiles use) -> studs, from tools/tile_georef.py. Fitting OSM to the
+    # map by eye-less scoring produced confident nonsense three times; the tiles
+    # settle it, and they also show the map is 0.2391 m/stud, not the 0.28 in
+    # CLAUDE.md -- a 17% error that alone threw roads hundreds of studs out.
+    import jgd_cs9
+    georef = json.loads((DATA / "tile_georef.json").read_text())
+    s, rot = georef["studs_per_m"], math.radians(georef["rotation_deg"])
+    mirror = -1.0 if georef["mirror_y"] else 1.0
+    toff = georef["t"]
     c, sn = math.cos(rot), math.sin(rot)
+
+    def latlon_to_studs(lat, lon):
+        e, n = jgd_cs9.to_xy(lat, lon)
+        x, y = e * s, mirror * n * s
+        return x * c - y * sn + toff[0], x * sn + y * c + toff[1]
     S, x0, z0, cell = surface()
     inside = np.load(DATA / "heights.npz")["known"]      # building footprints
 
@@ -129,11 +141,7 @@ def main():
         if tags.get("lanes", "").isdigit():
             road_m = max(road_m, int(tags["lanes"]) * LANE_M + 1.0)
         road_w, walk_w = road_m * s, walk_m * s
-        pts = []
-        for p in g:
-            mx, my = (p["lon"] - lon0) * mlon, (p["lat"] - lat0) * mlat
-            ax, ay = mx * s, -my * s                      # the fit mirrors north
-            pts.append((ax * c - ay * sn + tx, ax * sn + ay * c + tz))
+        pts = [latlon_to_studs(p["lat"], p["lon"]) for p in g]
         pts = simplify(pts, SIMPLIFY)
         for k in range(len(pts) - 1):
             ax, az = pts[k]

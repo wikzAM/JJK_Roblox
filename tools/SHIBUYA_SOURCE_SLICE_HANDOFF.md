@@ -2138,3 +2138,39 @@ question to put to them is *how bad are the outlines actually*, which nobody has
 ## Constraints
 
 `Building` name prefix is load-bearing for HitHandler. Structure = Part/Wedge/Union, never the FBX MeshParts. Keep Building1/2/3, Shibuya meshes, furniture, archives. Do not change combat, movement, or terrain unless a compatibility fix is explained. Do not ground every building to flat Y 36 terrain; this sample uses **neighborhood/live base Y 118.7**, not Studio terrain.
+
+## THE STUD SIZE Sept 23 — the root cause of every failed road alignment
+
+**1 stud is 0.2391 m, not 0.28 m.** Every OSM/road fit before this was pinned to `1/0.28`
+studs per metre, a 17% scale error, and no amount of rotation or offset search can absorb a
+scale error: the fits looked plausible near the centre and drifted hundreds of metres at the
+edges. ICP made this worse by *hiding* it — it converged to an 11.5 m median residual, which
+looks excellent, but ICP measures self-consistency, not correctness; a landmark check put
+Shibuya Scramble Square 670 m from where it belongs. **Never accept a fit on residual alone.
+Check a named landmark.**
+
+The true figure is not fitted, it is derived. The FBX comes from PLATEAU, whose tiles are
+EPSG:6677 (JGD2011 Plane Rectangular CS IX) in units of 100 m, named by Japanese mesh code.
+`tools/tile_georef.py` reads the original tile (`D:\GameDownloads\533935_2\LOD2\
+53393586_bldg_6677.fbx`, extracted with headless Blender), matches our components to its
+buildings by height ratio, and scores by the fraction of tile buildings matched — 164/289:
+
+```
+studs_per_m 4.182937   (0.2391 m/stud)   rotation_deg 181.17193   mirror_y true
+t [-53512.99977836637, 157519.31750844335]   tile_code 53393586
+```
+
+written to `source_slices/ground/tile_georef.json`. It agrees with the scale already recorded
+in `sweep/alignment.json` (4.182817) to four decimals, from a completely independent source.
+That is the confirmation, not the match count.
+
+`tools/jgd_cs9.py` is a verified forward/inverse transverse-Mercator for CS IX (tile SW corner
+35.65/139.70 round-trips to −12,073.5, −38,822.4 m). `tools/road_parts.py` now goes
+lat/lon -> CS IX metres -> studs through that file. Roadway area landing on building footprints
+fell 36% (ICP) -> 12.2% (landmark) -> **8.5%** (exact), and the remaining 8.5% is thin slivers
+where a slab clips a building corner, which is what it should be.
+
+**The storey constants stay.** `SLAB = 1.5/0.28`, `PITCH = 5/0.28` and friends are stud values
+tuned by eye, not conversions; a "5 m" storey is really 4.27 m. Changing them would rebuild
+every building for no visual gain. Use 4.182937 for anything georeferenced and leave the
+storey grid alone. See `src/client/ProjectFiles.luau` "Units".
