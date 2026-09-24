@@ -33,6 +33,9 @@ local MAX_SPEED = 400        -- studs/s: above this the camera is flying past; d
 local PANE = 12              -- studs: pane width when a strip is split by a hit
 local CRACK_BAND = 6         -- studs beyond the hit radius where panes crack instead of vanishing
 local SHARDS_PER_PANE = 3
+-- HitHandler's HOLE_RADIUS is 50: one hit knocked out ~109 panes and threw 327
+-- unanchored shards at once. Cap the shards per hit; the hole is the same.
+local MAX_SHARDS_PER_HIT = 60
 local SHARD_LIFETIME = 4
 
 local folder             -- local-only: created by this client, so it never replicates
@@ -107,7 +110,7 @@ end
 
 -- Break every glass strip of one building that a capsule touches. Returns the
 -- number of panes removed.
-local function breakBuilding(entry, a, b, r, withShards)
+local function breakBuilding(entry, a, b, r, budget)
 	local removed = 0
 	for part, strip in entry.parts do
 		if strip.kind == "glass" and part.Parent then
@@ -124,7 +127,10 @@ local function breakBuilding(entry, a, b, r, withShards)
 					local d = toSegment(pcf.Position, a, b)
 					if d < r then
 						removed += 1
-						if withShards then shards(pcf, Vector3.new(w, size.Y, size.Z), style, (a + b) / 2) end
+						if budget and budget.n > 0 then
+							budget.n -= SHARDS_PER_PANE
+							shards(pcf, Vector3.new(w, size.Y, size.Z), style, (a + b) / 2)
+						end
 					else
 						local pane = acquire()
 						pane.Size = Vector3.new(w, size.Y, size.Z)
@@ -168,7 +174,7 @@ function FacadeRenderer.BuildInto(parent, model)
 	-- damage this client has already seen stays: re-apply earlier hits, quietly
 	for _, h in hits do
 		local piv = model:GetPivot().Position
-		if toSegment(piv, h[1], h[2]) < h[3] + 400 then breakBuilding(entry, h[1], h[2], h[3], false) end
+		if toSegment(piv, h[1], h[2]) < h[3] + 400 then breakBuilding(entry, h[1], h[2], h[3], nil) end
 	end
 	return entry
 end
@@ -226,9 +232,10 @@ end
 function FacadeRenderer.Break(a, b, r)
 	table.insert(hits, {a, b, r})
 	local removed = 0
+	local budget = {n = MAX_SHARDS_PER_HIT}
 	for model, entry in built do
 		if toSegment(model:GetPivot().Position, a, b) < r + 400 then
-			removed += breakBuilding(entry, a, b, r, true)
+			removed += breakBuilding(entry, a, b, r, budget)
 		end
 	end
 	return removed
@@ -251,12 +258,32 @@ function FacadeRenderer.Init()
 	farFolder.Name = "LocalFacadesFar"
 	farFolder.Parent = workspace
 
+	-- glass broken before this player joined: replay the server's capped log
+	-- first, so buildings come up already broken (quietly, no shards)
+	local state = ReplicatedStorage:WaitForChild("FacadeState", 10)
+	local logged = state and state:GetAttribute("Hits")
+	if type(logged) == "string" then
+		local ok, rows = pcall(function() return game:GetService("HttpService"):JSONDecode(logged) end)
+		if ok and type(rows) == "table" then
+			for _, h in rows do
+				table.insert(hits, {Vector3.new(h[1], h[2], h[3]), Vector3.new(h[4], h[5], h[6]), h[7]})
+			end
+		end
+	end
+
 	local buildingsFolder = workspace:WaitForChild("Buildings")
 	local candidates, farQueue = {}, {}
 	local function consider(model)
 		if model:IsA("Model") and model:GetAttribute("SourceSlicePlan") and not candidates[model] then
 			candidates[model] = true
 			table.insert(farQueue, model)   -- every building gets a far shell, including late arrivals
+			-- the server changed this building (collapse, Regenerate): it bumps
+			-- FacadeVersion, and the facade and far shell are rebuilt from the new plan
+			model:GetAttributeChangedSignal("FacadeVersion"):Connect(function()
+				FacadeRenderer.Drop(model)
+				if far[model] then far[model]:Destroy(); far[model] = nil end
+				table.insert(farQueue, model)
+			end)
 		end
 	end
 	for _, m in buildingsFolder:GetChildren() do consider(m) end

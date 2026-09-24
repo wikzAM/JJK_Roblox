@@ -6,6 +6,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local CollectionService = game:GetService("CollectionService")
 local Debris            = game:GetService("Debris")
 local GeometryService   = game:GetService("GeometryService")
+local HttpService       = game:GetService("HttpService")
 
 
 -- ==========================================================
@@ -1133,6 +1134,22 @@ function HitHandler.Init()
 		FacadeHitEvent.Name = "FacadeHitEvent"
 		FacadeHitEvent.Parent = ReplicatedStorage
 	end
+	-- ...and a capped log of the same capsules, so a player who joins later sees
+	-- the glass already broken. One replicated attribute; clients replay it.
+	local FacadeState = ReplicatedStorage:FindFirstChild("FacadeState")
+	if not FacadeState then
+		FacadeState = Instance.new("Folder")
+		FacadeState.Name = "FacadeState"
+		FacadeState.Parent = ReplicatedStorage
+	end
+	local facadeLog = {}
+	local FACADE_LOG_MAX = 256
+	local function logFacadeHit(a, b, r)
+		table.insert(facadeLog, {math.round(a.X * 10) / 10, math.round(a.Y * 10) / 10, math.round(a.Z * 10) / 10,
+			math.round(b.X * 10) / 10, math.round(b.Y * 10) / 10, math.round(b.Z * 10) / 10, r})
+		if #facadeLog > FACADE_LOG_MAX then table.remove(facadeLog, 1) end
+		FacadeState:SetAttribute("Hits", HttpService:JSONEncode(facadeLog))
+	end
 
 	HitEvent.OnServerEvent:Connect(function(player, targetModel, hitDirection)
 		if typeof(targetModel) ~= "Instance" or not targetModel:IsA("Model") then return end
@@ -1187,6 +1204,7 @@ function HitHandler.Init()
 			DustEvent:FireAllClients(point, 1.0)
 		end
 
+		logFacadeHit(startPos, endPos, HOLE_RADIUS)
 		FacadeHitEvent:FireAllClients(startPos, endPos, HOLE_RADIUS)
 		task.spawn(function()
 			destroyAlongCylinder(startPos, endPos, HOLE_RADIUS)

@@ -43,7 +43,7 @@ Both server and client use a simple `Module.Init()` pattern. Entry points (`init
 
 **`src/server/HitHandler.luau`** — Core hit system. When a player clicks the dummy:
 1. Server receives `HitEvent` (client → server: `targetModel, hitDirection`)
-2. Computes endpoint: `distance = STRENGTH / DRAG_COEFFICIENT` (~200 studs)
+2. Computes endpoint: `distance = STRENGTH / DRAG_COEFFICIENT` (~600 studs)
 3. Fires `DustEvent` to all clients at hit origin and building intersection points
 4. Spawns CSG destruction (`destroyAlongCylinder`) asynchronously
 5. Waits `YIELD_MASK_DELAY` (0.04s) for dust to mask the teleport
@@ -83,9 +83,9 @@ Debris uses `Enum.Material.Concrete` with color `RGB(163, 162, 165)` (#A3A2A5). 
 
 | Variable | Value | Effect |
 |---|---|---|
-| `STRENGTH` | 2000 | Hit energy |
+| `STRENGTH` | 6000 | Hit energy |
 | `DRAG_COEFFICIENT` | 10 | Higher = shorter travel |
-| `HOLE_RADIUS` | 15 | CSG cutter radius (studs) |
-| `RESIDUAL_VELOCITY` | 200 | studs/sec after teleport |
+| `HOLE_RADIUS` | 50 | CSG cutter radius (studs); also the facade glass-break radius |
+| `RESIDUAL_VELOCITY` | `STRENGTH / DRAG_COEFFICIENT` (600) | studs/sec after teleport |
 | `BRACE_DELAY` | 0.75 | Seconds of ground contact before brace |
 | `DEBRIS_SIZE_SCALE` | 0.8 | Uniform debris size scale |
