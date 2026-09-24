@@ -2257,3 +2257,57 @@ the pivot is upright; sum each part's world extents instead.
 **The corrected tallest buildings:** Building1 = Shibuya Scramble Square 218 m (real 229.7, and 2 m from
 its true position), the Cerulean 197 m (real 184), then 182, 182, 142 m. `Building1` is a hand-built
 landmark that shares a name with WorldSetup's test builder -- it is NOT test scaffolding.
+
+## SIMPLE ROADS Sept 24 — slabs + joints, laid on the terrain
+
+The owner asked for less complexity and fewer parts. The asphalt (one slab per OSM segment) was
+never the problem; everything layered on top was:
+
+| layer | parts | fate |
+|---|---|---|
+| road slabs, one per OSM segment | 1,664 -> **2,242** | kept; no longer dropped under buildings |
+| round joints at bends and way ends | **1,348** | new: fill the outside of every corner |
+| pavement strips | 1,785 | off (`PAVEMENTS`): crossed the asphalt at junctions |
+| aprons | 4,910 | off (`APRONS`): tilted planes that never met ("broken ice") |
+
+**3,590 parts, from 8,305.** 55.6 km of roadway (the old "48.5 km" used the wrong stud size).
+
+**Rebuild in Studio** (each step is seconds; keep calls short -- one long call dropped the plugin):
+
+```lua
+local R = require(<RoadBuilder or a fresh clone of it>)
+R.Clear(); R.BuildAll()
+R.SettleOnTerrain()          -- roads onto the terrain (they rode 5.2 studs above it)
+R.CarveTerrain(1, 200, 14, 5) -- clear terrain deep over any road
+R.ShapeTerrain(1, 64); R.ShapeTerrain(65, 200)   -- banks and edges, no burying
+```
+
+What each fixes, and the numbers behind them:
+
+* **Terrain sits 3 studs under the ground field** (it was written for the old part ground, which is
+  gone), so roads placed at the field rode **5.2 studs** above the open ground. `SettleOnTerrain`
+  gives every slab end and joint the height of one smoothed terrain sample at that exact point, so
+  pieces meeting at a node agree and junctions stay level. Mean edge step 5.2 -> 0.3.
+* **Stopped skipping segments under buildings.** At floor height they would have been buried in the
+  ground floor, but at terrain level they pass under the building out of sight -- and skipping them
+  was a quarter of the network, showing as breaks. The cost: where a PLATEAU footprint overlaps a road
+  (11% of road area) a building's ground slab lies across the road edge, reading like a plaza corner.
+* **Smooth terrain only lands on 2-stud levels.** Measured on a flat test block: a voxel draws its
+  surface at yb+2 / yb+4 / yb+6 as its occupancy goes low / half / full -- a full voxel draws 2 studs
+  ABOVE its own top. A linear occupancy->height model buried the roads. Side-on captures of the test
+  block show the rendered flat surface matches the raycast one within half a stud.
+* **Isolated part-filled voxels render as peaks** that climb above the flat level and came up through
+  the asphalt as spikes. Under a road the ground is held 6 studs down (the slab is 8 deep).
+* **Terrain collision lags a `FillBlock`/`WriteVoxels` by a moment** -- a measurement straight after
+  an edit reads the old terrain. Two "the carve did nothing" scares were only this.
+* `ShapeTerrain` holds ground near each road between 0.2 and 2.2 studs under the asphalt, opening at
+  0.4 per stud, with a spatial hash so a voxel's ceiling is the LOWEST of every road near it. A
+  per-road fill (`ShapeShoulders(..., fill=true)`) buried neighbouring roads; do not use it.
+
+Result: road surface under terrain on **0.00%** of 47,082 samples; terrain above a road edge 0%. Edges
+still average ~2.7 studs above the ground 3 studs out -- a soft shoulder, and the banks show the
+2-stud levels as faint contour bands. That is the resolution limit of smooth terrain.
+
+**Still open:** real gaps where OSM links two streets with a footway or steps (1,899 footways are
+excluded); sidewalks, if wanted, should be strips clipped against the union of all roadways (not the
+old centre test), probably major roads only to hold the part count; crossings and markings.

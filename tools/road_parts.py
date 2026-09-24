@@ -41,6 +41,20 @@ APRON = 64.0        # studs: the grid of plaza/apron slabs that cover open groun
 APRON_MIN = 0.12    # emit an apron where at least this much of its square is open ground
 APRON_SINK = 0.15   # studs below the surface, so roads and pavements read on top
 CITY_MARGIN = 150.0 # studs past the outermost building that the map still covers
+# SIMPLE ROADS (Sept 24): one slab per OSM segment plus a round joint at every
+# node where a road bends or ends. The pavement strips crossed the asphalt at
+# junctions and the tilted aprons never met each other ("broken ice"); together
+# they were 6,700 of 8,300 parts. Both stay available behind these switches.
+PAVEMENTS = False
+APRONS = False
+JOINT_TURN = 10.0
+# Roads used to be dropped where a segment's centre fell inside a building
+# footprint (OSM and PLATEAU outlines disagree by ~11 m), because at floor
+# height those slabs were buried in the ground floor. RoadBuilder.SettleOnTerrain
+# now lays roads on the terrain, which is BELOW the ground floors, so such a
+# stretch simply passes under the building out of sight -- and dropping it left
+# visible breaks in the road.
+SKIP_IN_BUILDING = False   # degrees: a bend sharper than this gets a joint to fill the outside of the corner
 LANE_M = 3.25       # metres per lane when a way tags lanes
 
 # metres: roadway width, pavement width each side, and draw priority
@@ -144,7 +158,8 @@ def main():
 
     d = json.loads((DATA / "osm_roads.json").read_text())
     x1, z1 = x0 + (S.shape[0] - 1) * cell, z0 + (S.shape[1] - 1) * cell
-    tiles, counts, total_len = {}, {"roadway": 0, "pavement": 0}, 0.0
+    tiles, counts, total_len = {}, {"roadway": 0, "pavement": 0, "apron": 0, "joint": 0}, 0.0
+    joints = {}             # node -> the widest road that bends or ends there
     pending_walks = []      # pavements are filtered once every carriageway is known
     for w in d["elements"]:
         g = w.get("geometry")
@@ -158,6 +173,18 @@ def main():
         road_w, walk_w = road_m * s, walk_m * s
         pts = [latlon_to_studs(p["lat"], p["lon"]) for p in g]
         pts = simplify(pts, SIMPLIFY)
+        # joints: every end of a way (junctions and dead ends) and every real bend
+        for k, (vx, vz) in enumerate(pts):
+            if 0 < k < len(pts) - 1:
+                (ux, uz), (nx_, nz_) = pts[k - 1], pts[k + 1]
+                turn = math.atan2(nz_ - vz, nx_ - vx) - math.atan2(vz - uz, vx - ux)
+                if abs((turn + math.pi) % (2 * math.pi) - math.pi) < math.radians(JOINT_TURN):
+                    continue
+            if not (x0 < vx < x1 and z0 < vz < z1) or (SKIP_IN_BUILDING and in_building(vx, vz)) or not in_city(vx, vz):
+                continue
+            node = (round(vx, 1), round(vz, 1))
+            if node not in joints or road_w > joints[node][2]:
+                joints[node] = (vx, vz, road_w, priority, kind, w["id"])
         for k in range(len(pts) - 1):
             ax, az = pts[k]
             bx, bz = pts[k + 1]
@@ -175,7 +202,7 @@ def main():
                 # a roadway inside a footprint is buried under that building's
                 # floor: OSM and PLATEAU disagree by ~11 m (their building
                 # outlines differ), so some slabs land there. Skip them.
-                if in_building(cx_, cz_):
+                if SKIP_IN_BUILDING and in_building(cx_, cz_):
                     continue
                 if not in_city(cx_, cz_):
                     continue
@@ -191,7 +218,7 @@ def main():
                 rows.append(["roadway", round(cx, 2), round(y, 2), round(cz, 2), round(yaw, 5), round(pitch, 5),
                              round(length, 2), round(THICKNESS, 2), round(road_w, 2), kind, w["id"]])
                 counts["roadway"] += 1
-                if walk_w >= 2.0:
+                if PAVEMENTS and walk_w >= 2.0:
                     for side in (-1, 1):   # pavements MAY run under buildings: that is what hides their outer edge
                         ox = -math.sin(yaw) * side * (road_w + walk_w) / 2
                         oz = math.cos(yaw) * side * (road_w + walk_w) / 2
@@ -200,6 +227,15 @@ def main():
                             "pavement", round(wx, 2), round(ground(wx, wz) + CURB + priority * 0.05, 2),
                             round(wz, 2), round(yaw, 5), round(pitch, 5),
                             round(length, 2), round(THICKNESS, 2), round(walk_w, 2), kind, w["id"]]))
+    for vx, vz, wd, prio, kind, wid in joints.values():
+        # a hair under the slabs, so where they overlap the slab's top wins and
+        # the joint only shows in the gap on the outside of a bend
+        key = (int(math.floor(vx / TILE)), int(math.floor(vz / TILE)))
+        tiles.setdefault(key, []).append(["joint", round(vx, 2), round(ground(vx, vz) + prio * 0.05 - 0.03, 2),
+                                          round(vz, 2), 0.0, 0.0, round(wd, 2), round(THICKNESS, 2), round(wd, 2),
+                                          kind, wid])
+        counts["joint"] += 1
+
     # A pavement is offset clear of its OWN roadway, so a pavement sitting on a
     # carriageway belongs to a different way -- a service road or a parallel way
     # that OSM draws over a main road. 23% of them landed there, which reads as
@@ -246,6 +282,8 @@ def main():
                     if 0 <= i < inside.shape[0] and 0 <= j < inside.shape[1]:
                         covered[i, j] = True
     bare = (~inside) & city & (~covered)
+    if not APRONS:
+        bare[:] = False
     n_apron = 0
     steps = int(APRON / cell)
     for i0 in range(0, inside.shape[0] - steps, steps):
@@ -278,9 +316,9 @@ def main():
         (out / f"{name}.json").write_text(json.dumps({"name": name, "slabs": rows}))
         names.append([name, len(rows)])
     (out / "index.json").write_text(json.dumps(names))
-    print(f"{counts['roadway']} roadway + {counts['pavement']} pavement + {counts['apron']} apron slabs = "
-          f"{counts['roadway'] + counts['pavement'] + counts['apron']} parts over {len(names)} tiles; "
-          f"{total_len:,.0f} studs of roadway ({total_len * 0.28 / 1000:.1f} km)")
+    print(f"{counts['roadway']} roadway + {counts['joint']} joints + {counts['pavement']} pavement + {counts['apron']} apron = "
+          f"{sum(counts.values())} parts over {len(names)} tiles; "
+          f"{total_len:,.0f} studs of roadway ({total_len / 4.182937 / 1000:.1f} km)")
     print(f"largest tile {max(n for _, n in names)} parts -> {out}")
 
 

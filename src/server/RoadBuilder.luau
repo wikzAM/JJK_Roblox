@@ -20,6 +20,8 @@ local LOOK = {
 	pavement = {material = Enum.Material.Concrete, color = Color3.fromRGB(154, 152, 148)},
 	-- the ground between the roads: terrain alone terraces on gentle slopes
 	apron = {material = Enum.Material.Concrete, color = Color3.fromRGB(138, 136, 132)},
+	-- a round cap at a node where a road bends or ends: fills the outside of the corner
+	joint = {material = Enum.Material.Asphalt, color = Color3.fromRGB(62, 62, 66)},
 }
 
 local function fetch(name)
@@ -49,10 +51,15 @@ function RoadBuilder.BuildTile(name)
 		local kind, x, y, z, yaw, pitch, length, thickness, width, class, wayId = table.unpack(s)
 		local look = LOOK[kind]
 		local part = Instance.new("Part")
-		part.Name = kind == "roadway" and "Road" or (kind == "apron" and "Apron" or "Pavement")
+		part.Name = kind == "roadway" and "Road" or kind == "apron" and "Apron" or kind == "joint" and "Joint" or "Pavement"
 		part.Size = Vector3.new(length, thickness, width)
 		-- y is the SURFACE height: drop the part by half its depth so its top lands there
-		if kind == "apron" then
+		if kind == "joint" then
+			-- a cylinder's axis is its X: turn it upright, diameter = the road's width
+			part.Shape = Enum.PartType.Cylinder
+			part.Size = Vector3.new(thickness, width, width)
+			part.CFrame = CFrame.new(x, y - thickness / 2, z) * CFrame.Angles(0, 0, math.pi / 2)
+		elseif kind == "apron" then
 			-- a square of ground: yaw is unused, the two angles are its slopes
 			-- along z (roll) and along x (pitch)
 			part.CFrame = CFrame.new(x, y - thickness / 2, z) * CFrame.Angles(-yaw, 0, pitch)
@@ -119,6 +126,312 @@ function RoadBuilder.LiftOverTerrain(margin, maxLift)
 	end
 	return string.format("lifted %d (worst %.1f studs), dropped %d back onto the ground, removed %d that would have hovered",
 		lifted, worst, dropped, removed)
+end
+
+-- Draw order where roads of different class overlap (matches tools/road_parts.py KIND)
+local PRIORITY = {motorway = 6, trunk = 5, primary = 4, secondary = 3, tertiary = 2, residential = 1,
+	unclassified = 1, living_street = 1, pedestrian = 1, service = 0}
+
+-- Terrain was written 3 studs BELOW the ground field so the old part ground
+-- could sit on it; that part ground is gone, so roads placed at the field rode
+-- 5.2 studs above the open ground on average. Settle every slab end and joint
+-- onto the terrain itself. Heights come from one smoothed terrain sample per
+-- POINT, so the slabs and joint meeting at a node all read the same value and
+-- junctions stay level (nudging whole slabs one by one is what broke them).
+function RoadBuilder.SettleOnTerrain(first, last, lift)
+	lift = lift or 0.15
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Include
+	params.FilterDescendantsInstances = {workspace.Terrain}
+	local cache = {}
+	local function terrainY(x, z)
+		local key = string.format("%.0f,%.0f", x * 2, z * 2)     -- half-stud grid: shared nodes hit the same entry
+		if cache[key] then return cache[key] end
+		local sum, n = 0, 0
+		for _, o in {{0, 0}, {4, 0}, {-4, 0}, {0, 4}, {0, -4}} do  -- smooths the terrain's 2-stud terraces
+			local hit = workspace:Raycast(Vector3.new(x + o[1], 2000, z + o[2]), Vector3.new(0, -4000, 0), params)
+			if hit then sum += hit.Position.Y; n += 1 end
+		end
+		cache[key] = n > 0 and sum / n or nil
+		return cache[key]
+	end
+	local f = workspace:FindFirstChild("Roads")
+	if not f then return "no roads" end
+	local tiles = f:GetChildren()
+	local moved, skipped, total = 0, 0, 0
+	for i = first or 1, math.min(last or #tiles, #tiles) do
+		for _, part in tiles[i]:GetChildren() do
+			local bump = (PRIORITY[part:GetAttribute("RoadClass")] or 0) * 0.05
+			if part.Name == "Joint" then
+				local y = terrainY(part.Position.X, part.Position.Z)
+				if y then
+					local t = part.Size.X
+					local before = part.Position.Y
+					part.CFrame = CFrame.new(part.Position.X, y + lift + bump - 0.03 - t / 2, part.Position.Z) * CFrame.Angles(0, 0, math.pi / 2)
+					total += math.abs(part.Position.Y - before); moved += 1
+				else skipped += 1 end
+			elseif part.Name == "Road" then
+				local d = Vector3.new(part.CFrame.RightVector.X, 0, part.CFrame.RightVector.Z).Unit
+				local hl = (part.Size.X / 2 - 1) * math.cos(math.asin(math.clamp(part.CFrame.RightVector.Y, -1, 1)))
+				local c = part.Position
+				local a, b = Vector3.new(c.X, 0, c.Z) - d * hl, Vector3.new(c.X, 0, c.Z) + d * hl
+				local ya, yb = terrainY(a.X, a.Z), terrainY(b.X, b.Z)
+				if ya and yb then
+					local t = part.Size.Y
+					local yaw = math.atan2(d.Z, d.X)
+					local pitch = math.atan2(yb - ya, 2 * hl)
+					local before = part.Position.Y
+					part.CFrame = CFrame.new(c.X, (ya + yb) / 2 + lift + bump - t / 2, c.Z)
+						* CFrame.Angles(0, -yaw, 0) * CFrame.Angles(0, 0, pitch)
+					total += math.abs(part.Position.Y - before); moved += 1
+				else skipped += 1 end
+			end
+		end
+	end
+	return string.format("settled %d road parts onto the terrain (mean move %.1f studs), %d had no terrain under them",
+		moved, moved > 0 and total / moved or 0, skipped)
+end
+
+-- Shape the terrain along each road, voxel by voxel. Box carving (CarveTerrain)
+-- steps at the 4-stud voxel grid, so a diagonal road's edge came out as a
+-- sawtooth wherever the ground was higher than the road. Instead every voxel
+-- near a road gets a height window: under the road the ground is held just below
+-- the asphalt, and moving out from the edge the window opens at SLOPE studs per
+-- stud -- a cut bank where the road runs into a slope, an embankment where it
+-- runs out over a dip, and no floating slab edge either way. Only terrain inside
+-- REACH studs of a road is touched, and only toward the road's own level.
+function RoadBuilder.ShapeShoulders(first, last, reach, slope, fill)
+	reach = reach or 14
+	-- 0.4, not steeper: in the gap between two carriageways the window rises from
+	-- both sides, and at 0.8 a thin ridge of terrain peaked up as a row of spikes
+	slope = slope or 0.4
+	-- FILL IS OFF BY DEFAULT: an embankment raised for one road buried a
+	-- neighbouring road the pass had not reached yet. The cut alone only ever
+	-- lowers terrain, so any number of roads combine safely (the lowest wins),
+	-- and SettleOnTerrain has already put the ground near road level.
+	fill = fill == true
+	local V = 4
+	local T = workspace.Terrain
+	local f = workspace:FindFirstChild("Roads")
+	if not f then return "no roads" end
+	local tiles = f:GetChildren()
+	local shaped, cut, filled = 0, 0, 0
+	for i = first or 1, math.min(last or #tiles, #tiles) do
+		for _, part in tiles[i]:GetChildren() do
+			-- the road's footprint in plan, and its top height as a function of position
+			local pos = part.Position
+			local d, hx, hz, slopeAlong, topC
+			if part.Name == "Joint" then
+				d, hx, hz, slopeAlong, topC = Vector3.xAxis, 0, 0, 0, pos.Y + part.Size.X / 2
+			else
+				local r = part.CFrame.RightVector
+				local horiz = math.sqrt(r.X * r.X + r.Z * r.Z)
+				d = Vector3.new(r.X / horiz, 0, r.Z / horiz)
+				hx, hz = part.Size.X / 2 * horiz, part.Size.Z / 2
+				slopeAlong = r.Y / horiz
+				topC = (pos + part.CFrame.UpVector * part.Size.Y / 2).Y
+			end
+			local radius = part.Name == "Joint" and part.Size.Y / 2 or 0
+			local perp = Vector3.new(-d.Z, 0, d.X)
+			local ext = math.max(hx, hz) + radius + reach
+			local span = math.abs(hx * slopeAlong) + reach * slope + V * 2
+			local region = Region3.new(Vector3.new(pos.X - ext, topC - span, pos.Z - ext),
+				Vector3.new(pos.X + ext, topC + span, pos.Z + ext)):ExpandToGrid(V)
+			local mats, occ = T:ReadVoxels(region, V)
+			local lo = region.CFrame.Position - region.Size / 2
+			local changed = false
+			for ix = 1, #occ do
+				local cx = lo.X + (ix - 0.5) * V
+				for iz = 1, #occ[1][1] do
+					local cz = lo.Z + (iz - 0.5) * V
+					local rx, rz = cx - pos.X, cz - pos.Z
+					local a, b = rx * d.X + rz * d.Z, rx * perp.X + rz * perp.Z
+					local dist
+					if part.Name == "Joint" then
+						dist = math.max(math.sqrt(rx * rx + rz * rz) - radius, 0)
+					else
+						local dx, dz = math.max(math.abs(a) - hx, 0), math.max(math.abs(b) - hz, 0)
+						dist = math.sqrt(dx * dx + dz * dz)
+					end
+					if dist < reach then
+						local top = topC + math.clamp(a, -hx, hx) * slopeAlong
+						-- MEASURED (a flat test block, raycast): a voxel [yb, yb+4] draws the
+						-- surface at yb+2 when (nearly) empty over a full voxel, yb+4 at half
+						-- occupancy and yb+6 when full -- 2 studs ABOVE its own top. So terrain
+						-- only lands on 2-stud levels, and a linear occupancy-to-height reading
+						-- buries the road. Work in those levels: a voxel may hold at most the
+						-- level that stays under CAP, and at least the level that reaches FLOOR.
+						-- ...and the RENDERED surface sits up to ~2 studs above the collision one
+						-- measured by that raycast (a first pass at these +2 levels left spikes
+						-- and blobs over the asphalt), so the window is held another 2 lower.
+						-- Under the road itself hold the ground 6 down: a lone part-filled
+						-- voxel renders as a PEAK whose apex climbs above the flat-plane level
+						-- measured above, and these came up through the asphalt as spikes.
+						-- The slab is 8 deep, so nothing down there is ever seen.
+						local cap = dist <= 0 and top - 6 or top - 2.5 + dist * slope   -- the ground may not rise above this
+						local floor = fill and top - 4.5 - dist * slope or -math.huge   -- nor sit below this
+						for iy = 1, #occ[1] do
+							local yb = lo.Y + (iy - 1) * V
+							local o = occ[ix][iy][iz]
+							local capOcc = cap >= yb + 6 and 1 or cap >= yb + 4 and 0.5 or 0
+							local want = floor > yb + 4 and 1 or floor > yb + 2 and 0.5 or 0
+							local n = math.min(math.max(math.min(o, capOcc), want), capOcc)
+							if n > o and o <= 0.001 then mats[ix][iy][iz] = Enum.Material.Concrete end
+							if math.abs(n - o) > 0.01 then
+								if n < o then cut += 1 else filled += 1 end
+								if n <= 0.001 then mats[ix][iy][iz] = Enum.Material.Air end
+								occ[ix][iy][iz] = n
+								changed = true
+							end
+						end
+					end
+				end
+			end
+			if changed then T:WriteVoxels(region, V, mats, occ) end
+			shaped += 1
+		end
+	end
+	return string.format("shaped terrain along %d road parts (%d voxels lowered, %d raised)", shaped, cut, filled)
+end
+
+-- The same shaping with a SAFE fill. Cut-only left road edges ~2.5 studs proud
+-- with the slab's dark side showing; a per-road fill had buried neighbouring
+-- roads. Here every voxel's ceiling is the LOWEST cap of every road near it (a
+-- spatial hash of all road parts), so a road may raise ground toward its own
+-- level only where no other road forbids it. Floors are relative to the road
+-- top, which SettleOnTerrain put on the original ground, so the fill mostly
+-- gives back what the cut removed at the edges and fills small dips.
+function RoadBuilder.ShapeTerrain(first, last, reach, slope)
+	reach = reach or 14
+	slope = slope or 0.4
+	local V, CELL = 4, 32
+	local T = workspace.Terrain
+	local f = workspace:FindFirstChild("Roads")
+	if not f then return "no roads" end
+	local tiles = f:GetChildren()
+	-- 1. geometry of every road part, hashed by 32-stud cell
+	local all, hash = {}, {}
+	for _, tile in tiles do
+		for _, part in tile:GetChildren() do
+			local g = {part = part, pos = part.Position, joint = part.Name == "Joint"}
+			if g.joint then
+				g.d, g.hx, g.hz, g.slopeAlong, g.top, g.radius = Vector3.xAxis, 0, 0, 0, g.pos.Y + part.Size.X / 2, part.Size.Y / 2
+			else
+				local r = part.CFrame.RightVector
+				local horiz = math.sqrt(r.X * r.X + r.Z * r.Z)
+				g.d = Vector3.new(r.X / horiz, 0, r.Z / horiz)
+				g.hx, g.hz, g.slopeAlong, g.radius = part.Size.X / 2 * horiz, part.Size.Z / 2, r.Y / horiz, 0
+				g.top = (g.pos + part.CFrame.UpVector * part.Size.Y / 2).Y
+			end
+			g.ext = math.max(g.hx, g.hz) + g.radius + reach
+			all[part] = g
+			for cx = math.floor((g.pos.X - g.ext) / CELL), math.floor((g.pos.X + g.ext) / CELL) do
+				for cz = math.floor((g.pos.Z - g.ext) / CELL), math.floor((g.pos.Z + g.ext) / CELL) do
+					local key = cx * 100000 + cz
+					local list = hash[key]
+					if not list then list = {}; hash[key] = list end
+					table.insert(list, g)
+				end
+			end
+		end
+	end
+	-- dist from a road's footprint and the road's top there
+	local function probe(g, x, z)
+		local rx, rz = x - g.pos.X, z - g.pos.Z
+		if g.joint then
+			return math.max(math.sqrt(rx * rx + rz * rz) - g.radius, 0), g.top
+		end
+		local a, b = rx * g.d.X + rz * g.d.Z, rx * -g.d.Z + rz * g.d.X
+		local dx, dz = math.max(math.abs(a) - g.hx, 0), math.max(math.abs(b) - g.hz, 0)
+		return math.sqrt(dx * dx + dz * dz), g.top + math.clamp(a, -g.hx, g.hx) * g.slopeAlong
+	end
+	-- The measured levels (see ShapeShoulders): a voxel draws its surface at
+	-- yb+2 / yb+4 / yb+6 by occupancy -- 2-stud steps, so the window between cap
+	-- and floor must be at least 2 wide. A side-on capture of calibration blocks
+	-- showed the RENDERED flat surface matches the raycast one within half a
+	-- stud, so the edge window sits right under the asphalt (0.2 to 2.2 down).
+	-- Under the road it is held 6 down: isolated part-filled voxels render as
+	-- peaks that climb above the flat level, and came up through as spikes.
+	local function capOf(dist, top) return dist <= 0 and top - 6 or top - 0.2 + dist * slope end
+	local function floorOf(dist, top) return top - 2.2 - dist * slope end
+	-- 2. shape around the requested tiles' parts
+	local cut, filled, shaped = 0, 0, 0
+	for i = first or 1, math.min(last or #tiles, #tiles) do
+		for _, part in tiles[i]:GetChildren() do
+			local g = all[part]
+			local span = math.abs(g.hx * g.slopeAlong) + reach * slope + V * 3
+			local region = Region3.new(Vector3.new(g.pos.X - g.ext, g.top - span, g.pos.Z - g.ext),
+				Vector3.new(g.pos.X + g.ext, g.top + span, g.pos.Z + g.ext)):ExpandToGrid(V)
+			local mats, occ = T:ReadVoxels(region, V)
+			local lo = region.CFrame.Position - region.Size / 2
+			local changed = false
+			for ix = 1, #occ do
+				local x = lo.X + (ix - 0.5) * V
+				for iz = 1, #occ[1][1] do
+					local z = lo.Z + (iz - 0.5) * V
+					local myDist, myTop = probe(g, x, z)
+					if myDist < reach then
+						local cap = math.huge
+						for _, h in hash[math.floor(x / CELL) * 100000 + math.floor(z / CELL)] or {} do
+							local dd, tt = probe(h, x, z)
+							if dd < reach then cap = math.min(cap, capOf(dd, tt)) end
+						end
+						local floor = math.min(floorOf(myDist, myTop), cap - 2)
+						for iy = 1, #occ[1] do
+							local yb = lo.Y + (iy - 1) * V
+							local o = occ[ix][iy][iz]
+							local capOcc = cap >= yb + 6 and 1 or cap >= yb + 4 and 0.5 or 0
+							local want = floor > yb + 4 and 1 or floor > yb + 2 and 0.5 or 0
+							local n = math.min(math.max(math.min(o, capOcc), want), capOcc)
+							if math.abs(n - o) > 0.01 then
+								if n < o then cut += 1 else filled += 1 end
+								if n <= 0.001 then mats[ix][iy][iz] = Enum.Material.Air
+								elseif o <= 0.001 then mats[ix][iy][iz] = Enum.Material.Concrete end
+								occ[ix][iy][iz] = n
+								changed = true
+							end
+						end
+					end
+				end
+			end
+			if changed then T:WriteVoxels(region, V, mats, occ) end
+			shaped += 1
+		end
+	end
+	return string.format("shaped terrain along %d road parts (%d voxels lowered, %d raised)", shaped, cut, filled)
+end
+
+-- Where terrain rises through the asphalt, cut the terrain rather than move the
+-- road. LiftOverTerrain nudged slabs one at a time, so the slabs meeting at a
+-- junction ended up at different heights; every slab and joint here stays where
+-- the ground field put it, so junctions stay level. Only terrain ABOVE a road's
+-- top, inside its footprint, is removed.
+function RoadBuilder.CarveTerrain(first, last, clearance, sink)
+	clearance = clearance or 14
+	-- start the cut this far BELOW the road's top: smooth terrain rebuilds its
+	-- surface from the part-filled voxel that straddles the top, so a cut that
+	-- starts exactly at the top leaves a skin up to ~2.5 studs thick. The slab
+	-- is 8 studs deep, so what is cut below its top is hidden inside it.
+	sink = sink or 2
+	clearance += sink
+	local f = workspace:FindFirstChild("Roads")
+	if not f then return "no roads" end
+	local tiles = f:GetChildren()
+	local carved = 0
+	for i = first or 1, math.min(last or #tiles, #tiles) do
+		for _, part in tiles[i]:GetChildren() do
+			if part.Name == "Joint" then
+				local top = part.Position.Y + part.Size.X / 2
+				workspace.Terrain:FillBlock(CFrame.new(part.Position.X, top - sink + clearance / 2, part.Position.Z),
+					Vector3.new(part.Size.Y, clearance, part.Size.Z), Enum.Material.Air)
+			else
+				workspace.Terrain:FillBlock(part.CFrame * CFrame.new(0, part.Size.Y / 2 - sink + clearance / 2, 0),
+					Vector3.new(part.Size.X, clearance, part.Size.Z), Enum.Material.Air)
+			end
+			carved += 1
+		end
+	end
+	return string.format("cleared terrain above %d road parts", carved)
 end
 
 function RoadBuilder.BuildAll(first, last)
