@@ -298,19 +298,20 @@ end
 -- gives a point's distance from a part's footprint and the road's top there.
 -- Shared by ShapeTerrain and RestoreCorridors.
 local CELL = 32
--- The terrain IN STUDIO was written while tools/ground_terrain.py had
--- SUBSURFACE = 8 (under the old part ground); the chunk files were regenerated
--- with SUBSURFACE = 3 on Sept 23 and never written back. Measured on untouched
--- columns: Studio's encoded height = file height - 5.0. Restoring from the files
--- without this raised every road corridor 5 studs -- a step at its edge.
-local FILE_TO_STUDIO = -5.0
+-- Studio's terrain = the chunk files + FILE_TO_STUDIO. Until Sept 24 it was -5
+-- (terrain written with SUBSURFACE 8 under the old part ground, never rewritten
+-- when that ground was removed, so every building stood on a 5-stud plinth).
+-- It was then rewritten from the files at +2.5 (GroundTerrain.WriteAll(1, n,
+-- 2.5)), which puts the ground a median 1.7 studs under the ground-floor slab
+-- tops -- the look the part ground had. Keep this in step with that offset.
+local FILE_TO_STUDIO = 2.5
 local function roadIndex(reach)
 	local f = workspace:FindFirstChild("Roads")
 	if not f then return nil end
 	local all, hash = {}, {}
 	for _, tile in f:GetChildren() do
 		for _, part in tile:GetChildren() do
-			local g = {part = part, pos = part.Position, joint = part.Name == "Joint"}
+			local g = {part = part, pos = part.Position, joint = part.Name == "Joint", way = part:GetAttribute("RoadWay") or part}
 			if g.joint then
 				g.d, g.hx, g.hz, g.slopeAlong, g.top, g.radius = Vector3.xAxis, 0, 0, 0, g.pos.Y + part.Size.X / 2, part.Size.Y / 2
 			else
@@ -419,10 +420,16 @@ end
 function RoadBuilder.GradeCorridors(first, last, reach, cut, berm)
 	reach = reach or 16
 	cut = cut or 0.7
-	berm = berm or 3
+	berm = berm or 0     -- berms off: a strip one voxel wide renders as a spiky ridge (Sept 24)
 	local TSINK = "http://127.0.0.1:58999/get/tools/source_slices/ground/terrain/"
 	local V, RAMP = 4, 8     -- GroundTerrain's own values
 	local RAMP_BIAS = 4.0    -- studs the ramp's visible surface sits above the height it encodes (measured 3 to 3.9)
+	local GAP = 18           -- studs: ground between two different streets closer than this is held flat
+	-- ...and painted: terrain under a road, within PAVE of its edge, or in such a
+	-- gap is Asphalt, so gaps between OSM ways at junctions read as road instead
+	-- of pale ground showing through (terrain Asphalt is tinted to the slabs)
+	local PAVE = 2
+	workspace.Terrain:SetMaterialColor(Enum.Material.Asphalt, Color3.fromRGB(62, 62, 66))
 	local _, near, probe = roadIndex(reach)
 	if not near then return "no roads" end
 	local index = Http:JSONDecode(Http:GetAsync(TSINK .. "index.json", true))
@@ -430,24 +437,44 @@ function RoadBuilder.GradeCorridors(first, last, reach, cut, berm)
 	for ci = first or 1, math.min(last or #index, #index) do
 		local c = Http:JSONDecode(Http:GetAsync(TSINK .. index[ci] .. ".json", true))
 		local target, any, top = {}, false, -math.huge
+		local pavedCols = {}
 		for i = 1, c.nx do
 			local x = c.x0 + (i - 0.5) * V
 			for k = 1, c.nz do
 				local z = c.z0 + (k - 0.5) * V
 				local ceil, floor, hit = math.huge, -math.huge, false
+				local byWay = {}    -- the nearest part of each street near this column
 				for _, g in near(x, z) do
 					local d, t = probe(g, x, z)
 					if d < reach then
 						hit = true
 						ceil = math.min(ceil, (d <= 0 and t - 1.2 or t - 0.3 + d * cut) - RAMP_BIAS)
 						if d < berm then floor = math.max(floor, t - 0.6 - d - RAMP_BIAS) end
+						local way = g.way
+						if not byWay[way] or d < byWay[way][1] then byWay[way] = {d, t} end
 					end
+				end
+				-- Between two DIFFERENT streets less than GAP apart, the cut banks
+				-- rising from each meet in a thin ridge, and smooth terrain draws a
+				-- ridge one or two voxels wide as spikes above its height -- rims
+				-- tracing every junction. Hold such a gap flat at road level instead,
+				-- so it reads as paving between the carriageways.
+				local d1, t1, d2, t2 = math.huge, 0, math.huge, 0
+				for _, v in byWay do
+					if v[1] < d1 then d2, t2, d1, t1 = d1, t1, v[1], v[2]
+					elseif v[1] < d2 then d2, t2 = v[1], v[2] end
+				end
+				local paved = d1 <= PAVE
+				if d1 + d2 < GAP then
+					ceil = math.min(ceil, math.min(t1, t2) - 0.3 - RAMP_BIAS)
+					paved = true
 				end
 				if hit then
 					local idx = (i - 1) * c.nz + k
 					local h0 = c.h[idx] + FILE_TO_STUDIO
 					local h = math.min(math.max(h0, floor), ceil)
 					target[idx] = h
+					if paved then pavedCols[idx] = true end
 					any = true
 					if h < h0 - 0.05 then lowered += 1 elseif h > h0 + 0.05 then raised += 1 end
 					top = math.max(top, h0, h)
@@ -463,10 +490,11 @@ function RoadBuilder.GradeCorridors(first, last, reach, cut, berm)
 				for k = 1, c.nz do
 					local h = target[(i - 1) * c.nz + k]
 					if h then
+						local mat = pavedCols[(i - 1) * c.nz + k] and Enum.Material.Asphalt or Enum.Material.Concrete
 						for j = 1, ny do
 							local o = math.clamp(0.5 + (h - (c.y0 + (j - 1) * V + V / 2)) / RAMP, 0, 1)
 							occ[i][j][k] = o
-							mats[i][j][k] = o > 0 and Enum.Material.Concrete or Enum.Material.Air
+							mats[i][j][k] = o > 0 and mat or Enum.Material.Air
 						end
 						graded += 1
 					end

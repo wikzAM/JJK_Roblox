@@ -37,8 +37,13 @@ function GroundTerrain.ClearAll()
 	return "terrain cleared"
 end
 
-function GroundTerrain.WriteChunk(name)
+-- offset: studs added to every height (0 = the files as generated)
+function GroundTerrain.WriteChunk(name, offset)
+	offset = offset or 0
 	local c = fetch(name)
+	if offset ~= 0 then
+		for i, h in c.h do c.h[i] = h + offset end
+	end
 	local top = -math.huge
 	for _, h in c.h do if h > top then top = h end end
 	-- one more layer, so the ramp's upper (mostly empty) voxel exists
@@ -65,11 +70,11 @@ function GroundTerrain.WriteChunk(name)
 	return string.format("%s: %d x %d x %d voxels", name, c.nx, ny, c.nz)
 end
 
-function GroundTerrain.WriteAll(first, last)
+function GroundTerrain.WriteAll(first, last, offset)
 	local index = fetch("index")
 	local lines = {}
 	for i = first or 1, math.min(last or #index, #index) do
-		table.insert(lines, GroundTerrain.WriteChunk(index[i]))
+		table.insert(lines, GroundTerrain.WriteChunk(index[i], offset))
 	end
 	return table.concat(lines, "\n")
 end

@@ -2289,13 +2289,32 @@ never the problem; everything layered on top was:
 **Rebuild in Studio** (each step is seconds; keep calls short -- one long call dropped the plugin):
 
 ```lua
+local G = require(<GroundTerrain or a fresh clone>)
+G.WriteAll(1, 45, 2.5); G.WriteAll(46, 90, 2.5); G.WriteAll(91, 136, 2.5); G.WriteAll(137, 400, 2.5)
 local R = require(<RoadBuilder or a fresh clone of it>)
 R.Clear(); R.BuildAll()
-R.RestoreCorridors(1, 90, 30); R.RestoreCorridors(91, 400, 30)  -- original ground near roads
 -- (wait a moment: terrain collision lags a write)
 R.SettleOnTerrain()                                              -- roads onto that ground
 R.GradeCorridors(1, 90); R.GradeCorridors(91, 400)               -- trim it under/beside roads
 ```
+
+**Sept 24, late: the ground now meets the buildings.** Studio's terrain had been written with
+`SUBSURFACE = 8` for the old part ground and never rewritten when that ground was removed, so it
+lay a median **9.3 studs** under the ground-floor slab tops -- every building stood on a 5-stud
+plinth and a storefront would have needed steps. It is now written from the files at **+2.5**
+(`GroundTerrain.WriteAll(..., 2.5)`, `FILE_TO_STUDIO = 2.5` in RoadBuilder): median **1.9 below**
+the slab tops map-wide, the look the part ground had; under the slabs it never shows through (one
+test-chunk point at +0.1 of 311). +3 was measured too and rejected for that margin.
+
+Raising the ground exposed two things at junctions, both fixed in `GradeCorridors`:
+* **Berms are off by default.** The 3-stud berm beside a road is one voxel wide, and smooth terrain
+  draws a lone voxel ridge as spikes -- rims traced every junction. Cost: 9% of road edges stand
+  more than 3 studs proud (was 6%).
+* **Gaps between streets.** Where two different streets (by `RoadWay`) are closer than `GAP` = 18
+  studs, the cut banks from each met in a thin spiky ridge; that ground is held flat at road level.
+  And terrain under a road, within `PAVE` = 2 studs of it, or in such a gap is **Asphalt**
+  (`Terrain` Asphalt tinted to the slabs, 62/62/66), so the gaps OSM leaves between ways at
+  junctions read as road instead of pale ground.
 
 **SUPERSEDED Sept 24, later the same night** -- the first version of this sequence used
 `CarveTerrain` / `ShapeShoulders` / `ShapeTerrain`. Do not use them; they are kept only for the

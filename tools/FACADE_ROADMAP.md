@@ -59,11 +59,11 @@ yours**. Every number here was measured on this map, not assumed.
    collapse system lands, not after.
 4. **More things that break glass.** Only the main hit capsule breaks glass today. The flung
    body's ground-skid and wall impacts (`trackGroundContacts`) should fire small capsules too.
-5. **Storefront ground floors.** Storey 1 is currently the same glass as the rest. The subagent's plinth
-   advice applies: start the glass 2 studs above the slab and put a buried kickplate below. Check first
-   whether terrain now reaches the ground slab anywhere. Roads were re-settled tonight and the
-   ground is graded near them, so its old "terrain up to 1.4 studs above the slab" finding may no
-   longer hold. Measure before building.
+5. **Storefront ground floors.** Unblocked (Sept 24): the ground now sits a median 1.9 studs under
+   the ground-floor slab tops (it was 9.3 -- the terrain had never been rewritten after the part
+   ground went). It rises above a slab top on 4% of edge samples: the uphill side of buildings on
+   slopes. The subagent's plan fits as-is: glass sill at slab top + 2, a buried kickplate below it,
+   and a per-run sill raise where the ground is higher.
 6. **Performance pass.** Measure client memory with and without facades on a real client, not
    Studio. Studio's 3.5 GB includes the server. Tune `BUILD_RADIUS` against it.
 7. **Streaming** (the subagent's section 3) stays deferred. `StreamingEnabled` is still off. Revisit
