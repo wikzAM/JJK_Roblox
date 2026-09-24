@@ -283,6 +283,13 @@ local function buildCompiled(p,frame,name)
 		model:SetAttribute("SourceSliceWedgeParts",wedgeCount)
 		model:SetAttribute("CoreCFrame",frame*CFrame.new((c.minX+c.maxX)/2,(first.y+last.y+last.thickness)/2,(c.minZ+c.maxZ)/2))
 		model:SetAttribute("CoreSize",Vector3.new(c.maxX-c.minX,last.y+last.thickness-first.y,c.maxZ-c.minZ))
+		-- An unset pivot takes the first part's frame, and a slab wedge's frame
+		-- is turned 90 degrees by design: 1,949 buildings ended up with a
+		-- sideways pivot, so GetBoundingBox reported their height as a length.
+		-- Pin it upright, at the base centre, in the plan's own yaw.
+		model.WorldPivot=frame
+		local box,boxSize=model:GetBoundingBox()
+		model.WorldPivot=box*CFrame.new(0,-boxSize.Y/2,0)
 		local cf,size=model:GetBoundingBox()
 		model:SetAttribute("InteriorBBoxCFrame",cf); model:SetAttribute("InteriorBBoxSize",size)
 		model:SetAttribute("SourceSliceSavedPivot",model:GetPivot())

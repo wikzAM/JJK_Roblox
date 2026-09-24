@@ -2217,3 +2217,43 @@ never reaches Studio. A ring that fails any check keeps its original outline.
 but the live buildings were built from those chunks, so taking the saving means a
 `Sweep.Rebuild` over every building. That is the owner's call and needs Studio, which has been
 unreachable all session.
+
+## TURNED PIVOTS Sept 24 — why buildings "measured" sideways
+
+**Symptom:** `GetBoundingBox()` said the Cerulean was 825 long x 237 tall. It is 825 *tall*, upright,
+and was never tipped. It sent three wrong conclusions in one evening: "the Cerulean is missing",
+"the Cerulean is lying on its side", and a "295 m outlier" that does not exist.
+
+**Cause:** `SourceSliceBuilder.buildCompiled` never set a pivot, so Roblox took the first part's
+frame, and a PolygonSlab wedge's frame is turned 90 degrees by design. **1,949 of 2,230 buildings**
+had a sideways pivot. `GetBoundingBox` reports size in the pivot's frame, so height came back as a
+length. HitHandler's broad-phase was unaffected (it only uses the box centre and `size.Magnitude`),
+but anything reading `InteriorBBoxSize.Y` as a height (`ShibuyaIncompleteAudit`, and any future
+collapse code) was wrong, and Studio's rotate tools would pivot about a sideways axis.
+
+**Fix:** the builder now pins the pivot upright at the base centre in the plan's own yaw. Live, every
+building was re-pivoted without moving a part (probe CFrames compared before and after, 0 moved):
+
+* 1,836 source slices: rotation from the building's *current* plan frame
+  (`GetPivot * SourceSliceSavedPivot^-1 * SourceSliceOriginCFrame`), and `SourceSliceSavedPivot` moved
+  in step so `Regenerate` rebuilds in exactly the same place (worst drift 0.0012 studs).
+* 7 source slices whose saved pivot was stale (the formula above came out sideways): their cores sit
+  exactly where the plan put them (0.00 studs), so the plan frame is current; saved pivot reset to it.
+* 107 `BuildingSmooth_*` greys: yaw kept from the old pivot's most horizontal axis; `SmoothFrame`
+  carried along the same way, so smooth regeneration is unchanged.
+* `InteriorBBoxCFrame/Size` refreshed on all of them. The old pivot is kept as `PrePivotFixPivot`.
+
+Result: `GetBoundingBox` height agrees with the world-frame height on **2,230 of 2,230** buildings,
+worst difference 0.00 studs.
+
+**`ReplacementSourcePivot` is dead weight.** 2,648 instances carry it (158 live greys, 2,296 folders in
+old `SourceSliceStage_*`/`SweepAddedOverGreys_*` stages). It belongs to the obsolete grey pipelines
+(Smooth, GlobalMassing, GlobalFootprint, GridSplit, ResidualSplit) and **none of them still links to
+anything** -- every record's source is gone. It pins nothing; do not let it block pivot work.
+
+**Measure in the world frame.** Never read a building's height from `GetBoundingBox` without checking
+the pivot is upright; sum each part's world extents instead.
+
+**The corrected tallest buildings:** Building1 = Shibuya Scramble Square 218 m (real 229.7, and 2 m from
+its true position), the Cerulean 197 m (real 184), then 182, 182, 142 m. `Building1` is a hand-built
+landmark that shares a name with WorldSetup's test builder -- it is NOT test scaffolding.
