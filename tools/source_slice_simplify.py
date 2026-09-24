@@ -1,11 +1,12 @@
 """Simplify the footprint rings so the map costs fewer parts.
 
-Every ring vertex is paid for twice: once as a perimeter wall part, and again in
-the slab, where PolygonSlab ear-clips the ring and each triangle becomes one or
-two wedges. Across the staged chunks that is ~346,900 parts for 15,793 rings --
-the bulk of the whole map. The rings carry far more detail than a 0.24 m/stud
-world can show: dropping vertices that move the outline less than a fraction of
-the building's own size is invisible and takes out a sixth of the part count.
+Every ring vertex costs slab parts: PolygonSlab ear-clips the ring and each
+triangle becomes one or two wedges. Slabs are 83% of the buildings' parts
+(198,533 of 237,807, counted live). The rings carry far more detail than a
+0.24 m/stud world can show: dropping vertices that move the outline less than a
+fraction of the building's own size is invisible and takes out ~33,200 slab
+parts (18% of slabs, ~11.5% of the map). An earlier version of this note also
+counted a perimeter wall per edge; there are no perimeter walls.
 
 The tolerance is ADAPTIVE (`FRACTION` of sqrt(footprint area), capped at `CAP`),
 not fixed. A fixed 2-stud tolerance saves slightly more but spends the error on
@@ -124,11 +125,11 @@ def try_simplify(ring):
 
 
 def parts_for(ring):
-    """What the ring costs to build: one wall per edge, plus the slab. A
-    rectangle is a single Part; anything else ear-clips to n-2 triangles, each
-    of which needs one or two wedges (1.5 on average)."""
+    """What the ring's slab costs: a rectangle is a single Part; anything else
+    ear-clips to n-2 triangles, each needing one or two wedges (1.5 on average).
+    (There are no perimeter walls -- an earlier version counted one per edge.)"""
     n = len(ring)
-    return n + (1 if n == 4 else round((n - 2) * 1.5))
+    return 1 if n == 4 else round((n - 2) * 1.5)
 
 
 def main():

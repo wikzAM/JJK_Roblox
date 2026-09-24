@@ -2177,16 +2177,30 @@ storey grid alone. See `src/client/ProjectFiles.luau` "Units".
 
 ## WHERE THE PARTS ACTUALLY ARE Sept 23 — and the one change that moves the number
 
-Measured from the staged chunk plans (2,231 distinct buildings, 15,793 rings), reconciled
-against the ~290,000 parts observed live:
+> **CORRECTED Sept 24.** The table below first listed ~161,000 "perimeter walls, one part per ring
+> edge". **There are no perimeter walls** -- `buildCompiled` makes slabs and cores only, and a live
+> count confirms it. Counted in Studio over the 2,069 source-slice buildings (237,807 parts, 115 each):
+>
+> | | parts | share |
+> |---|---|---|
+> | `Slab` (PolygonSlab: rectangles as one Part, else wedges) | 198,533 | 83% |
+> | `ParapetRim` | 18,232 | 8% |
+> | `CrownWedge` | 8,628 | 4% |
+> | core walls and dividers (6 per building) | 12,414 | 5% |
+>
+> So ring simplification saves **~33,200 slab parts (18% of slabs, ~11.5% of the map)**, not the 15%
+> of the map claimed below -- that figure counted the walls that do not exist. Still the biggest
+> single lever; the reasoning below stands, only the size is smaller.
+
+Original (wrong) table, kept for the record:
 
 | | parts | share |
 |---|---|---|
 | slabs (ear-clipped rings, 1-2 wedges per triangle) | ~188,000 | 52% |
-| perimeter walls (one part per ring edge) | ~161,000 | 44% |
+| ~~perimeter walls (one part per ring edge)~~ | ~~161,000~~ | ~~44%~~ |
 | cores (6 per building, after the merge) | ~13,400 | 4% |
 
-Mean 136 parts per building; the median building has 4 floors. **Roads are 8,811 parts — 3% of
+Mean 136 parts per building (really 115); the median building has 4 floors. **Roads are 8,811 parts — 3% of
 the map. Stop optimising them.** Two things were measured and rejected before the one that works:
 
 * **Quadtree aprons** (merge the 64-stud apron grid where the ground is planar): 4,847 -> 4,128
