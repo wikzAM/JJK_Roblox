@@ -28,7 +28,27 @@ FacadeLayout.CONFIG = {
 	thickness = 0.3,     -- studs: glass thickness
 	overlap = 0.15,      -- studs: glass tucks this far into the slabs above and below
 	interiorProbe = 1.0, -- studs: how far outside an edge to test whether it is shared with another piece
+	parapet = 3.5,       -- studs: where the storey above does not cover a run (a setback), a low
+	                     -- parapet instead of full-height glass standing open to the sky
 }
+
+-- Facade styles: tinted glass that reads as real curtain wall, not turquoise.
+-- A building's style comes from a hash of its id, so every client picks the same.
+FacadeLayout.STYLES = {
+	{name = "blue-grey", glass = Color3.fromRGB(52, 66, 80),  transparency = 0.15, reflectance = 0.18},
+	{name = "green-grey", glass = Color3.fromRGB(58, 74, 70), transparency = 0.15, reflectance = 0.16},
+	{name = "bronze",    glass = Color3.fromRGB(78, 66, 54),  transparency = 0.12, reflectance = 0.15},
+	{name = "dark",      glass = Color3.fromRGB(34, 38, 44),  transparency = 0.10, reflectance = 0.22},
+	{name = "silver",    glass = Color3.fromRGB(110, 120, 128), transparency = 0.20, reflectance = 0.25},
+	{name = "blue",      glass = Color3.fromRGB(46, 70, 98),  transparency = 0.15, reflectance = 0.20},
+}
+FacadeLayout.PIER = {color = Color3.fromRGB(163, 162, 165), material = Enum.Material.Concrete}
+
+function FacadeLayout.StyleOf(id)
+	local h = 5381
+	for i = 1, #id do h = (h * 33 + string.byte(id, i)) % 2147483647 end
+	return FacadeLayout.STYLES[h % #FacadeLayout.STYLES + 1]
+end
 
 local function signedArea(ring)
 	local a = 0
@@ -123,11 +143,19 @@ function FacadeLayout.Build(plan, config)
 						if not shared then
 							local cx = (ax + bx) / 2 - nx * cfg.inset
 							local cz = (az + bz) / 2 - nz * cfg.inset
+							-- is this run under the storey above? test a point just inside its edge
+							local px, pz = (ax + bx) / 2 - nx * 1.5, (az + bz) / 2 - nz * 1.5
+							local covered = false
+							for _, upper in above.pieces do
+								if inside(upper, px, pz) then covered = true break end
+							end
+							local kind, sh = len < cfg.minRun and "pier" or "glass", h
+							if not covered then kind, sh = "parapet", math.min(cfg.parapet, h) end
 							table.insert(strips, {
-								kind = len < cfg.minRun and "pier" or "glass",
+								kind = kind,
 								storey = i, piece = pi, run = ri,
-								cframe = CFrame.fromMatrix(Vector3.new(cx, y0 + h / 2, cz), Vector3.new(ux, 0, uz), Vector3.yAxis),
-								size = Vector3.new(len, h, cfg.thickness),
+								cframe = CFrame.fromMatrix(Vector3.new(cx, y0 + sh / 2, cz), Vector3.new(ux, 0, uz), Vector3.yAxis),
+								size = Vector3.new(len, sh, cfg.thickness),
 							})
 						end
 					end

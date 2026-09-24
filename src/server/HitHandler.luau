@@ -1124,6 +1124,16 @@ function HitHandler.Init()
 		HitEvent.Parent = ReplicatedStorage
 	end
 
+	-- server -> all clients: (start, finish, radius), the same capsule the CSG
+	-- carves. Facades live only on clients (FacadeRenderer), so each client
+	-- breaks its own glass from this; the server stores no facade parts.
+	local FacadeHitEvent = ReplicatedStorage:FindFirstChild("FacadeHitEvent")
+	if not FacadeHitEvent then
+		FacadeHitEvent = Instance.new("RemoteEvent")
+		FacadeHitEvent.Name = "FacadeHitEvent"
+		FacadeHitEvent.Parent = ReplicatedStorage
+	end
+
 	HitEvent.OnServerEvent:Connect(function(player, targetModel, hitDirection)
 		if typeof(targetModel) ~= "Instance" or not targetModel:IsA("Model") then return end
 		if not CollectionService:HasTag(targetModel, "HitTarget") then return end
@@ -1177,6 +1187,7 @@ function HitHandler.Init()
 			DustEvent:FireAllClients(point, 1.0)
 		end
 
+		FacadeHitEvent:FireAllClients(startPos, endPos, HOLE_RADIUS)
 		task.spawn(function()
 			destroyAlongCylinder(startPos, endPos, HOLE_RADIUS)
 		end)
