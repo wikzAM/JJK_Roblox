@@ -1567,10 +1567,18 @@ September 13, 2026 — automated Shibuya reconstruction
   3. Sync client dust VFX — if denser/larger dust is desired, update
      spawnDustCloud in ClickInput.luau (not server).
 
-  4. Custom building exteriors — after interiors are generated, owner adds
-     glass walls, rooftop accessories (fans, HVAC, helipads) by hand.
+  4. Custom building exteriors — rooftop accessories (fans, HVAC, helipads)
+     still by hand. GLASS FACADES NOW EXIST (Sept 24), built CLIENT-SIDE and
+     never saved: src/shared/FacadeLayout.luau (plan -> strips) and
+     src/client/FacadeRenderer.luau (near-camera build, pooled, breakable).
+     HitHandler fires FacadeHitEvent(start, end, radius) beside the CSG so each
+     client breaks its own glass. Roadmap and open decisions:
+     tools/FACADE_ROADMAP.md.
 
-  5. Road system — the Roads folder is empty; needs road Part placement.
+  5. Road system — BUILT (Sept 24): workspace.Roads, 3,590 parts from OSM,
+     one slab per segment + round joints, laid on the terrain. Rebuild
+     sequence and the terrain traps: tools/SHIBUYA_SOURCE_SLICE_HANDOFF.md,
+     "SIMPLE ROADS".
 
   6. Jagged cutter mesh — replace cylinder cutter in destroyAlongCylinder with
      premade irregular MeshPart from ServerStorage.
