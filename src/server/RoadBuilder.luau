@@ -294,24 +294,21 @@ function RoadBuilder.ShapeShoulders(first, last, reach, slope, fill)
 	return string.format("shaped terrain along %d road parts (%d voxels lowered, %d raised)", shaped, cut, filled)
 end
 
--- The same shaping with a SAFE fill. Cut-only left road edges ~2.5 studs proud
--- with the slab's dark side showing; a per-road fill had buried neighbouring
--- roads. Here every voxel's ceiling is the LOWEST cap of every road near it (a
--- spatial hash of all road parts), so a road may raise ground toward its own
--- level only where no other road forbids it. Floors are relative to the road
--- top, which SettleOnTerrain put on the original ground, so the fill mostly
--- gives back what the cut removed at the edges and fills small dips.
-function RoadBuilder.ShapeTerrain(first, last, reach, slope)
-	reach = reach or 14
-	slope = slope or 0.4
-	local V, CELL = 4, 32
-	local T = workspace.Terrain
+-- Every road part's plan geometry, hashed by 32-stud cell, and a probe that
+-- gives a point's distance from a part's footprint and the road's top there.
+-- Shared by ShapeTerrain and RestoreCorridors.
+local CELL = 32
+-- The terrain IN STUDIO was written while tools/ground_terrain.py had
+-- SUBSURFACE = 8 (under the old part ground); the chunk files were regenerated
+-- with SUBSURFACE = 3 on Sept 23 and never written back. Measured on untouched
+-- columns: Studio's encoded height = file height - 5.0. Restoring from the files
+-- without this raised every road corridor 5 studs -- a step at its edge.
+local FILE_TO_STUDIO = -5.0
+local function roadIndex(reach)
 	local f = workspace:FindFirstChild("Roads")
-	if not f then return "no roads" end
-	local tiles = f:GetChildren()
-	-- 1. geometry of every road part, hashed by 32-stud cell
+	if not f then return nil end
 	local all, hash = {}, {}
-	for _, tile in tiles do
+	for _, tile in f:GetChildren() do
 		for _, part in tile:GetChildren() do
 			local g = {part = part, pos = part.Position, joint = part.Name == "Joint"}
 			if g.joint then
@@ -335,7 +332,6 @@ function RoadBuilder.ShapeTerrain(first, last, reach, slope)
 			end
 		end
 	end
-	-- dist from a road's footprint and the road's top there
 	local function probe(g, x, z)
 		local rx, rz = x - g.pos.X, z - g.pos.Z
 		if g.joint then
@@ -345,21 +341,174 @@ function RoadBuilder.ShapeTerrain(first, last, reach, slope)
 		local dx, dz = math.max(math.abs(a) - g.hx, 0), math.max(math.abs(b) - g.hz, 0)
 		return math.sqrt(dx * dx + dz * dz), g.top + math.clamp(a, -g.hx, g.hx) * g.slopeAlong
 	end
-	-- The measured levels (see ShapeShoulders): a voxel draws its surface at
-	-- yb+2 / yb+4 / yb+6 by occupancy -- 2-stud steps, so the window between cap
-	-- and floor must be at least 2 wide. A side-on capture of calibration blocks
-	-- showed the RENDERED flat surface matches the raycast one within half a
-	-- stud, so the edge window sits right under the asphalt (0.2 to 2.2 down).
-	-- Under the road it is held 6 down: isolated part-filled voxels render as
-	-- peaks that climb above the flat level, and came up through as spikes.
-	local function capOf(dist, top) return dist <= 0 and top - 6 or top - 0.2 + dist * slope end
-	local function floorOf(dist, top) return top - 2.2 - dist * slope end
-	-- 2. shape around the requested tiles' parts
+	local function near(x, z)
+		return hash[math.floor(x / CELL) * 100000 + math.floor(z / CELL)] or {}
+	end
+	return all, near, probe
+end
+
+-- Put the ORIGINAL ground back near the roads, from the same chunks
+-- GroundTerrain wrote it from, before shaping again. Voxels further than
+-- MARGIN from every road are left exactly as they are, so nothing else --
+-- including any hand edits -- is touched.
+function RoadBuilder.RestoreCorridors(first, last, margin)
+	margin = margin or 24
+	local TSINK = "http://127.0.0.1:58999/get/tools/source_slices/ground/terrain/"
+	local V, RAMP = 4, 8     -- GroundTerrain's own values
+	local _, near, probe = roadIndex(margin)
+	if not near then return "no roads" end
+	local index = Http:JSONDecode(Http:GetAsync(TSINK .. "index.json", true))
+	local restored, chunks = 0, 0
+	for ci = first or 1, math.min(last or #index, #index) do
+		local c = Http:JSONDecode(Http:GetAsync(TSINK .. index[ci] .. ".json", true))
+		-- which columns are in a road corridor?
+		local want, any = {}, false
+		for i = 1, c.nx do
+			local x = c.x0 + (i - 0.5) * V
+			for k = 1, c.nz do
+				local z = c.z0 + (k - 0.5) * V
+				for _, g in near(x, z) do
+					if (probe(g, x, z)) < margin then want[(i - 1) * c.nz + k] = true; any = true; break end
+				end
+			end
+		end
+		if any then
+			local top = -math.huge
+			for _, h in c.h do if h > top then top = h end end
+			-- a little headroom above the old top, to clear anything a fill raised there
+			local ny = math.max(1, math.ceil((top + RAMP - c.y0) / V)) + 4
+			local region = Region3.new(Vector3.new(c.x0, c.y0, c.z0), Vector3.new(c.x0 + c.nx * V, c.y0 + ny * V, c.z0 + c.nz * V))
+			local mats, occ = workspace.Terrain:ReadVoxels(region, V)
+			for i = 1, c.nx do
+				for k = 1, c.nz do
+					if want[(i - 1) * c.nz + k] then
+						local h = c.h[(i - 1) * c.nz + k] + FILE_TO_STUDIO
+						for j = 1, ny do
+							local o = math.clamp(0.5 + (h - (c.y0 + (j - 1) * V + V / 2)) / RAMP, 0, 1)
+							occ[i][j][k] = o
+							mats[i][j][k] = o > 0 and Enum.Material.Concrete or Enum.Material.Air
+						end
+						restored += 1
+					end
+				end
+			end
+			workspace.Terrain:WriteVoxels(region, V, mats, occ)
+			chunks += 1
+		end
+	end
+	return string.format("restored the original ground in %d road-corridor columns across %d chunks", restored, chunks)
+end
+
+-- GRADE THE ROAD CORRIDORS IN THE HEIGHT DOMAIN. This supersedes ShapeTerrain,
+-- ShapeShoulders and CarveTerrain. The original ground is written with a smooth
+-- occupancy RAMP over two voxels (GroundTerrain), which is what makes its
+-- slopes smooth; every per-voxel pass set hard 0 / 0.5 / 1 occupancies and left
+-- lumps, rock-like ridges and terraces along the roads. Here each column near a
+-- road starts from its ORIGINAL height (the chunk data GroundTerrain wrote
+-- from), takes the roads' limits as a HEIGHT, and is rewritten with the same
+-- ramp -- so the ground stays exactly as smooth as the rest of the map:
+--   under a road      at most top - 1.2   (hidden inside the 8-deep slab)
+--   beside it         at most top - 0.3 + dist * CUT     (a cut bank)
+--   within BERM studs at least top - 0.6 - dist          (a 45-degree berm, no slab side showing)
+-- ...all measured as where the surface SHOWS. The ramp draws the surface ~2
+-- studs above the height it encodes (the first run at these numbers buried the
+-- roads; the same bias is why terrain written 3 under the ground floors shows
+-- ~1 under them), so the heights written are RAMP_BIAS lower.
+-- Every road near a column constrains it (lowest ceiling, highest floor, ceiling
+-- wins), so one road's berm can never bury another road.
+function RoadBuilder.GradeCorridors(first, last, reach, cut, berm)
+	reach = reach or 16
+	cut = cut or 0.7
+	berm = berm or 3
+	local TSINK = "http://127.0.0.1:58999/get/tools/source_slices/ground/terrain/"
+	local V, RAMP = 4, 8     -- GroundTerrain's own values
+	local RAMP_BIAS = 4.0    -- studs the ramp's visible surface sits above the height it encodes (measured 3 to 3.9)
+	local _, near, probe = roadIndex(reach)
+	if not near then return "no roads" end
+	local index = Http:JSONDecode(Http:GetAsync(TSINK .. "index.json", true))
+	local graded, lowered, raised, chunks = 0, 0, 0, 0
+	for ci = first or 1, math.min(last or #index, #index) do
+		local c = Http:JSONDecode(Http:GetAsync(TSINK .. index[ci] .. ".json", true))
+		local target, any, top = {}, false, -math.huge
+		for i = 1, c.nx do
+			local x = c.x0 + (i - 0.5) * V
+			for k = 1, c.nz do
+				local z = c.z0 + (k - 0.5) * V
+				local ceil, floor, hit = math.huge, -math.huge, false
+				for _, g in near(x, z) do
+					local d, t = probe(g, x, z)
+					if d < reach then
+						hit = true
+						ceil = math.min(ceil, (d <= 0 and t - 1.2 or t - 0.3 + d * cut) - RAMP_BIAS)
+						if d < berm then floor = math.max(floor, t - 0.6 - d - RAMP_BIAS) end
+					end
+				end
+				if hit then
+					local idx = (i - 1) * c.nz + k
+					local h0 = c.h[idx] + FILE_TO_STUDIO
+					local h = math.min(math.max(h0, floor), ceil)
+					target[idx] = h
+					any = true
+					if h < h0 - 0.05 then lowered += 1 elseif h > h0 + 0.05 then raised += 1 end
+					top = math.max(top, h0, h)
+				end
+			end
+		end
+		if any then
+			-- headroom above the highest ground here, so earlier fills above it are cleared too
+			local ny = math.max(1, math.ceil((top + RAMP - c.y0) / V)) + 4
+			local region = Region3.new(Vector3.new(c.x0, c.y0, c.z0), Vector3.new(c.x0 + c.nx * V, c.y0 + ny * V, c.z0 + c.nz * V))
+			local mats, occ = workspace.Terrain:ReadVoxels(region, V)
+			for i = 1, c.nx do
+				for k = 1, c.nz do
+					local h = target[(i - 1) * c.nz + k]
+					if h then
+						for j = 1, ny do
+							local o = math.clamp(0.5 + (h - (c.y0 + (j - 1) * V + V / 2)) / RAMP, 0, 1)
+							occ[i][j][k] = o
+							mats[i][j][k] = o > 0 and Enum.Material.Concrete or Enum.Material.Air
+						end
+						graded += 1
+					end
+				end
+			end
+			workspace.Terrain:WriteVoxels(region, V, mats, occ)
+			chunks += 1
+		end
+	end
+	return string.format("graded %d columns in %d chunks (%d lowered for a road, %d raised into a berm)", graded, chunks, lowered, raised)
+end
+
+-- Shape the ground along every road, with a spatial hash so each voxel's
+-- ceiling is the LOWEST cap of every road near it (a per-road fill buried
+-- neighbouring roads).
+--  * under a road: held 6 studs down -- isolated part-filled voxels render as
+--    peaks that climb above the flat level, and came up through the asphalt;
+--  * beside it: a cut bank rising at CUTSLOPE, so ground higher than the road
+--    steps back instead of a sawtooth at the voxel grid;
+--  * right at the edge: a short berm (BERM studs, 45 degrees) so the slab's side
+--    does not show. A 14-stud embankment ended in a cliff wherever the natural
+--    ground fell away further -- visible as a jagged ridge along the road.
+-- Smooth terrain lands on 2-stud levels (measured: a voxel draws its surface at
+-- yb+2 / yb+4 / yb+6 as it goes low / half / full), and the render matches the
+-- raycast within half a stud on flat ground, so the window between ceiling and
+-- floor is kept 2 studs wide.
+function RoadBuilder.ShapeTerrain(first, last, reach, cutSlope, berm)
+	reach = reach or 16
+	cutSlope = cutSlope or 0.7
+	berm = berm or 4
+	local V = 4
+	local T = workspace.Terrain
+	local all, near, probe = roadIndex(reach)
+	if not all then return "no roads" end
+	local tiles = workspace.Roads:GetChildren()
+	local function capOf(dist, top) return dist <= 0 and top - 6 or top - 0.2 + dist * cutSlope end
+	local function floorOf(dist, top) return dist < berm and top - 2.2 - dist or -math.huge end
 	local cut, filled, shaped = 0, 0, 0
 	for i = first or 1, math.min(last or #tiles, #tiles) do
 		for _, part in tiles[i]:GetChildren() do
 			local g = all[part]
-			local span = math.abs(g.hx * g.slopeAlong) + reach * slope + V * 3
+			local span = math.abs(g.hx * g.slopeAlong) + reach * cutSlope + V * 3
 			local region = Region3.new(Vector3.new(g.pos.X - g.ext, g.top - span, g.pos.Z - g.ext),
 				Vector3.new(g.pos.X + g.ext, g.top + span, g.pos.Z + g.ext)):ExpandToGrid(V)
 			local mats, occ = T:ReadVoxels(region, V)
@@ -372,7 +521,7 @@ function RoadBuilder.ShapeTerrain(first, last, reach, slope)
 					local myDist, myTop = probe(g, x, z)
 					if myDist < reach then
 						local cap = math.huge
-						for _, h in hash[math.floor(x / CELL) * 100000 + math.floor(z / CELL)] or {} do
+						for _, h in near(x, z) do
 							local dd, tt = probe(h, x, z)
 							if dd < reach then cap = math.min(cap, capOf(dd, tt)) end
 						end

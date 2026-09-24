@@ -2291,10 +2291,34 @@ never the problem; everything layered on top was:
 ```lua
 local R = require(<RoadBuilder or a fresh clone of it>)
 R.Clear(); R.BuildAll()
-R.SettleOnTerrain()          -- roads onto the terrain (they rode 5.2 studs above it)
-R.CarveTerrain(1, 200, 14, 5) -- clear terrain deep over any road
-R.ShapeTerrain(1, 64); R.ShapeTerrain(65, 200)   -- banks and edges, no burying
+R.RestoreCorridors(1, 90, 30); R.RestoreCorridors(91, 400, 30)  -- original ground near roads
+-- (wait a moment: terrain collision lags a write)
+R.SettleOnTerrain()                                              -- roads onto that ground
+R.GradeCorridors(1, 90); R.GradeCorridors(91, 400)               -- trim it under/beside roads
 ```
+
+**SUPERSEDED Sept 24, later the same night** -- the first version of this sequence used
+`CarveTerrain` / `ShapeShoulders` / `ShapeTerrain`. Do not use them; they are kept only for the
+record. What went wrong, in order, because each is a trap:
+
+1. **Per-voxel edits ruin smooth terrain.** The ground is written with an occupancy RAMP over two
+   voxels (GroundTerrain), which is what makes its slopes smooth. Every per-voxel pass set hard
+   0 / 0.5 / 1 values and left lumps, rock-like ridges and terraces. `GradeCorridors` works in the
+   HEIGHT domain instead: take each column's original height, apply the roads' limits as heights,
+   rewrite the column with the same ramp.
+2. **Settle -> carve -> re-settle cascades.** Roads rebuilt mid-evening were settled onto terrain the
+   previous round's carve had already dented, so they sat ~2-6 studs low, and every carve dug
+   deeper. Always RESTORE the ground first, then settle, then grade.
+3. **The chunk files are not the terrain in Studio.** `tools/ground_terrain.py` had `SUBSURFACE = 8`
+   when Studio's terrain was written and `3` when the files were regenerated (Sept 23); nobody wrote
+   them back. Studio = file - 5.0 (measured on untouched columns). `FILE_TO_STUDIO` in RoadBuilder
+   corrects it; without it the "restore" raised every road corridor 5 studs, with a step at its edge.
+4. **The ramp's visible surface sits 3-4 studs above the height it encodes** (a column encoding 56.1
+   shows at 60; 61 at 64), quantized to 2-stud levels on flat ground. `RAMP_BIAS = 4` in
+   `GradeCorridors`; with 2.5 the terrain buried the roads.
+
+Result after the fixed sequence: road surface under terrain **0.00%** of 47,082 samples; open-ground
+road edges **70% flush** (mean step 0.79 studs); ground as smooth as the rest of the map.
 
 What each fixes, and the numbers behind them:
 
