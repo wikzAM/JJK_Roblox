@@ -42,11 +42,14 @@ yours**. Every number here was measured on this map, not assumed.
 
 ## Next, in order
 
-1. **Far shells (the most visible gap).** Beyond 700 studs the city is still grey slab stacks,
-   and from any height the line where glass stops is obvious. One part per wall run per building,
-   full height, with glass tint: **~30k client parts for the whole map**. They never unload
-   (cheap), and are swapped for the near strips inside 700 studs. Same `FacadeLayout` runs, so it
-   is a small addition to the renderer.
+1. ~~**Far shells.**~~ **DONE Sept 24.** `FacadeLayout.BuildFarCoarse`: storeys in 5-storey bands,
+   each band one ring of tall panels from its bottom floor's outline (edges merged up to 15°, runs
+   under 8 studs dropped), opaque SmoothPlastic in the building's tint (Glass is the costly material
+   to render). **22,201 parts for the whole map, ~11 per building**, built once at startup under the
+   frame budget, never unloaded, hidden while a building's near facade is up. Tested in Play: near
+   106 buildings / 6,271 parts, far 1,963 / 20,954, none shown twice, no errors. (Merging the near
+   strips exactly where a run repeats kept 87% of them -- level-curve outlines shift every floor --
+   hence the coarse bands.)
 2. **Late joiners see old damage.** Right now each client only knows hits it saw. The server keeps a
    capped log per building (the subagent's `FacadeHits` attribute: start, end and radius, ~32 events,
    merged beyond). The client replays it on build. About a day's work, and no new parts.

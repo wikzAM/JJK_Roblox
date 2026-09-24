@@ -166,6 +166,91 @@ function FacadeLayout.Build(plan, config)
 	return strips
 end
 
+-- The FAR shell, coarse on purpose. Merging the near strips wherever a run
+-- repeats on consecutive storeys kept 87% of them (the level-curve outlines
+-- shift a little every floor), so instead: storeys in bands of FAR_BAND, each
+-- band one ring of tall panels from its bottom floor's outline, with edges
+-- merged up to FAR_MERGE_DEG and runs under FAR_MIN_RUN dropped. Seen only
+-- beyond the near radius, where that precision is invisible.
+FacadeLayout.FAR = {band = 5, mergeDeg = 15, minRun = 8, inset = 0.6, thickness = 0.3}
+
+function FacadeLayout.BuildFarCoarse(plan, far)
+	far = far or FacadeLayout.FAR
+	local out = {}
+	local levels = plan.levels
+	local mergeRad = math.rad(far.mergeDeg)
+	local i = 1
+	while i < #levels do
+		local j = math.min(i + far.band, #levels)
+		local lv = levels[i]
+		local y0 = lv.y + lv.thickness
+		local y1 = levels[j].y
+		local h = y1 - y0
+		if h > 1 then
+			for pi, ring in lv.pieces do
+				local outward = signedArea(ring) > 0 and 1 or -1
+				for _, run in runsOf(ring, mergeRad) do
+					local ax, az, bx, bz = run.a[1], run.a[2], run.b[1], run.b[2]
+					local dx, dz = bx - ax, bz - az
+					local len = math.sqrt(dx * dx + dz * dz)
+					if len >= far.minRun then
+						local ux, uz = dx / len, dz / len
+						local nx, nz = uz * outward, -ux * outward
+						local shared = false
+						if #lv.pieces > 1 then
+							local mx, mz = (ax + bx) / 2 + nx, (az + bz) / 2 + nz
+							for pj, other in lv.pieces do
+								if pj ~= pi and inside(other, mx, mz) then shared = true break end
+							end
+						end
+						if not shared then
+							table.insert(out, {kind = "glass",
+								cframe = CFrame.fromMatrix(Vector3.new((ax + bx) / 2 - nx * far.inset, y0 + h / 2, (az + bz) / 2 - nz * far.inset),
+									Vector3.new(ux, 0, uz), Vector3.yAxis),
+								size = Vector3.new(len, h, far.thickness)})
+						end
+					end
+				end
+			end
+		end
+		i = j
+	end
+	return out
+end
+
+-- (kept for the record: the exact vertical merge that saved only 13%)
+function FacadeLayout.BuildFar(strips)
+	local open = {}     -- key -> the merged strip still growing upward
+	local out = {}
+	local function key(s)
+		local p = s.cframe.Position
+		return string.format("%s|%.1f|%.1f|%.1f|%.1f", s.kind, p.X, p.Z, s.size.X, s.cframe.XVector.X)
+	end
+	for _, s in strips do
+		if s.kind ~= "parapet" then
+			local k = key(s)
+			local m = open[k]
+			local bottom = s.cframe.Position.Y - s.size.Y / 2
+			if m and m.storey == s.storey - 1 and math.abs(m.top - bottom) < 1 then
+				m.top = s.cframe.Position.Y + s.size.Y / 2
+				m.storey = s.storey
+			else
+				m = {kind = s.kind, storey = s.storey, bottom = bottom, top = s.cframe.Position.Y + s.size.Y / 2,
+					cframe = s.cframe, size = s.size}
+				open[k] = m
+				table.insert(out, m)
+			end
+		end
+	end
+	for _, m in out do
+		local p = m.cframe.Position
+		local h = m.top - m.bottom
+		m.cframe = CFrame.fromMatrix(Vector3.new(p.X, m.bottom + h / 2, p.Z), m.cframe.XVector, Vector3.yAxis)
+		m.size = Vector3.new(m.size.X, h, m.size.Z)
+	end
+	return out
+end
+
 -- The building's CURRENT plan frame (it may have been moved since it was built),
 -- the same rule SourceSliceBuilder.Regenerate uses.
 function FacadeLayout.FrameOf(model)

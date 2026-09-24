@@ -36,7 +36,9 @@ local SHARDS_PER_PANE = 3
 local SHARD_LIFETIME = 4
 
 local folder             -- local-only: created by this client, so it never replicates
+local farFolder
 local built = {}         -- model -> {parts = {part -> strip}, frame = CFrame}
+local far = {}           -- model -> holder Model of its coarse far shell (built once, never unloaded)
 local pool = {}
 local hits = {}          -- this session's hit capsules, re-applied when a building is rebuilt
 
@@ -171,6 +173,37 @@ function FacadeRenderer.BuildInto(parent, model)
 	return entry
 end
 
+-- The coarse far shell (FacadeLayout.BuildFarCoarse): ~11 tall panels per
+-- building, ~22k for the whole map. Opaque SmoothPlastic in the building's
+-- tint -- Glass is the expensive material to render, and at a distance its
+-- see-through quality is invisible anyway. No collision, queries or shadows.
+function FacadeRenderer.BuildFarInto(parent, model)
+	local frame = Layout.FrameOf(model)
+	local encoded = model:GetAttribute("SourceSlicePlan")
+	if not frame or type(encoded) ~= "string" then return nil end
+	local style = Layout.StyleOf(model:GetAttribute("SourceSliceId") or model.Name)
+	local holder = Instance.new("Model")
+	holder.Name = model.Name
+	for _, s in Layout.BuildFarCoarse(game:GetService("HttpService"):JSONDecode(encoded)) do
+		local part = Instance.new("Part")
+		part.Anchored = true
+		part.CanCollide = false
+		part.CanQuery = false
+		part.CanTouch = false
+		part.CastShadow = false
+		part.Material = Enum.Material.SmoothPlastic
+		part.Color = style.glass
+		part.Reflectance = style.reflectance * 0.5
+		part.TopSurface = Enum.SurfaceType.Smooth
+		part.BottomSurface = Enum.SurfaceType.Smooth
+		part.Size = s.size
+		part.CFrame = frame * s.cframe
+		part.Parent = holder
+	end
+	holder.Parent = parent
+	return holder
+end
+
 -- Edit-mode preview: build into a folder AND register the building, so Break
 -- can be tried on it without a playtest (screen capture only works in Edit).
 function FacadeRenderer.Preview(parent, model)
@@ -186,6 +219,7 @@ function FacadeRenderer.Drop(model)
 	for part in entry.parts do release(part) end
 	entry.model:Destroy()
 	built[model] = nil
+	if far[model] and farFolder then far[model].Parent = farFolder end   -- the far shell comes back
 end
 
 -- A hit: break the glass of every built building near the capsule.
@@ -213,15 +247,25 @@ function FacadeRenderer.Init()
 	folder = Instance.new("Folder")
 	folder.Name = "LocalFacades"
 	folder.Parent = workspace
+	farFolder = Instance.new("Folder")
+	farFolder.Name = "LocalFacadesFar"
+	farFolder.Parent = workspace
 
 	local buildingsFolder = workspace:WaitForChild("Buildings")
-	local candidates = {}
+	local candidates, farQueue = {}, {}
 	local function consider(model)
-		if model:IsA("Model") and model:GetAttribute("SourceSlicePlan") then candidates[model] = true end
+		if model:IsA("Model") and model:GetAttribute("SourceSlicePlan") and not candidates[model] then
+			candidates[model] = true
+			table.insert(farQueue, model)   -- every building gets a far shell, including late arrivals
+		end
 	end
 	for _, m in buildingsFolder:GetChildren() do consider(m) end
 	buildingsFolder.ChildAdded:Connect(consider)
-	buildingsFolder.ChildRemoved:Connect(function(m) candidates[m] = nil; FacadeRenderer.Drop(m) end)
+	buildingsFolder.ChildRemoved:Connect(function(m)
+		candidates[m] = nil
+		FacadeRenderer.Drop(m)
+		if far[m] then far[m]:Destroy(); far[m] = nil end
+	end)
 
 	local event = ReplicatedStorage:WaitForChild("FacadeHitEvent", 30)
 	if event then
@@ -259,6 +303,15 @@ function FacadeRenderer.Init()
 			local model = table.remove(queue, 1)[1]
 			if not built[model] and model.Parent then
 				built[model] = FacadeRenderer.BuildInto(folder, model)
+				if built[model] and far[model] then far[model].Parent = nil end   -- near replaces far
+			end
+		end
+		-- far shells for the whole map, once, in whatever budget the near work left
+		while #farQueue > 0 and os.clock() - start < FRAME_BUDGET do
+			local model = table.remove(farQueue)
+			if model.Parent and not far[model] then
+				far[model] = FacadeRenderer.BuildFarInto(farFolder, model)
+				if far[model] and built[model] then far[model].Parent = nil end
 			end
 		end
 	end)
