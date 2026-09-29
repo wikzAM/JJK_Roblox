@@ -34,9 +34,12 @@ from scipy import ndimage  # noqa: E402
 DATA = RP.DATA
 SAMPLE = 6.0         # studs between corridor readings along a street
 SCAN = 60.0          # studs: how far across the street the corridor is read
-SHIFT_MAX = 24.0     # studs a street may be moved sideways to sit in its corridor
+SHIFT_MAX = 40.0     # studs a street may be moved sideways (OSM is up to ~35 off in places, e.g. Shibuya Pkwy)
 MARGIN = 2.0         # studs kept clear of a footprint on each side
 MIN_W = 8.0          # studs: narrower gaps are between buildings, not streets
+BRIDGE = 10.0        # studs: blocked stretches this short are bridged, not cut
+MIN_PIECE = 12.0     # studs: shorter pieces merge into a neighbour
+PIECE_SHIFT = 8.0    # studs a piece may slide sideways toward open ground at a corner
 RECENTRE = 3.0       # studs: the most one slab may be moved off its street's line
 BEND_DEG = 25.0      # a turn sharper than this inside an edge gets a round joint
 DROP_KINDS = {"service"}
@@ -87,14 +90,35 @@ def main():
     # ---- 1. ways -> edges split at junctions
     osm = json.loads((DATA / "osm_roads.json").read_text(encoding="utf-8"))
     ways = []
+    skipped_level = defaultdict(int)
     for w in osm["elements"]:
         tags = w.get("tags", {})
         kind = tags.get("highway")
         if not w.get("geometry") or kind not in RP.KIND or kind in DROP_KINDS:
             continue
+        # off the ground: tunnels and underpasses (layer < 0), bridges and the
+        # elevated Shuto Expressway (motorway / layer > 0) -- the viaducts were
+        # removed from the map, and drawn on the ground they stacked onto the
+        # streets beneath them
+        # a closed way / area=yes is a plaza OUTLINE, not a street: drawn as a
+        # road it made rings of short blades at every angle
+        if tags.get("area") == "yes" or w["nodes"][0] == w["nodes"][-1]:
+            skipped_level["area/closed"] += 1
+            continue
+        layer = tags.get("layer", "0")
+        if (tags.get("tunnel") in ("yes", "building_passage") or tags.get("bridge") in ("yes", "viaduct")
+                or kind == "motorway" or (layer.lstrip("-").isdigit() and int(layer) != 0)):
+            skipped_level[kind] += 1
+            continue
         road_m, _, prio = RP.KIND[kind]
+        oneway = tags.get("oneway") in ("yes", "-1")
         if tags.get("lanes", "").isdigit():
-            road_m = max(road_m, int(tags["lanes"]) * RP.LANE_M + 1.0)
+            # on a one-way way, lanes counts only its own direction
+            road_m = int(tags["lanes"]) * RP.LANE_M + 1.0 if oneway else max(road_m, int(tags["lanes"]) * RP.LANE_M + 1.0)
+        elif oneway and kind in ("trunk", "primary", "secondary", "tertiary"):
+            # one half of a dual carriageway: OSM draws each direction as its own
+            # way, and both at the full road width stacked into each other
+            road_m /= 2
         pts = [to_studs(p["lat"], p["lon"]) for p in w["geometry"]]
         ways.append(dict(id=w["id"], kind=kind, prio=prio, width=road_m * s, nodes=w["nodes"], pts=pts))
     uses = defaultdict(int)
@@ -112,7 +136,8 @@ def main():
             if w["nodes"][k] in junction or k == len(w["nodes"]) - 1:
                 edges.append(dict(way=w, a=w["nodes"][start], b=w["nodes"][k], pts=w["pts"][start:k + 1]))
                 start = k
-    print(f"{len(ways)} ways ({', '.join(sorted(DROP_KINDS))} dropped), {len(junction)} junction nodes, {len(edges)} edges")
+    print(f"{len(ways)} ways ({', '.join(sorted(DROP_KINDS))} dropped; off-ground dropped: {dict(skipped_level)}), "
+          f"{len(junction)} junction nodes, {len(edges)} edges")
 
     # ---- 2. fit each edge into its corridor
     def corridor(x, z, nxv, nzv):
@@ -170,7 +195,7 @@ def main():
     fitted = []
     shifts = []
     for e in edges:
-        pts = RP.simplify(e["pts"], 1.0)
+        pts = RP.simplify(e["pts"], 3.0)   # longer straight pieces; curves still read as curves at 3 studs
         if len(pts) < 2:
             continue
         w = e["way"]["width"]
@@ -234,12 +259,15 @@ def main():
     tiles, counts, total = defaultdict(list), defaultdict(int), 0.0
     dropped = defaultdict(int)
 
-    def emit(kind, x, y, z, yaw, pitch, length, thick, width, cls, wid):
+    def emit(kind, x, y, z, yaw, pitch, length, thick, width, cls, wid, extra=None):
         if not in_city(x, z):
             return
         key = (int(math.floor(x / RP.TILE)), int(math.floor(z / RP.TILE)))
-        tiles[key].append([kind, round(x, 2), round(y, 2), round(z, 2), round(yaw, 5), round(pitch, 5),
-                           round(length, 2), round(thick, 2), round(width, 2), cls, wid])
+        row = [kind, round(x, 2), round(y, 2), round(z, 2), round(yaw, 5), round(pitch, 5),
+               round(length, 2), round(thick, 2), round(width, 2), cls, wid]
+        if extra is not None:
+            row.append(round(extra, 5))       # pads: slope along the local Z axis
+        tiles[key].append(row)
         counts[kind] += 1
 
     def clear_square(x, z, yaw, side):
@@ -270,8 +298,18 @@ def main():
             pad["dropped"] = True        # its streets then run on to meet at the node
             continue
         pad["side"] = side
-        emit("pad", pad["x"], ground(pad["x"], pad["z"]) + pad["prio"] * 0.05 + 0.1, pad["z"], pad["yaw"], 0.0,
-             side, RP.THICKNESS, side, pad["kind"], pad["way"])
+        # the pad follows the ground's slope (a plane through the field at its
+        # edges) so streets meeting it at any side arrive at its height
+        cy, sy = math.cos(pad["yaw"]), math.sin(pad["yaw"])
+        h = side / 2
+        px_, pz_ = pad["x"], pad["z"]
+        gx = (ground(px_ + cy * h, pz_ + sy * h) - ground(px_ - cy * h, pz_ - sy * h)) / side
+        gz = (ground(px_ - sy * h, pz_ + cy * h) - ground(px_ + sy * h, pz_ - cy * h)) / side
+        yc = (ground(px_ + cy * h, pz_ + sy * h) + ground(px_ - cy * h, pz_ - sy * h)
+              + ground(px_ - sy * h, pz_ + cy * h) + ground(px_ + sy * h, pz_ - cy * h)) / 4
+        pad["plane"] = (px_, pz_, yc, gx, gz, cy, sy)
+        emit("pad", px_, yc + pad["prio"] * 0.05 + 0.1, pz_, pad["yaw"], gx,
+             side, RP.THICKNESS, side, pad["kind"], pad["way"], extra=gz)
 
     def rect_clear(cx, cz, ux, uz, L, W, grow=1.0):
         """Final check: the whole rectangle, grown by `grow`, is off every floor."""
@@ -290,6 +328,7 @@ def main():
 
     for f in fitted:
         pts = [np.array(p, float) for p in f["pts"]]
+        end_pad = {0: None, -1: None}
         # stop at the pads: pull each junction end back to the pad's edge (a little under it)
         for k in (0, -1):
             t = edge_trim.get((id(f), k))
@@ -298,6 +337,7 @@ def main():
             if pad["dropped"]:
                 continue
             half = pad["side"] / 2
+            end_pad[k] = pad
             inner = pts[1] if k == 0 else pts[-2]
             d = inner - centre
             L = float(np.hypot(*d))
@@ -318,29 +358,56 @@ def main():
             # PIECEWISE FIT: the width the street may have at every 2 studs, then
             # pieces of steady width; only the stretches with no room are dropped
             samples = np.arange(0, seg + 0.1, 2.0)
-            allow = []
+            LR = []
             for a in samples:
                 sx, sz = ax + ux * a, az + uz * a
-                l = side_clear(sx, sz, -uz, ux)
-                r = side_clear(sx, sz, uz, -ux)
-                allow.append(min(w, 2 * min(l, r) - 2 * MARGIN))
+                LR.append((side_clear(sx, sz, -uz, ux), side_clear(sx, sz, uz, -ux)))
+
+            def width_at(i, s):
+                l, r = LR[i]
+                return min(w, 2 * min(l - s, r + s) - 2 * MARGIN)
+
+            def best_shift(i):
+                l, r = LR[i]
+                return max(-PIECE_SHIFT, min(PIECE_SHIFT, (l - r) / 2))
+
+            # pieces of steady width AND steady sideways shift: where a building
+            # corner narrows one side, the piece slides (<= PIECE_SHIFT) toward
+            # the open side instead of the whole street being cut there
             pieces, cur = [], None
-            for i, sw in enumerate(allow):
+            for i in range(len(samples)):
+                s = cur[3] if cur else best_shift(i)
+                sw = width_at(i, s)
+                if cur and (sw < MIN_W or sw < cur[2] - 4):
+                    s2 = best_shift(i)
+                    if width_at(i, s2) >= MIN_W:
+                        pieces.append(cur); cur = None; s, sw = s2, width_at(i, s2)
                 if sw < MIN_W:
                     if cur: pieces.append(cur); cur = None
                     dropped["stretch with no room (2-stud samples)"] += 1
                     continue
                 if cur is None:
-                    cur = [i, i, sw]
-                elif sw < cur[2] - 4 or (sw > cur[2] + 6 and i - cur[0] >= 10):
-                    pieces.append(cur); cur = [i, i, sw]
+                    cur = [i, i, sw, s]
+                elif sw > cur[2] + 6 and i - cur[0] >= 10:
+                    pieces.append(cur); cur = [i, i, sw, best_shift(i)]
                 else:
                     cur[1] = i; cur[2] = min(cur[2], sw)
-                # never longer than SEGMENT
                 if cur and (samples[cur[1]] - samples[cur[0]]) >= RP.SEGMENT:
-                    pieces.append(cur); cur = [i, i, sw]
+                    pieces.append(cur); cur = [i, i, sw, s]
             if cur: pieces.append(cur)
-            for pi_, (i0, i1, sw) in enumerate(pieces):
+            # no fragments: a piece under MIN_PIECE studs joins a contiguous
+            # neighbour with a similar shift (the narrower width wins); a short
+            # piece with no neighbour is dropped
+            merged = []
+            for pc in pieces:
+                short = (pc[1] - pc[0]) * 2.0 < MIN_PIECE
+                if merged and pc[0] <= merged[-1][1] + 1 and abs(pc[3] - merged[-1][3]) <= 2.0 and (
+                        short or (merged[-1][1] - merged[-1][0]) * 2.0 < MIN_PIECE):
+                    merged[-1] = [merged[-1][0], pc[1], min(merged[-1][2], pc[2]), merged[-1][3]]
+                else:
+                    merged.append(list(pc))
+            pieces = [pc for pc in merged if (pc[1] - pc[0]) * 2.0 >= MIN_PIECE / 2]
+            for pi_, (i0, i1, sw, shf) in enumerate(pieces):
                 a0, a1 = samples[i0], samples[i1]
                 # overlap a neighbouring piece by a stud; an end that stops at a
                 # blocked stretch (a building) gets no overhang -- it poked into
@@ -352,8 +419,8 @@ def main():
                 L = a1 - a0
                 if L < 4.0:
                     continue
-                px, pz = ax + ux * a0, az + uz * a0
-                qx, qz = ax + ux * a1, az + uz * a1
+                px, pz = ax + ux * a0 - uz * shf, az + uz * a0 + ux * shf
+                qx, qz = ax + ux * a1 - uz * shf, az + uz * a1 + ux * shf
                 # a slanted building edge can cut between the 2-stud clearance
                 # lines or into an end overhang: narrow until the whole piece is clear
                 mx, mz = (px + qx) / 2, (pz + qz) / 2
@@ -363,6 +430,17 @@ def main():
                     dropped["piece failed its final check"] += 1
                     continue
                 y0, y1 = ground(px, pz), ground(qx, qz)
+                # an end that runs under a pad meets it at the PAD'S height (the
+                # pad is a plane; the field curves, and the difference showed as
+                # the pad's edge standing proud of the street)
+                def on_plane(pad, x, z):
+                    cx_, cz_, yc_, gx_, gz_, cy_, sy_ = pad["plane"]
+                    dx_, dz_ = x - cx_, z - cz_
+                    return yc_ + gx_ * (dx_ * cy_ + dz_ * sy_) + gz_ * (-dx_ * sy_ + dz_ * cy_) + 0.1
+                if k == 0 and i0 == 0 and end_pad[0] is not None and "plane" in end_pad[0]:
+                    y0 = on_plane(end_pad[0], px, pz)
+                if k == len(pts) - 2 and i1 == len(samples) - 1 and end_pad[-1] is not None and "plane" in end_pad[-1]:
+                    y1 = on_plane(end_pad[-1], qx, qz)
                 emit("roadway", (px + qx) / 2, (y0 + y1) / 2 + way["prio"] * 0.05, (pz + qz) / 2,
                      math.atan2(uz, ux), math.atan2(y1 - y0, L), L, RP.THICKNESS, sw, way["kind"], way["id"])
                 total += L

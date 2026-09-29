@@ -2368,3 +2368,51 @@ still average ~2.7 studs above the ground 3 studs out -- a soft shoulder, and th
 **Still open:** real gaps where OSM links two streets with a footway or steps (1,899 footways are
 excluded); sidewalks, if wanted, should be strips clipped against the union of all roadways (not the
 old centre test), probably major roads only to hold the part count; crossings and markings.
+
+## ROADS FITTED TO THE BUILDINGS, and two things about looking at terrain — Sept 29
+
+The owner saw roads cutting into ground floors and junctions full of misaligned fragments. Roads
+are now built by **`tools/road_fit.py`** (not `road_parts.py`). OSM says which streets exist and
+how they connect; the live ground-floor footprints say where they can go:
+
+* ways split at shared OSM nodes into edges; each edge slides sideways by ONE offset (<= 40
+  studs) to where least of it is over a floor -- OSM is up to ~35 studs off (Shibuya Pkwy);
+* pieces of steady width and sideways shift every 2 studs (a piece may slide 8 studs toward open
+  ground at a building corner), short fragments merged, each final rectangle checked clear;
+* junction nodes closer than a road width merge; each cluster gets ONE square pad tilted to the
+  ground field, aligned to its widest street; streets stop at its edge and meet it at the PAD'S
+  plane height (0.5 stud steps, was ~2);
+* dropped: `service` ways, tunnels, bridges, elevated motorways (the removed viaducts -- drawn on
+  the ground they stacked onto Route 246), `area=yes`/closed pedestrian ways (plaza OUTLINES:
+  drawn as roads they were rings of blades at every angle); one-way halves of dual carriageways
+  get half width. Parallel street-on-street stacking 17.5% -> 2.9%.
+* `tools/live_footprints.py`: the LIVE ground floors, uploaded from Studio at 2-stud cells
+  (heights.npz's mask held 0.6M sq studs of removed buildings and missed current ones).
+
+Studio: `RestoreCorridors` -> `Clear` -> `BuildAll` -> `SettleOnField()` (ONE offset for the whole
+network -- every height already comes from one smooth field, so pieces that meet agree; settling
+piece by piece put neighbours on different terrain levels) -> `ClearOfBuildings()` (exact
+GetPartsInPart test; narrows/removes the last corner grazes) -> `GradeCorridors`.
+
+Result: **2,259 parts** (1,874 streets, 290 pads, 95 joints), 45.8 km, **no road piece with a
+building part within 2.5 studs above it.**
+
+**Also found: 2,061 buildings' `SourceSliceSavedPivot` was 3 studs off** (dY -3.00 uniformly) and
+up to 123 studs off horizontally on 81 of them, so the plan frame read from attributes was wrong.
+Re-derived from each building's own `CoreWallFront` (worst residual 0.0007); verified against the
+Floor1 slab bottoms (median error 3.00 -> 0.00). Old values kept as `PreFrameFixSavedPivot`.
+
+### Looking at terrain: two traps that cost hours
+
+1. **`screen_capture` shows STALE terrain.** It flashes the camera to a spot and captures before
+   the terrain there is re-meshed, so edits made since the viewport last sat there do not show.
+   Hours of "terrain covers the road" were a hump that no longer existed (voxels and raycasts both
+   said the road was 4-5 studs clear). **Park `workspace.CurrentCamera` (Scriptable) at the spot,
+   `task.wait(8-10)`, THEN capture.** Parts are always current; only terrain lags.
+2. **Smooth terrain terraces gentle slopes, whatever is written.** Three test slopes at y 1600
+   (gradient 0.25): the two-voxel ramp (`GroundTerrain`), the plain fill fraction, and Roblox's own
+   `Terrain:FillWedge` -- which writes exactly the fill fraction -- ALL render as 4-stud-voxel
+   terraces with spiky rims when seen up close. It is the engine, not the encoding; do not spend
+   more time re-encoding. Flat ground renders true (markers at +0 visible); on slopes the steps
+   swing 2-4 studs around the collision surface, which is why `GradeCorridors` cuts
+   `TERRACE_MARGIN` = 2.5 deeper under and beside roads.

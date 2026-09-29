@@ -50,7 +50,7 @@ function RoadBuilder.BuildTile(name)
 	local model = Instance.new("Model")
 	model.Name = name
 	for _, s in tile.slabs do
-		local kind, x, y, z, yaw, pitch, length, thickness, width, class, wayId = table.unpack(s)
+		local kind, x, y, z, yaw, pitch, length, thickness, width, class, wayId, slopeZ = table.unpack(s)
 		local look = LOOK[kind]
 		local part = Instance.new("Part")
 		part.Name = kind == "roadway" and "Road" or kind == "apron" and "Apron" or kind == "joint" and "Joint"
@@ -62,6 +62,14 @@ function RoadBuilder.BuildTile(name)
 			part.Shape = Enum.PartType.Cylinder
 			part.Size = Vector3.new(thickness, width, width)
 			part.CFrame = CFrame.new(x, y - thickness / 2, z) * CFrame.Angles(0, 0, math.pi / 2)
+		elseif kind == "pad" then
+			-- a square tilted to the ground field: pitch = slope along its local X
+			-- (the widest street's direction), slopeZ = slope along its local Z
+			local ux, uz = math.cos(yaw), math.sin(yaw)
+			local ax = Vector3.new(ux, pitch, uz).Unit
+			local az = Vector3.new(-uz, slopeZ or 0, ux).Unit
+			local up = az:Cross(ax).Unit
+			part.CFrame = CFrame.fromMatrix(Vector3.new(x, y, z) - up * thickness / 2, ax, up)
 		elseif kind == "apron" then
 			-- a square of ground: yaw is unused, the two angles are its slopes
 			-- along z (roll) and along x (pitch)
@@ -203,6 +211,35 @@ function RoadBuilder.SettleOnTerrain(first, last, lift)
 	end
 	return string.format("settled %d road parts onto the terrain (mean move %.1f studs), %d had no terrain under them",
 		moved, moved > 0 and total / moved or 0, skipped)
+end
+
+-- Lay the WHOLE network onto the terrain with ONE offset. Every piece's height
+-- comes from the same smooth ground field (tools/road_fit.py), so pieces that
+-- meet at a point already agree; settling each piece onto the terrain on its
+-- own put neighbours on different 2-stud terrain levels -- steps at every
+-- junction. Measure the median gap between the field and the terrain under the
+-- road centres, and move everything by that.
+function RoadBuilder.SettleOnField()
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Include
+	params.FilterDescendantsInstances = {workspace.Terrain}
+	local f = workspace:FindFirstChild("Roads")
+	if not f then return "no roads" end
+	local gaps, parts = {}, {}
+	for _, tile in f:GetChildren() do
+		for _, part in tile:GetChildren() do
+			table.insert(parts, part)
+			local top = part.Name == "Joint" and part.Position.Y + part.Size.X / 2
+				or (part.Position + part.CFrame.UpVector * part.Size.Y / 2).Y
+			local hit = workspace:Raycast(Vector3.new(part.Position.X, top + 200, part.Position.Z), Vector3.new(0, -400, 0), params)
+			if hit then table.insert(gaps, hit.Position.Y - top) end
+		end
+	end
+	table.sort(gaps)
+	local offset = gaps[math.ceil(#gaps / 2)] + 0.15
+	for _, part in parts do part.CFrame = part.CFrame + Vector3.new(0, offset, 0) end
+	return string.format("moved %d road parts by %.2f studs (median field-to-terrain gap; p10 %.1f, p90 %.1f)",
+		#parts, offset, gaps[math.ceil(#gaps * 0.1)], gaps[math.ceil(#gaps * 0.9)])
 end
 
 -- Shape the terrain along each road, voxel by voxel. Box carving (CarveTerrain)
@@ -433,11 +470,16 @@ end
 function RoadBuilder.GradeCorridors(first, last, reach, cut, berm)
 	reach = reach or 16
 	cut = cut or 0.7
-	berm = berm or 0     -- berms off: a strip one voxel wide renders as a spiky ridge (Sept 24)
+	-- the ground rises to meet a road edge over BERM studs at BERM_SLOPE, so the
+	-- slab's side does not show. It was off (Sept 24) because a 3-stud berm is
+	-- narrower than a voxel and rendered as spikes; 8 studs is two voxels wide.
+	berm = berm or 8
+	local BERM_SLOPE = 0.6
 	local TSINK = "http://127.0.0.1:58999/get/tools/source_slices/ground/terrain/"
 	local V, RAMP = 4, 8     -- GroundTerrain's own values
 	local RAMP_BIAS = 4.0    -- studs the ramp's visible surface sits above the height it encodes (measured 3 to 3.9)
 	local GAP = 18           -- studs: ground between two different streets closer than this is held flat
+	local TERRACE_MARGIN = 2.5
 	-- ...and painted: terrain under a road, within PAVE of its edge, or in such a
 	-- gap is Asphalt, so gaps between OSM ways at junctions read as road instead
 	-- of pale ground showing through (terrain Asphalt is tinted to the slabs)
@@ -461,8 +503,13 @@ function RoadBuilder.GradeCorridors(first, last, reach, cut, berm)
 					local d, t = probe(g, x, z)
 					if d < reach then
 						hit = true
-						ceil = math.min(ceil, (d <= 0 and t - 1.2 or t - 0.3 + d * cut) - RAMP_BIAS)
-						if d < berm then floor = math.max(floor, t - 0.6 - d - RAMP_BIAS) end
+						-- TERRACE_MARGIN deeper than the collision surface needs: on a slope
+						-- smooth terrain RENDERS in steps that swing 2-4 studs around its
+						-- collision surface (a ramp slope tested at y 1600, Sept 29), and the
+						-- step peaks came up through roads that were correctly above it
+						ceil = math.min(ceil, (d <= 0 and t - 1.2 - TERRACE_MARGIN
+							or t - 0.3 - TERRACE_MARGIN * math.max(0, 1 - d / 6) + d * cut) - RAMP_BIAS)
+						if d < berm then floor = math.max(floor, t - 0.6 - TERRACE_MARGIN - d * BERM_SLOPE - RAMP_BIAS) end
 						local way = g.way
 						if not byWay[way] or d < byWay[way][1] then byWay[way] = {d, t} end
 					end
@@ -479,7 +526,7 @@ function RoadBuilder.GradeCorridors(first, last, reach, cut, berm)
 				end
 				local paved = d1 <= PAVE
 				if d1 + d2 < GAP then
-					ceil = math.min(ceil, math.min(t1, t2) - 0.3 - RAMP_BIAS)
+					ceil = math.min(ceil, math.min(t1, t2) - 0.3 - TERRACE_MARGIN - RAMP_BIAS)
 					paved = true
 				end
 				if hit then
