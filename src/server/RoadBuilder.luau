@@ -22,6 +22,8 @@ local LOOK = {
 	apron = {material = Enum.Material.Concrete, color = Color3.fromRGB(138, 136, 132)},
 	-- a round cap at a node where a road bends or ends: fills the outside of the corner
 	joint = {material = Enum.Material.Asphalt, color = Color3.fromRGB(62, 62, 66)},
+	-- one flat square per junction (tools/road_fit.py); the streets stop at its edge
+	pad = {material = Enum.Material.Asphalt, color = Color3.fromRGB(62, 62, 66)},
 }
 
 local function fetch(name)
@@ -51,7 +53,8 @@ function RoadBuilder.BuildTile(name)
 		local kind, x, y, z, yaw, pitch, length, thickness, width, class, wayId = table.unpack(s)
 		local look = LOOK[kind]
 		local part = Instance.new("Part")
-		part.Name = kind == "roadway" and "Road" or kind == "apron" and "Apron" or kind == "joint" and "Joint" or "Pavement"
+		part.Name = kind == "roadway" and "Road" or kind == "apron" and "Apron" or kind == "joint" and "Joint"
+			or kind == "pad" and "Pad" or "Pavement"
 		part.Size = Vector3.new(length, thickness, width)
 		-- y is the SURFACE height: drop the part by half its depth so its top lands there
 		if kind == "joint" then
@@ -168,6 +171,16 @@ function RoadBuilder.SettleOnTerrain(first, last, lift)
 					local t = part.Size.X
 					local before = part.Position.Y
 					part.CFrame = CFrame.new(part.Position.X, y + lift + bump - 0.03 - t / 2, part.Position.Z) * CFrame.Angles(0, 0, math.pi / 2)
+					total += math.abs(part.Position.Y - before); moved += 1
+				else skipped += 1 end
+			elseif part.Name == "Pad" then
+				-- flat, at the terrain under its centre, a hair over the streets meeting it
+				local y = terrainY(part.Position.X, part.Position.Z)
+				if y then
+					local before = part.Position.Y
+					local yaw = math.atan2(part.CFrame.RightVector.Z, part.CFrame.RightVector.X)
+					part.CFrame = CFrame.new(part.Position.X, y + lift + bump + 0.08 - part.Size.Y / 2, part.Position.Z)
+						* CFrame.Angles(0, -yaw, 0)
 					total += math.abs(part.Position.Y - before); moved += 1
 				else skipped += 1 end
 			elseif part.Name == "Road" then
@@ -609,6 +622,50 @@ function RoadBuilder.CarveTerrain(first, last, clearance, sink)
 		end
 	end
 	return string.format("cleared terrain above %d road parts", carved)
+end
+
+-- Ground truth, last: any road piece with a building part in the 2.5 studs
+-- over its surface is narrowed 2 studs at a time until clear, or removed.
+-- tools/road_fit.py fits roads to a rasterised footprint mask, which leaves a
+-- handful of corner-grazing cases (4 of 3,112 on Sept 29); this makes it exact.
+function RoadBuilder.ClearOfBuildings(minWidth)
+	minWidth = minWidth or 8
+	local op = OverlapParams.new()
+	op.FilterType = Enum.RaycastFilterType.Include
+	op.FilterDescendantsInstances = {workspace.Buildings}
+	local probe = Instance.new("Part")
+	probe.Anchored = true; probe.CanCollide = false; probe.CanQuery = false; probe.Transparency = 1
+	probe.Parent = workspace
+	local function touches(p, width)
+		if p.Name == "Joint" then
+			probe.Shape = Enum.PartType.Cylinder
+			probe.Size = Vector3.new(2.5, width, width)
+			probe.CFrame = CFrame.new(p.Position + Vector3.new(0, p.Size.X / 2 + 1.5, 0)) * CFrame.Angles(0, 0, math.pi / 2)
+		else
+			probe.Shape = Enum.PartType.Block
+			probe.Size = Vector3.new(p.Size.X, 2.5, width)
+			probe.CFrame = p.CFrame * CFrame.new(0, p.Size.Y / 2 + 1.5, 0)
+		end
+		return #workspace:GetPartsInPart(probe, op) > 0
+	end
+	local narrowed, removed = 0, 0
+	for _, tile in workspace.Roads:GetChildren() do
+		for _, p in tile:GetChildren() do
+			local w = p.Name == "Joint" and p.Size.Y or p.Size.Z
+			if touches(p, w) then
+				while w >= minWidth and touches(p, w) do w -= 2 end
+				if w < minWidth then
+					p:Destroy(); removed += 1
+				else
+					if p.Name == "Joint" then p.Size = Vector3.new(p.Size.X, w, w)
+					else p.Size = Vector3.new(p.Size.X, p.Size.Y, w) end
+					narrowed += 1
+				end
+			end
+		end
+	end
+	probe:Destroy()
+	return string.format("clear of buildings: %d narrowed, %d removed", narrowed, removed)
 end
 
 function RoadBuilder.BuildAll(first, last)
