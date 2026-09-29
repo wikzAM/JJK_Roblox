@@ -61,6 +61,16 @@ def main():
         return x * c - y * sn + toff[0], x * sn + y * c + toff[1]
 
     S, x0, z0, cell = RP.surface()
+    # Streets take their height from the STREET surface only. RP.surface() puts
+    # building floor heights on every cell heights.npz marks as a building, and
+    # that mask is stale: roads fitted to the live footprints now cross some of
+    # those cells and climbed to a floor (one street pitched 24 degrees).
+    d_ = np.load(DATA / "heights.npz")
+    known_ = d_["known"]
+    street_only = np.where(known_, np.nan, S)
+    # fill the holes from the nearest street cells, then smooth lightly
+    idx = ndimage.distance_transform_edt(np.isnan(street_only), return_distances=False, return_indices=True)
+    S = ndimage.gaussian_filter(street_only[tuple(idx)], 1.5, mode="nearest")
     inside = np.load(DATA / "heights.npz")["known"]
     city = ndimage.binary_dilation(inside, iterations=int(RP.CITY_MARGIN / cell))
     # the LIVE ground floors (tools/live_footprints.py, uploaded from Studio):

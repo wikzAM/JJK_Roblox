@@ -498,6 +498,7 @@ function RoadBuilder.GradeCorridors(first, last, reach, cut, berm)
 			for k = 1, c.nz do
 				local z = c.z0 + (k - 0.5) * V
 				local ceil, floor, hit = math.huge, -math.huge, false
+				local underCeil, under = math.huge, false   -- caps from the roads that COVER this column
 				local byWay = {}    -- the nearest part of each street near this column
 				for _, g in near(x, z) do
 					local d, t = probe(g, x, z)
@@ -510,6 +511,13 @@ function RoadBuilder.GradeCorridors(first, last, reach, cut, berm)
 						ceil = math.min(ceil, (d <= 0 and t - 1.2 - TERRACE_MARGIN
 							or t - 0.3 - TERRACE_MARGIN * math.max(0, 1 - d / 6) + d * cut) - RAMP_BIAS)
 						if d < berm then floor = math.max(floor, t - 0.6 - TERRACE_MARGIN - d * BERM_SLOPE - RAMP_BIAS) end
+						-- under a road the ground must reach at least into the slab (8 deep):
+						-- where the road crosses a dip it otherwise floated with air beneath
+						if d <= 0 then
+							floor = math.max(floor, t - 6.5 - RAMP_BIAS)
+							under = true
+							underCeil = math.min(underCeil, t - 1.2 - TERRACE_MARGIN - RAMP_BIAS)
+						end
 						local way = g.way
 						if not byWay[way] or d < byWay[way][1] then byWay[way] = {d, t} end
 					end
@@ -529,6 +537,10 @@ function RoadBuilder.GradeCorridors(first, last, reach, cut, berm)
 					ceil = math.min(ceil, math.min(t1, t2) - 0.3 - TERRACE_MARGIN - RAMP_BIAS)
 					paved = true
 				end
+				-- UNDER a road only the roads covering it cap the ground: a lower
+				-- neighbour's cut bank used to carve beneath a higher road, which then
+				-- floated (28 pieces). The drop between them becomes a steep bank.
+				if under then ceil = underCeil end
 				if hit then
 					local idx = (i - 1) * c.nz + k
 					local h0 = c.h[idx] + FILE_TO_STUDIO
