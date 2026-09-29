@@ -209,18 +209,27 @@ def main():
         if len(pts) < 2:
             continue
         w = e["way"]["width"]
-        best = None
+        tried = []
         for o in np.arange(-SHIFT_MAX, SHIFT_MAX + 0.1, 2.0):
             moved = offset_line(pts, o)
             if moved is None: break
             bad, n = band_blocked(moved, w)
-            key = (bad, abs(o))
-            if best is None or key < best[0]:
-                best = (key, o, moved)
-        if best is None:
+            tried.append((bad, o, moved))
+        if not tried:
             continue
-        shifts.append(best[1])
-        fitted.append(dict(e, pts=best[2], width=w))
+        # among the offsets that are equally clear, take the MIDDLE of the run
+        # containing the one nearest the OSM line: that centres the street in
+        # its corridor (taking the smallest shift left it hugging one side,
+        # and narrowed to fit)
+        least = min(b for b, _, _ in tried)
+        ok = [i for i, (b, _, _) in enumerate(tried) if b <= least]
+        near_i = min(ok, key=lambda i: abs(tried[i][1]))
+        lo_i = hi_i = near_i
+        while lo_i - 1 in ok: lo_i -= 1
+        while hi_i + 1 in ok: hi_i += 1
+        _, o, moved = tried[(lo_i + hi_i) // 2]
+        shifts.append(o)
+        fitted.append(dict(e, pts=moved, width=w))
     sh = np.abs(np.array(shifts))
     print(f"edge shifts: median {np.median(sh):.0f}, p90 {np.percentile(sh, 90):.0f} studs")
     print(f"{len(fitted)} edges fitted to their corridors")
@@ -411,8 +420,12 @@ def main():
             merged = []
             for pc in pieces:
                 short = (pc[1] - pc[0]) * 2.0 < MIN_PIECE
-                if merged and pc[0] <= merged[-1][1] + 1 and abs(pc[3] - merged[-1][3]) <= 2.0 and (
-                        short or (merged[-1][1] - merged[-1][0]) * 2.0 < MIN_PIECE):
+                prev_short = merged and (merged[-1][1] - merged[-1][0]) * 2.0 < MIN_PIECE
+                # merge only with a neighbour of similar width: a short NARROW piece
+                # at a pinch merged into a long wide one used to narrow the whole
+                # street to the pinch (a 42-stud street drawn 12 wide for 64 studs)
+                similar = merged and abs(pc[2] - merged[-1][2]) <= 6
+                if merged and pc[0] <= merged[-1][1] + 1 and abs(pc[3] - merged[-1][3]) <= 2.0 and (short or prev_short) and similar:
                     merged[-1] = [merged[-1][0], pc[1], min(merged[-1][2], pc[2]), merged[-1][3]]
                 else:
                     merged.append(list(pc))
