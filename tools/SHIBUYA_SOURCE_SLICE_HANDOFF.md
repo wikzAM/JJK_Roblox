@@ -2416,3 +2416,27 @@ Floor1 slab bottoms (median error 3.00 -> 0.00). Old values kept as `PreFrameFix
    more time re-encoding. Flat ground renders true (markers at +0 visible); on slopes the steps
    swing 2-4 studs around the collision surface, which is why `GradeCorridors` cuts
    `TERRACE_MARGIN` = 2.5 deeper under and beside roads.
+
+## ASPHALT GROUND + SIMPLE STREET SLABS — Sept 30
+
+Owner: roads looked "janky and disconnected" and "uneven"; wanted asphalt everywhere plus simple
+physical roads, straight where straight, the middle of the road flat and even.
+
+* **The ground is painted.** `tools/ground_paint.py` -> `GroundTerrain.PaintAll()`: open ground is
+  Asphalt, an 8-stud Pavement band along every building (LIVE footprints). Wherever a slab cannot
+  go -- a pinch, a plaza, a gap -- the ground still reads as road. Zero parts.
+* **Streets are simple ribbons** (`road_fit.py`, emit stage rewritten): the polyline straightened
+  (`STRAIGHTEN` = 6 studs) so straight streets are one aligned slab per run; ONE width per street,
+  filling building to building less a 6-stud sidewalk (`SIDEWALK_BAND`, capped `WIDE_MAX` 110) --
+  bare terrain beside a narrow OSM-width slab was what terraced; heights averaged along the street
+  over `EVEN_SPAN` = 40 studs and shared at slab ends, easing into junction pads over `BLEND`.
+  A slab that grazes a building is narrowed, then slid sideways (<= 12), then split in halves.
+* Pads align to the widest street WHERE IT ARRIVES (they were visibly twisted).
+* `GradeCorridors`: beside a road the ground now rises to its top edge (it is asphalt too), and the
+  ground between two streets is held AT road level -- 2.5 studs below showed every slab's side.
+* The city extent is true distance from LIVE buildings; the old diamond dilation of the stale mask
+  dropped slabs in the middle of town.
+
+Studio: `RestoreCorridors` -> `Clear` -> `BuildAll` -> `SettleOnField` -> `ClearOfBuildings` ->
+`GradeCorridors` -> `GroundTerrain.PaintAll` (paint LAST: grading repaints corridor columns).
+2,023 parts (1,524 streets, 295 pads, 204 joints), 46.9 km, mean street width ~46 studs.

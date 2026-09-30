@@ -508,9 +508,13 @@ function RoadBuilder.GradeCorridors(first, last, reach, cut, berm)
 						-- smooth terrain RENDERS in steps that swing 2-4 studs around its
 						-- collision surface (a ramp slope tested at y 1600, Sept 29), and the
 						-- step peaks came up through roads that were correctly above it
+						-- beside a road the ground now comes right up to its top edge: the
+						-- ground is painted asphalt too (GroundTerrain.PaintAll), so terrain
+						-- meeting the slab reads as more road, while a gap showed the slab's
+						-- dark side. Only UNDER the road is it held TERRACE_MARGIN deeper.
 						ceil = math.min(ceil, (d <= 0 and t - 1.2 - TERRACE_MARGIN
-							or t - 0.3 - TERRACE_MARGIN * math.max(0, 1 - d / 6) + d * cut) - RAMP_BIAS)
-						if d < berm then floor = math.max(floor, t - 0.6 - TERRACE_MARGIN - d * BERM_SLOPE - RAMP_BIAS) end
+							or t + 0.2 + d * cut) - RAMP_BIAS)
+						if d < berm then floor = math.max(floor, t - 0.4 - d * BERM_SLOPE - RAMP_BIAS) end
 						-- under a road the ground must reach at least into the slab (8 deep):
 						-- where the road crosses a dip it otherwise floated with air beneath
 						if d <= 0 then
@@ -534,7 +538,11 @@ function RoadBuilder.GradeCorridors(first, last, reach, cut, berm)
 				end
 				local paved = d1 <= PAVE
 				if d1 + d2 < GAP then
-					ceil = math.min(ceil, math.min(t1, t2) - 0.3 - TERRACE_MARGIN - RAMP_BIAS)
+					-- held AT road level (not below it: the ground is asphalt now, so
+					-- it reads as more road; 2.5 below showed every slab's side)
+					local lvl = math.min(t1, t2)
+					ceil = math.min(ceil, lvl + 0.2 - RAMP_BIAS)
+					floor = math.max(floor, lvl - 0.4 - RAMP_BIAS)
 					paved = true
 				end
 				-- UNDER a road only the roads covering it cap the ground: a lower

@@ -70,6 +70,44 @@ function GroundTerrain.WriteChunk(name, offset)
 	return string.format("%s: %d x %d x %d voxels", name, c.nx, ny, c.nz)
 end
 
+-- Paint the ground's MATERIAL from tools/ground_paint.py (shape untouched):
+-- open ground Asphalt, a pavement band along every building, the rest as it
+-- is. Road parts sit on top; wherever they cannot go the ground is still road.
+local PAINT = "http://127.0.0.1:58999/get/tools/source_slices/ground/paint/"
+function GroundTerrain.PaintAll(first, last)
+	local T = workspace.Terrain
+	T:SetMaterialColor(Enum.Material.Asphalt, Color3.fromRGB(62, 62, 66))
+	T:SetMaterialColor(Enum.Material.Pavement, Color3.fromRGB(150, 148, 144))
+	local index = fetch("index")
+	local painted = 0
+	for ci = first or 1, math.min(last or #index, #index) do
+		local name = index[ci]
+		local c = fetch(name)
+		local ok, body = pcall(function() return Http:GetAsync(PAINT .. name .. ".txt", true) end)
+		assert(ok, "no paint for " .. name .. " -- run tools/ground_paint.py")
+		local rows = string.split(body, "\n")
+		local top = -math.huge
+		for _, h in c.h do if h > top then top = h end end
+		local ny = math.max(1, math.ceil((top + 30 - c.y0) / VOXEL))
+		local region = Region3.new(Vector3.new(c.x0, c.y0, c.z0),
+			Vector3.new(c.x0 + c.nx * VOXEL, c.y0 + ny * VOXEL, c.z0 + c.nz * VOXEL))
+		local mats, occ = workspace.Terrain:ReadVoxels(region, VOXEL)
+		for i = 1, c.nx do
+			local row = rows[i]
+			for k = 1, c.nz do
+				local ch = string.sub(row, k, k)
+				local m = ch == "a" and Enum.Material.Asphalt or ch == "s" and Enum.Material.Pavement or nil
+				if m then
+					for j = 1, ny do if occ[i][j][k] > 0 then mats[i][j][k] = m end end
+					painted += 1
+				end
+			end
+		end
+		workspace.Terrain:WriteVoxels(region, VOXEL, mats, occ)
+	end
+	return string.format("painted %d columns", painted)
+end
+
 function GroundTerrain.WriteAll(first, last, offset)
 	local index = fetch("index")
 	local lines = {}

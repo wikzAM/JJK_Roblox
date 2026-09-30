@@ -41,7 +41,12 @@ BRIDGE = 10.0        # studs: blocked stretches this short are bridged, not cut
 MIN_PIECE = 12.0     # studs: shorter pieces merge into a neighbour
 PIECE_SHIFT = 8.0    # studs a piece may slide sideways toward open ground at a corner
 RECENTRE = 3.0       # studs: the most one slab may be moved off its street's line
-BEND_DEG = 25.0      # a turn sharper than this inside an edge gets a round joint
+BEND_DEG = 8.0
+SIDEWALK_BAND = 6.0  # studs of pavement kept between a street slab and the buildings
+WIDE_MAX = 110.0     # studs: no street slab wider than this
+STRAIGHTEN = 6.0     # studs: a street's polyline is simplified this hard -> long straight slabs
+EVEN_SPAN = 40.0     # studs: heights are averaged over this span along a street
+BLEND = 20.0         # studs over which a street's height eases into its junction pad      # a turn sharper than this inside an edge gets a round joint
 DROP_KINDS = {"service"}
 PAD_OVER = 2.0       # studs a pad extends past the widest street
 SLAB_TUCK = 1.0      # studs a street runs under its pad
@@ -85,9 +90,14 @@ def main():
         i, j = int((x - bx0) / bcell), int((z - bz0) / bcell)
         return not (0 <= i < bnx and 0 <= j < bnz) or bool(blocked[i, j])
 
+    # the map's extent: within CITY_MARGIN (true distance) of a LIVE building.
+    # The old test dilated the stale heights.npz mask with a diamond kernel and
+    # called streets in the middle of town "outside the city" (dropped slabs).
+    live_city = ndimage.distance_transform_edt(~blocked) * bcell <= RP.CITY_MARGIN
+
     def in_city(x, z):
-        i, j = int((x - x0) / cell), int((z - z0) / cell)
-        return 0 <= i < nx and 0 <= j < nz and bool(city[i, j])
+        i, j = int((x - bx0) / bcell), int((z - bz0) / bcell)
+        return 0 <= i < bnx and 0 <= j < bnz and bool(live_city[i, j])
 
     def ground(x, z):
         fi = min(max((x - x0) / cell, 0), S.shape[0] - 1.001)
@@ -213,7 +223,7 @@ def main():
         for o in np.arange(-SHIFT_MAX, SHIFT_MAX + 0.1, 2.0):
             moved = offset_line(pts, o)
             if moved is None: break
-            bad, n = band_blocked(moved, w)
+            bad, n = band_blocked(moved, min(w, MIN_W + 4))   # does a minimal street fit? (full OSM width collides in narrow alleys)
             tried.append((bad, o, moved))
         if not tried:
             continue
@@ -262,10 +272,19 @@ def main():
         touching = [(f, k) for n in members for f, k in ends[n]]
         centre = np.mean([jpos[n] for n in members], axis=0)
         spread = max(float(np.hypot(*(jpos[n] - centre))) for n in members)
-        widest = max(touching, key=lambda t: t[0]["width"])[0]
+        widest, wk = max(touching, key=lambda t: t[0]["width"])
         side = max(f["width"] for f, _ in touching) + 2 * spread + PAD_OVER
-        p0, p1 = widest["pts"][0], widest["pts"][-1]
-        yaw = math.atan2(p1[1] - p0[1], p1[0] - p0[0])
+        # aligned to the widest street WHERE IT ARRIVES (its last stretch into
+        # the node), not its overall direction -- a curving street left the pad
+        # visibly twisted against it
+        P = widest["pts"]
+        if wk == 0:
+            a_, b_ = np.array(P[0], float), np.array(P[min(len(P) - 1, 1)], float)
+        else:
+            a_, b_ = np.array(P[max(0, len(P) - 2)], float), np.array(P[-1], float)
+        if np.hypot(*(b_ - a_)) < 1e-6:
+            a_, b_ = np.array(P[0], float), np.array(P[-1], float)
+        yaw = math.atan2(b_[1] - a_[1], b_[0] - a_[0])
         kind = max(touching, key=lambda t: t[0]["way"]["prio"])[0]["way"]
         pad = dict(x=float(centre[0]), z=float(centre[1]), side=side, yaw=yaw,
                    prio=kind["prio"], kind=kind["kind"], way=kind["id"], dropped=False)
@@ -277,6 +296,10 @@ def main():
     # ---- 4. emit
     tiles, counts, total = defaultdict(list), defaultdict(int), 0.0
     dropped = defaultdict(int)
+    narrow_log = []
+    blocked_log = []
+    def total_len_edge(P):
+        return sum(float(np.hypot(*(P[i + 1] - P[i]))) for i in range(len(P) - 1))
 
     def emit(kind, x, y, z, yaw, pitch, length, thick, width, cls, wid, extra=None):
         if not in_city(x, z):
@@ -368,116 +391,135 @@ def main():
             else: pts = [p for p in pts[:-1] if np.hypot(*(p - centre)) > cut] + [pts[-1]]
         if pts is None or len(pts) < 2:
             continue
-        w, way = f["width"], f["way"]
+        way = f["way"]
+        # SIMPLE STREETS (Sept 30, owner: "straight roads aligned, slight curves
+        # simple, the road middle flat and even"):
+        #  * straight runs: the polyline simplified hard, one slab per run
+        #  * ONE width for the whole street: its narrowest clear point
+        #  * heights smoothed ALONG the street, and neighbouring slabs share
+        #    their end heights, so the surface is one even ribbon
+        pts = [np.array(q, float) for q in RP.simplify([tuple(q) for q in pts], STRAIGHTEN)]
+        if len(pts) < 2:
+            continue
+        # width: clearance measured every 4 studs along the whole street
+        clear = []
         for k in range(len(pts) - 1):
             (ax, az), (bx, bz) = pts[k], pts[k + 1]
             seg = math.hypot(bx - ax, bz - az)
             if seg < 1.0: continue
             ux, uz = (bx - ax) / seg, (bz - az) / seg
-            # PIECEWISE FIT: the width the street may have at every 2 studs, then
-            # pieces of steady width; only the stretches with no room are dropped
-            samples = np.arange(0, seg + 0.1, 2.0)
-            LR = []
-            for a in samples:
+            for a in np.arange(2.0, seg - 1.9, 4.0):
                 sx, sz = ax + ux * a, az + uz * a
-                LR.append((side_clear(sx, sz, -uz, ux), side_clear(sx, sz, uz, -ux)))
-
-            def width_at(i, s):
-                l, r = LR[i]
-                return min(w, 2 * min(l - s, r + s) - 2 * MARGIN)
-
-            def best_shift(i):
-                l, r = LR[i]
-                return max(-PIECE_SHIFT, min(PIECE_SHIFT, (l - r) / 2))
-
-            # pieces of steady width AND steady sideways shift: where a building
-            # corner narrows one side, the piece slides (<= PIECE_SHIFT) toward
-            # the open side instead of the whole street being cut there
-            pieces, cur = [], None
-            for i in range(len(samples)):
-                s = cur[3] if cur else best_shift(i)
-                sw = width_at(i, s)
-                if cur and (sw < MIN_W or sw < cur[2] - 4):
-                    s2 = best_shift(i)
-                    if width_at(i, s2) >= MIN_W:
-                        pieces.append(cur); cur = None; s, sw = s2, width_at(i, s2)
-                if sw < MIN_W:
-                    if cur: pieces.append(cur); cur = None
-                    dropped["stretch with no room (2-stud samples)"] += 1
-                    continue
-                if cur is None:
-                    cur = [i, i, sw, s]
-                elif sw > cur[2] + 6 and i - cur[0] >= 10:
-                    pieces.append(cur); cur = [i, i, sw, best_shift(i)]
-                else:
-                    cur[1] = i; cur[2] = min(cur[2], sw)
-                if cur and (samples[cur[1]] - samples[cur[0]]) >= RP.SEGMENT:
-                    pieces.append(cur); cur = [i, i, sw, s]
-            if cur: pieces.append(cur)
-            # no fragments: a piece under MIN_PIECE studs joins a contiguous
-            # neighbour with a similar shift (the narrower width wins); a short
-            # piece with no neighbour is dropped
-            merged = []
-            for pc in pieces:
-                short = (pc[1] - pc[0]) * 2.0 < MIN_PIECE
-                prev_short = merged and (merged[-1][1] - merged[-1][0]) * 2.0 < MIN_PIECE
-                # merge only with a neighbour of similar width: a short NARROW piece
-                # at a pinch merged into a long wide one used to narrow the whole
-                # street to the pinch (a 42-stud street drawn 12 wide for 64 studs)
-                similar = merged and abs(pc[2] - merged[-1][2]) <= 6
-                if merged and pc[0] <= merged[-1][1] + 1 and abs(pc[3] - merged[-1][3]) <= 2.0 and (short or prev_short) and similar:
-                    merged[-1] = [merged[-1][0], pc[1], min(merged[-1][2], pc[2]), merged[-1][3]]
-                else:
-                    merged.append(list(pc))
-            pieces = [pc for pc in merged if (pc[1] - pc[0]) * 2.0 >= MIN_PIECE / 2]
-            for pi_, (i0, i1, sw, shf) in enumerate(pieces):
-                a0, a1 = samples[i0], samples[i1]
-                # overlap a neighbouring piece by a stud; an end that stops at a
-                # blocked stretch (a building) gets no overhang -- it poked into
-                # the building before
-                if pi_ > 0 and pieces[pi_ - 1][1] >= i0 - 1: a0 -= 1.0
-                elif i0 == 0 and k > 0: a0 -= 1.0          # meets the previous polyline segment
-                if pi_ < len(pieces) - 1 and pieces[pi_ + 1][0] <= i1 + 1: a1 += 1.0
-                elif i1 == len(samples) - 1 and k < len(pts) - 2: a1 += 1.0
-                L = a1 - a0
-                if L < 4.0:
-                    continue
-                px, pz = ax + ux * a0 - uz * shf, az + uz * a0 + ux * shf
-                qx, qz = ax + ux * a1 - uz * shf, az + uz * a1 + ux * shf
-                # a slanted building edge can cut between the 2-stud clearance
-                # lines or into an end overhang: narrow until the whole piece is clear
-                mx, mz = (px + qx) / 2, (pz + qz) / 2
-                while sw >= MIN_W and not rect_clear(mx, mz, ux, uz, L, sw):
-                    sw -= 2.0
-                if sw < MIN_W:
-                    dropped["piece failed its final check"] += 1
-                    continue
-                y0, y1 = ground(px, pz), ground(qx, qz)
-                # an end that runs under a pad meets it at the PAD'S height (the
-                # pad is a plane; the field curves, and the difference showed as
-                # the pad's edge standing proud of the street)
-                def on_plane(pad, x, z):
-                    cx_, cz_, yc_, gx_, gz_, cy_, sy_ = pad["plane"]
-                    dx_, dz_ = x - cx_, z - cz_
-                    return yc_ + gx_ * (dx_ * cy_ + dz_ * sy_) + gz_ * (-dx_ * sy_ + dz_ * cy_) + 0.1
-                if k == 0 and i0 == 0 and end_pad[0] is not None and "plane" in end_pad[0]:
-                    y0 = on_plane(end_pad[0], px, pz)
-                if k == len(pts) - 2 and i1 == len(samples) - 1 and end_pad[-1] is not None and "plane" in end_pad[-1]:
-                    y1 = on_plane(end_pad[-1], qx, qz)
-                emit("roadway", (px + qx) / 2, (y0 + y1) / 2 + way["prio"] * 0.05, (pz + qz) / 2,
-                     math.atan2(uz, ux), math.atan2(y1 - y0, L), L, RP.THICKNESS, sw, way["kind"], way["id"])
-                total += L
-            # a real bend inside the edge: one round joint, as wide as there is room for
-            if 0 < k + 1 < len(pts) - 1:
+                clear.append(2 * min(side_clear(sx, sz, -uz, ux), side_clear(sx, sz, uz, -ux)) - 2 * MARGIN)
+        if not clear:
+            continue
+        # from the stretches that are open at all: a covered passage or arcade
+        # part-way along must not narrow (or drop) the whole street -- its
+        # slabs are skipped one by one below and the asphalt terrain shows there
+        open_ = [c_ for c_ in clear if c_ >= MIN_W]
+        if len(open_) < max(2, 0.3 * len(clear)):
+            dropped["street mostly under buildings"] += 1
+            blocked_log.append((way["kind"], total_len_edge(pts), len(open_) / max(1, len(clear)), [round(v) for v in pts[len(pts) // 2]]))
+            continue
+        # FILL THE STREET: the slab spans building to building less a sidewalk
+        # each side, not just OSM's carriageway -- the uncovered rest was bare
+        # terrain, which terraces on slopes (the owner's "uneven road"). The
+        # sidewalk band is pavement-painted terrain (tools/ground_paint.py).
+        corridor = float(np.percentile(open_, 15)) - 2 * SIDEWALK_BAND
+        w = min(max(f["width"], corridor), WIDE_MAX, float(np.percentile(open_, 15)))
+        w = math.floor(w / 2) * 2
+        if w < MIN_W:
+            dropped["street too narrow"] += 1
+            narrow_log.append((len(clear), float(np.median(clear)), float(np.percentile(clear, 15)), f["width"]))
+            continue
+        # heights: the street surface sampled along the street, then smoothed
+        # along it (a running mean over EVEN_SPAN studs): the road rides the
+        # hill, not every bump of the ground under it
+        cum = [0.0]
+        for k in range(len(pts) - 1):
+            cum.append(cum[-1] + float(np.hypot(*(pts[k + 1] - pts[k]))))
+        total_len_e = cum[-1]
+        ss = np.arange(0, total_len_e + 0.1, 4.0)
+        def at(s_):
+            k = max(0, min(len(pts) - 2, int(np.searchsorted(cum, s_, side="right") - 1)))
+            L_ = max(cum[k + 1] - cum[k], 1e-6)
+            q = pts[k] + (pts[k + 1] - pts[k]) * ((s_ - cum[k]) / L_)
+            return q
+        hs = np.array([ground(*at(s_)) for s_ in ss])
+        win = max(1, int(EVEN_SPAN / 4.0))
+        if len(hs) > 2:
+            kern = np.ones(2 * win + 1) / (2 * win + 1)
+            hs = np.convolve(np.pad(hs, win, mode="edge"), kern, mode="valid")
+        def h_at(s_):
+            y = float(np.interp(s_, ss, hs))
+            return y
+        # ends that meet a pad take the pad's plane there
+        def on_plane(pad, x, z):
+            cx_, cz_, yc_, gx_, gz_, cy_, sy_ = pad["plane"]
+            dx_, dz_ = x - cx_, z - cz_
+            return yc_ + gx_ * (dx_ * cy_ + dz_ * sy_) + gz_ * (-dx_ * sy_ + dz_ * cy_) + 0.1
+        y_start = on_plane(end_pad[0], *pts[0]) if end_pad[0] is not None and "plane" in end_pad[0] else None
+        y_end = on_plane(end_pad[-1], *pts[-1]) if end_pad[-1] is not None and "plane" in end_pad[-1] else None
+        def height(s_):
+            y = h_at(s_)
+            # blend into the pad plane over the first/last BLEND studs
+            if y_start is not None and s_ < BLEND: y = y_start + (y - y_start) * (s_ / BLEND)
+            if y_end is not None and total_len_e - s_ < BLEND: y = y_end + (y - y_end) * ((total_len_e - s_) / BLEND)
+            return y
+        for k in range(len(pts) - 1):
+            (ax, az), (bx, bz) = pts[k], pts[k + 1]
+            seg = math.hypot(bx - ax, bz - az)
+            if seg < 1.0: continue
+            ux, uz = (bx - ax) / seg, (bz - az) / seg
+            n = max(1, int(math.ceil(seg / RP.SEGMENT)))
+            for t_ in range(n):
+                a0, a1 = seg * t_ / n, seg * (t_ + 1) / n
+                s0, s1 = cum[k] + a0, cum[k] + a1
+                px, pz = ax + ux * a0, az + uz * a0
+                qx, qz = ax + ux * a1, az + uz * a1
+                # a building edge the width check missed: salvage the slab --
+                # narrow it, else slide it sideways, else split it in half and
+                # retry each half (a whole 136-stud slab was dropped for one corner)
+                def place(s0_, s1_, depth):
+                    nonlocal total
+                    L_ = s1_ - s0_
+                    ax_, az_ = ax + ux * (s0_ - cum[k]), az + uz * (s0_ - cum[k])
+                    bx_, bz_ = ax + ux * (s1_ - cum[k]), az + uz * (s1_ - cum[k])
+                    mx_, mz_ = (ax_ + bx_) / 2, (az_ + bz_) / 2
+                    best_ = None
+                    for sh in (0.0, 4.0, -4.0, 8.0, -8.0, 12.0, -12.0):
+                        ox_, oz_ = -uz * sh, ux * sh
+                        sw_ = w
+                        while sw_ >= MIN_W and not rect_clear(mx_ + ox_, mz_ + oz_, ux, uz, L_, sw_):
+                            sw_ -= 2.0
+                        if sw_ >= MIN_W and (best_ is None or sw_ > best_[0] + 4):
+                            best_ = (sw_, ox_, oz_)
+                        if best_ and best_[0] >= w:
+                            break
+                    if best_ is None or best_[0] < 0.5 * w and L_ > 24 and depth < 3:
+                        if L_ > 24 and depth < 3:
+                            mid_ = (s0_ + s1_) / 2
+                            place(s0_, mid_ + 0.3, depth + 1)
+                            place(mid_ - 0.3, s1_, depth + 1)
+                            return
+                        if best_ is None:
+                            dropped["slab blocked (asphalt terrain shows there)"] += 1
+                            return
+                    sw_, ox_, oz_ = best_
+                    y0_, y1_ = height(s0_), height(s1_)
+                    emit("roadway", mx_ + ox_, (y0_ + y1_) / 2 + way["prio"] * 0.05, mz_ + oz_,
+                         math.atan2(uz, ux), math.atan2(y1_ - y0_, L_), L_ + 0.6, RP.THICKNESS, sw_, way["kind"], way["id"])
+                    total += L_
+                place(s0, s1, 0)
+            # a bend: one round joint, at the bend's own height, as wide as the street
+            if k + 1 < len(pts) - 1:
                 (cx2, cz2) = pts[k + 2]
                 turn = math.atan2(cz2 - bz, cx2 - bx) - math.atan2(bz - az, bx - ax)
                 if abs((turn + math.pi) % (2 * math.pi) - math.pi) >= math.radians(BEND_DEG):
                     dia = min(w, 2 * (clear_radius(bx, bz, w / 2 + MARGIN) - MARGIN))
                     if dia >= MIN_W:
-                        emit("joint", bx, ground(bx, bz) + way["prio"] * 0.05 - 0.03, bz, 0.0, 0.0, dia,
+                        emit("joint", bx, height(cum[k + 1]) + way["prio"] * 0.05 - 0.03, bz, 0.0, 0.0, dia,
                              RP.THICKNESS, dia, way["kind"], way["id"])
-                    else:
-                        dropped["joint no room"] += 1
 
     # ---- clipping check: roadway area over a ground floor
     on = tot = 0
@@ -505,6 +547,16 @@ def main():
           f"over {len(names)} tiles; {total / 4.182937 / 1000:.1f} km of street")
     print(f"road area (slabs, pads, joint boxes) over a ground floor: {on / max(tot, 1):.2%}  (plain OSM was 11.2%)")
     print("slabs dropped:", dict(dropped))
+    if blocked_log:
+        from collections import Counter
+        blocked_log = [b for b in blocked_log if in_city(*b[3])]
+        print("IN-CITY mostly-blocked streets:", len(blocked_log), Counter(b[0] for b in blocked_log).most_common())
+        L = sorted(b[1] for b in blocked_log)
+        print("  length median %.0f, p90 %.0f; examples:" % (L[len(L) // 2], L[int(len(L) * .9)]), [b for b in blocked_log if b[1] > 80][:6])
+    if narrow_log:
+        a = np.array(narrow_log)
+        print("too-narrow streets: samples median %.0f | clearance median-of-medians %.1f | p15 median %.1f | share with median clearance >= MIN_W: %.0f%%"
+              % (np.median(a[:, 0]), np.median(a[:, 1]), np.median(a[:, 2]), 100 * np.mean(a[:, 1] >= MIN_W)))
 
 
 if __name__ == "__main__":
