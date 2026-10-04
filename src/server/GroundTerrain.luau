@@ -26,10 +26,25 @@ local MATERIAL = Enum.Material.Concrete
 -- Writing occupancy as a ramp instead -- 0.5 + (height - voxel centre)/4,
 -- clamped -- puts the 0.5 crossing exactly on the height, smoothly.
 
+-- cached: Studio allows ~500 HTTP requests a minute, and a write + a paint of
+-- every chunk exceeded it. Clear with GroundTerrain.ClearCache() after the
+-- chunk files change.
+local cache = {}
 local function fetch(name)
-	local ok, body = pcall(function() return Http:GetAsync(SINK .. name .. ".json", true) end)
+	if cache[name] then return cache[name] end
+	local ok, body
+	for attempt = 1, 4 do
+		ok, body = pcall(function() return Http:GetAsync(SINK .. name .. ".json", true) end)
+		if ok then break end
+		task.wait(15)   -- rate limit: back off and retry
+	end
 	assert(ok, "Could not reach the sink -- is tools/source_slice_sink.py running? " .. tostring(body))
-	return Http:JSONDecode(body)
+	cache[name] = Http:JSONDecode(body)
+	return cache[name]
+end
+
+function GroundTerrain.ClearCache()
+	cache = {}
 end
 
 function GroundTerrain.ClearAll()
@@ -83,7 +98,12 @@ function GroundTerrain.PaintAll(first, last)
 	for ci = first or 1, math.min(last or #index, #index) do
 		local name = index[ci]
 		local c = fetch(name)
-		local ok, body = pcall(function() return Http:GetAsync(PAINT .. name .. ".txt", true) end)
+		local ok, body
+		for attempt = 1, 4 do
+			ok, body = pcall(function() return Http:GetAsync(PAINT .. name .. ".txt", true) end)
+			if ok then break end
+			task.wait(15)
+		end
 		assert(ok, "no paint for " .. name .. " -- run tools/ground_paint.py")
 		local rows = string.split(body, "\n")
 		local top = -math.huge

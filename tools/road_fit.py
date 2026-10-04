@@ -44,6 +44,10 @@ RECENTRE = 3.0       # studs: the most one slab may be moved off its street's li
 BEND_DEG = 8.0
 SIDEWALK_BAND = 6.0  # studs of pavement kept between a street slab and the buildings
 WIDE_MAX = 110.0     # studs: no street slab wider than this
+JGAP = 2.0           # studs between a street's end and the widest street at its junction
+DUP_SHARE = 0.5      # a slab more than this share already road is a parallel duplicate
+ROAD_LIFT = 0.1      # studs the road top sits above the visible ground
+SNAP = 2.0           # studs: road end heights snap to the terrain's render levels
 STRAIGHTEN = 6.0     # studs: a street's polyline is simplified this hard -> long straight slabs
 EVEN_SPAN = 40.0     # studs: heights are averaged over this span along a street
 BLEND = 20.0         # studs over which a street's height eases into its junction pad      # a turn sharper than this inside an edge gets a round joint
@@ -99,13 +103,19 @@ def main():
         i, j = int((x - bx0) / bcell), int((z - bz0) / bcell)
         return 0 <= i < bnx and 0 <= j < bnz and bool(live_city[i, j])
 
+    # Road heights: the VISIBLE ground after tools/ground_clamp.py (buildings
+    # never sunk), in world studs -- the same surface the terrain renders.
+    gs = np.load(DATA / "ground_surface.npz")
+    GS, gx0_, gz0_, gcell = gs["G"].astype(float), float(gs["x0"]), float(gs["z0"]), float(gs["cell"])
+    GS = np.where(np.isnan(GS), np.nanmedian(GS), GS)
+
     def ground(x, z):
-        fi = min(max((x - x0) / cell, 0), S.shape[0] - 1.001)
-        fj = min(max((z - z0) / cell, 0), S.shape[1] - 1.001)
+        fi = min(max((x - gx0_) / gcell - 0.5, 0), GS.shape[0] - 1.001)
+        fj = min(max((z - gz0_) / gcell - 0.5, 0), GS.shape[1] - 1.001)
         i, j = int(fi), int(fj)
         u, v = fi - i, fj - j
-        return float(S[i, j] * (1 - u) * (1 - v) + S[i + 1, j] * u * (1 - v)
-                     + S[i, j + 1] * (1 - u) * v + S[i + 1, j + 1] * u * v)
+        return float(GS[i, j] * (1 - u) * (1 - v) + GS[i + 1, j] * u * (1 - v)
+                     + GS[i, j + 1] * (1 - u) * v + GS[i + 1, j + 1] * u * v)
 
     # ---- 1. ways -> edges split at junctions
     osm = json.loads((DATA / "osm_roads.json").read_text(encoding="utf-8"))
@@ -293,68 +303,23 @@ def main():
             edge_trim[(id(f), k)] = (centre, pad)     # trimmed to the pad's FINAL size, if it survives
     print(f"{len(jn)} junction nodes -> {len(pads)} pads")
 
-    # ---- 4. emit
+    # ---- 4. emit: ONE slab per straight run, full street width, no pads/joints
+    # (owner, Oct 4: "one part per section of the road and only for its length,
+    # not for its width"; intersections left as clean gaps for now)
     tiles, counts, total = defaultdict(list), defaultdict(int), 0.0
     dropped = defaultdict(int)
-    narrow_log = []
-    blocked_log = []
-    def total_len_edge(P):
-        return sum(float(np.hypot(*(P[i + 1] - P[i]))) for i in range(len(P) - 1))
 
-    def emit(kind, x, y, z, yaw, pitch, length, thick, width, cls, wid, extra=None):
+    def emit(kind, x, y, z, yaw, pitch, length, thick, width, cls, wid):
         if not in_city(x, z):
-            return
+            dropped["outside the city"] += 1
+            return False
         key = (int(math.floor(x / RP.TILE)), int(math.floor(z / RP.TILE)))
-        row = [kind, round(x, 2), round(y, 2), round(z, 2), round(yaw, 5), round(pitch, 5),
-               round(length, 2), round(thick, 2), round(width, 2), cls, wid]
-        if extra is not None:
-            row.append(round(extra, 5))       # pads: slope along the local Z axis
-        tiles[key].append(row)
+        tiles[key].append([kind, round(x, 2), round(y, 2), round(z, 2), round(yaw, 5), round(pitch, 5),
+                           round(length, 2), round(thick, 2), round(width, 2), cls, wid])
         counts[kind] += 1
-
-    def clear_square(x, z, yaw, side):
-        """Is a pad square clear of floors (2-stud sampling, MARGIN inset)?"""
-        cc, ss = math.cos(yaw), math.sin(yaw)
-        h = side / 2 + MARGIN
-        for a in np.arange(-h, h + 0.1, 2.0):
-            for b in np.arange(-h, h + 0.1, 2.0):
-                if is_blocked(x + a * cc - b * ss, z + a * ss + b * cc):
-                    return False
         return True
 
-    def clear_radius(x, z, rmax):
-        """Distance from (x, z) to the nearest floor, up to rmax."""
-        for r in np.arange(1.0, rmax + 0.1, 1.0):
-            for k in range(max(8, int(r * 1.6))):
-                ang = 2 * math.pi * k / max(8, int(r * 1.6))
-                if is_blocked(x + r * math.cos(ang), z + r * math.sin(ang)):
-                    return r - 1.0
-        return rmax
-
-    for pad in pads:
-        side = pad["side"]
-        while side >= MIN_W and not clear_square(pad["x"], pad["z"], pad["yaw"], side):
-            side -= 2.0
-        if side < MIN_W:
-            dropped["pad no room"] += 1
-            pad["dropped"] = True        # its streets then run on to meet at the node
-            continue
-        pad["side"] = side
-        # the pad follows the ground's slope (a plane through the field at its
-        # edges) so streets meeting it at any side arrive at its height
-        cy, sy = math.cos(pad["yaw"]), math.sin(pad["yaw"])
-        h = side / 2
-        px_, pz_ = pad["x"], pad["z"]
-        gx = (ground(px_ + cy * h, pz_ + sy * h) - ground(px_ - cy * h, pz_ - sy * h)) / side
-        gz = (ground(px_ - sy * h, pz_ + cy * h) - ground(px_ + sy * h, pz_ - cy * h)) / side
-        yc = (ground(px_ + cy * h, pz_ + sy * h) + ground(px_ - cy * h, pz_ - sy * h)
-              + ground(px_ - sy * h, pz_ + cy * h) + ground(px_ + sy * h, pz_ - cy * h)) / 4
-        pad["plane"] = (px_, pz_, yc, gx, gz, cy, sy)
-        emit("pad", px_, yc + pad["prio"] * 0.05 + 0.1, pz_, pad["yaw"], gx,
-             side, RP.THICKNESS, side, pad["kind"], pad["way"], extra=gz)
-
     def rect_clear(cx, cz, ux, uz, L, W, grow=1.0):
-        """Final check: the whole rectangle, grown by `grow`, is off every floor."""
         hl, hw = L / 2 + grow, W / 2 + grow
         for a in np.arange(-hl, hl + 0.01, 1.0):
             for b in np.arange(-hw, hw + 0.01, 1.0):
@@ -368,158 +333,170 @@ def main():
             reach += 1.0
         return reach
 
+    # pass A: every street's straightened line and its one width
+    streets = []
     for f in fitted:
-        pts = [np.array(p, float) for p in f["pts"]]
-        end_pad = {0: None, -1: None}
-        # stop at the pads: pull each junction end back to the pad's edge (a little under it)
-        for k in (0, -1):
-            t = edge_trim.get((id(f), k))
-            if t is None: continue
-            centre, pad = t
-            if pad["dropped"]:
-                continue
-            half = pad["side"] / 2
-            end_pad[k] = pad
-            inner = pts[1] if k == 0 else pts[-2]
-            d = inner - centre
-            L = float(np.hypot(*d))
-            cut = half - SLAB_TUCK
-            if L <= cut + 1:
-                pts = None; break
-            pts[k] = centre + d / L * cut
-            if k == 0: pts = [pts[0]] + [p for p in pts[1:] if np.hypot(*(p - centre)) > cut]
-            else: pts = [p for p in pts[:-1] if np.hypot(*(p - centre)) > cut] + [pts[-1]]
-        if pts is None or len(pts) < 2:
-            continue
         way = f["way"]
-        # SIMPLE STREETS (Sept 30, owner: "straight roads aligned, slight curves
-        # simple, the road middle flat and even"):
-        #  * straight runs: the polyline simplified hard, one slab per run
-        #  * ONE width for the whole street: its narrowest clear point
-        #  * heights smoothed ALONG the street, and neighbouring slabs share
-        #    their end heights, so the surface is one even ribbon
-        pts = [np.array(q, float) for q in RP.simplify([tuple(q) for q in pts], STRAIGHTEN)]
+        pts = [np.array(q, float) for q in RP.simplify([tuple(q) for q in f["pts"]], STRAIGHTEN)]
         if len(pts) < 2:
             continue
-        # width: clearance measured every 4 studs along the whole street
         clear = []
         for k in range(len(pts) - 1):
             (ax, az), (bx, bz) = pts[k], pts[k + 1]
             seg = math.hypot(bx - ax, bz - az)
-            if seg < 1.0: continue
+            if seg < 1.0:
+                continue
             ux, uz = (bx - ax) / seg, (bz - az) / seg
             for a in np.arange(2.0, seg - 1.9, 4.0):
                 sx, sz = ax + ux * a, az + uz * a
                 clear.append(2 * min(side_clear(sx, sz, -uz, ux), side_clear(sx, sz, uz, -ux)) - 2 * MARGIN)
-        if not clear:
-            continue
-        # from the stretches that are open at all: a covered passage or arcade
-        # part-way along must not narrow (or drop) the whole street -- its
-        # slabs are skipped one by one below and the asphalt terrain shows there
         open_ = [c_ for c_ in clear if c_ >= MIN_W]
-        if len(open_) < max(2, 0.3 * len(clear)):
+        if not clear or len(open_) < max(2, 0.3 * len(clear)):
             dropped["street mostly under buildings"] += 1
-            blocked_log.append((way["kind"], total_len_edge(pts), len(open_) / max(1, len(clear)), [round(v) for v in pts[len(pts) // 2]]))
             continue
-        # FILL THE STREET: the slab spans building to building less a sidewalk
-        # each side, not just OSM's carriageway -- the uncovered rest was bare
-        # terrain, which terraces on slopes (the owner's "uneven road"). The
-        # sidewalk band is pavement-painted terrain (tools/ground_paint.py).
-        corridor = float(np.percentile(open_, 15)) - 2 * SIDEWALK_BAND
-        w = min(max(f["width"], corridor), WIDE_MAX, float(np.percentile(open_, 15)))
+        corridor = float(np.percentile(open_, 15))
+        w = min(max(f["width"], corridor - 2 * SIDEWALK_BAND), WIDE_MAX, corridor)
         w = math.floor(w / 2) * 2
         if w < MIN_W:
             dropped["street too narrow"] += 1
-            narrow_log.append((len(clear), float(np.median(clear)), float(np.percentile(clear, 15)), f["width"]))
             continue
-        # heights: the street surface sampled along the street, then smoothed
-        # along it (a running mean over EVEN_SPAN studs): the road rides the
-        # hill, not every bump of the ground under it
+        streets.append(dict(f=f, way=way, pts=pts, w=w, raw0=pts[0].copy(), raw1=pts[-1].copy()))
+
+    # pass B: intersections are left as GAPS -- each street stops short of a
+    # junction node by half the widest street meeting there plus JGAP
+    node_w = defaultdict(float)
+    for st in streets:
+        for k in (0, -1):
+            nid = st["f"]["a"] if k == 0 else st["f"]["b"]
+            if nid in junction:
+                node_w[nid] = max(node_w[nid], st["w"])
+    for st in streets:
+        pts = st["pts"]
+        for k in (0, -1):
+            if pts is None:
+                break
+            nid = st["f"]["a"] if k == 0 else st["f"]["b"]
+            if nid not in junction:
+                continue
+            cut = node_w[nid] / 2 + JGAP
+            seq = list(pts) if k == 0 else list(pts[::-1])
+            left = cut
+            while len(seq) >= 2:
+                L = float(np.hypot(*(seq[1] - seq[0])))
+                if L > left:
+                    seq = [seq[0] + (seq[1] - seq[0]) * (left / L)] + seq[1:]
+                    break
+                left -= L
+                seq = seq[1:]
+            pts = (seq if k == 0 else seq[::-1]) if len(seq) >= 2 else None
+        st["pts"] = pts
+
+    # pass C: emit, most important streets first; a slab whose footprint is
+    # already mostly road is a parallel duplicate (OSM draws each direction of
+    # a divided road as its own way) and is dropped -> never two side by side
+    covered = np.zeros((bnx, bnz), bool)
+
+    def footprint_cells(cx, cz, ux, uz, L, W):
+        out = []
+        for a in np.arange(-L / 2, L / 2 + 0.01, 2.0):
+            for b in np.arange(-W / 2, W / 2 + 0.01, 2.0):
+                i, j = int((cx + ux * a - uz * b - bx0) / bcell), int((cz + uz * a + ux * b - bz0) / bcell)
+                if 0 <= i < bnx and 0 <= j < bnz:
+                    out.append((i, j))
+        return out
+
+    jdata = defaultdict(lambda: {"pts": [], "h": []})
+    order = sorted([s_ for s_ in streets if s_["pts"] is not None], key=lambda s_: (-s_["way"]["prio"], -s_["w"]))
+    for st in order:
+        pts, w, way = st["pts"], st["w"], st["way"]
         cum = [0.0]
         for k in range(len(pts) - 1):
             cum.append(cum[-1] + float(np.hypot(*(pts[k + 1] - pts[k]))))
-        total_len_e = cum[-1]
-        ss = np.arange(0, total_len_e + 0.1, 4.0)
-        def at(s_):
-            k = max(0, min(len(pts) - 2, int(np.searchsorted(cum, s_, side="right") - 1)))
-            L_ = max(cum[k + 1] - cum[k], 1e-6)
-            q = pts[k] + (pts[k + 1] - pts[k]) * ((s_ - cum[k]) / L_)
-            return q
+        tl = cum[-1]
+        if tl < 6:
+            dropped["street shorter than its gaps"] += 1
+            continue
+        ss = np.arange(0, tl + 0.1, 4.0)
+
+        def at(s_, pts=pts, cum=cum):
+            k_ = max(0, min(len(pts) - 2, int(np.searchsorted(cum, s_, side="right") - 1)))
+            L_ = max(cum[k_ + 1] - cum[k_], 1e-6)
+            return pts[k_] + (pts[k_ + 1] - pts[k_]) * ((s_ - cum[k_]) / L_)
         hs = np.array([ground(*at(s_)) for s_ in ss])
         win = max(1, int(EVEN_SPAN / 4.0))
         if len(hs) > 2:
-            kern = np.ones(2 * win + 1) / (2 * win + 1)
-            hs = np.convolve(np.pad(hs, win, mode="edge"), kern, mode="valid")
-        def h_at(s_):
-            y = float(np.interp(s_, ss, hs))
-            return y
-        # ends that meet a pad take the pad's plane there
-        def on_plane(pad, x, z):
-            cx_, cz_, yc_, gx_, gz_, cy_, sy_ = pad["plane"]
-            dx_, dz_ = x - cx_, z - cz_
-            return yc_ + gx_ * (dx_ * cy_ + dz_ * sy_) + gz_ * (-dx_ * sy_ + dz_ * cy_) + 0.1
-        y_start = on_plane(end_pad[0], *pts[0]) if end_pad[0] is not None and "plane" in end_pad[0] else None
-        y_end = on_plane(end_pad[-1], *pts[-1]) if end_pad[-1] is not None and "plane" in end_pad[-1] else None
-        def height(s_):
-            y = h_at(s_)
-            # blend into the pad plane over the first/last BLEND studs
-            if y_start is not None and s_ < BLEND: y = y_start + (y - y_start) * (s_ / BLEND)
-            if y_end is not None and total_len_e - s_ < BLEND: y = y_end + (y - y_end) * ((total_len_e - s_) / BLEND)
-            return y
+            hs = np.convolve(np.pad(hs, win, mode="edge"), np.ones(2 * win + 1) / (2 * win + 1), mode="valid")
+
+        def height(s_, ss=ss, hs=hs):
+            # snapped to the terrain's render levels: flat smooth terrain can
+            # only render on even heights, so a road end anywhere between met
+            # the ground with a 0-2 stud step (median 0.74, p90 2.7)
+            return round(float(np.interp(s_, ss, hs)) / SNAP) * SNAP
+        built_before = counts["roadway"]
+        # a street whose centreline is mostly on road already built is the other
+        # half of a dual carriageway (or a parallel OSM duplicate): drop it whole
+        on_road = n_samp = 0
+        for s_ in np.arange(0, tl, 4.0):
+            q = at(s_)
+            i_, j_ = int((q[0] - bx0) / bcell), int((q[1] - bz0) / bcell)
+            if 0 <= i_ < bnx and 0 <= j_ < bnz:
+                n_samp += 1
+                on_road += covered[i_, j_]
+        if n_samp and on_road > 0.5 * n_samp:
+            dropped["parallel duplicate street"] += 1
+            continue
+
         for k in range(len(pts) - 1):
             (ax, az), (bx, bz) = pts[k], pts[k + 1]
             seg = math.hypot(bx - ax, bz - az)
-            if seg < 1.0: continue
+            if seg < 1.0:
+                continue
             ux, uz = (bx - ax) / seg, (bz - az) / seg
+            # close the outside of a bend: extend into the corner by w/2*tan(turn/2)
+            ext0 = ext1 = 0.0
+            if k > 0:
+                (px_, pz_) = pts[k - 1]
+                tn = abs((math.atan2(az - pz_, ax - px_) - math.atan2(uz, ux) + math.pi) % (2 * math.pi) - math.pi)
+                ext0 = min(w / 2 * math.tan(tn / 2), w / 2)
+            if k + 1 < len(pts) - 1:
+                (cx2, cz2) = pts[k + 2]
+                tn = abs((math.atan2(cz2 - bz, cx2 - bx) - math.atan2(uz, ux) + math.pi) % (2 * math.pi) - math.pi)
+                ext1 = min(w / 2 * math.tan(tn / 2), w / 2)
             n = max(1, int(math.ceil(seg / RP.SEGMENT)))
             for t_ in range(n):
-                a0, a1 = seg * t_ / n, seg * (t_ + 1) / n
-                s0, s1 = cum[k] + a0, cum[k] + a1
-                px, pz = ax + ux * a0, az + uz * a0
-                qx, qz = ax + ux * a1, az + uz * a1
-                # a building edge the width check missed: salvage the slab --
-                # narrow it, else slide it sideways, else split it in half and
-                # retry each half (a whole 136-stud slab was dropped for one corner)
-                def place(s0_, s1_, depth):
-                    nonlocal total
+                s0 = cum[k] + seg * t_ / n - (ext0 if t_ == 0 else 0.0)
+                s1 = cum[k] + seg * (t_ + 1) / n + (ext1 if t_ == n - 1 else 0.0)
+                stack = [(s0, s1, 0)]
+                while stack:
+                    s0_, s1_, depth = stack.pop()
                     L_ = s1_ - s0_
                     ax_, az_ = ax + ux * (s0_ - cum[k]), az + uz * (s0_ - cum[k])
                     bx_, bz_ = ax + ux * (s1_ - cum[k]), az + uz * (s1_ - cum[k])
                     mx_, mz_ = (ax_ + bx_) / 2, (az_ + bz_) / 2
-                    best_ = None
-                    for sh in (0.0, 4.0, -4.0, 8.0, -8.0, 12.0, -12.0):
-                        ox_, oz_ = -uz * sh, ux * sh
-                        sw_ = w
-                        while sw_ >= MIN_W and not rect_clear(mx_ + ox_, mz_ + oz_, ux, uz, L_, sw_):
-                            sw_ -= 2.0
-                        if sw_ >= MIN_W and (best_ is None or sw_ > best_[0] + 4):
-                            best_ = (sw_, ox_, oz_)
-                        if best_ and best_[0] >= w:
-                            break
-                    if best_ is None or best_[0] < 0.5 * w and L_ > 24 and depth < 3:
-                        if L_ > 24 and depth < 3:
-                            mid_ = (s0_ + s1_) / 2
-                            place(s0_, mid_ + 0.3, depth + 1)
-                            place(mid_ - 0.3, s1_, depth + 1)
-                            return
-                        if best_ is None:
-                            dropped["slab blocked (asphalt terrain shows there)"] += 1
-                            return
-                    sw_, ox_, oz_ = best_
-                    y0_, y1_ = height(s0_), height(s1_)
-                    emit("roadway", mx_ + ox_, (y0_ + y1_) / 2 + way["prio"] * 0.05, mz_ + oz_,
-                         math.atan2(uz, ux), math.atan2(y1_ - y0_, L_), L_ + 0.6, RP.THICKNESS, sw_, way["kind"], way["id"])
-                    total += L_
-                place(s0, s1, 0)
-            # a bend: one round joint, at the bend's own height, as wide as the street
-            if k + 1 < len(pts) - 1:
-                (cx2, cz2) = pts[k + 2]
-                turn = math.atan2(cz2 - bz, cx2 - bx) - math.atan2(bz - az, bx - ax)
-                if abs((turn + math.pi) % (2 * math.pi) - math.pi) >= math.radians(BEND_DEG):
-                    dia = min(w, 2 * (clear_radius(bx, bz, w / 2 + MARGIN) - MARGIN))
-                    if dia >= MIN_W:
-                        emit("joint", bx, height(cum[k + 1]) + way["prio"] * 0.05 - 0.03, bz, 0.0, 0.0, dia,
-                             RP.THICKNESS, dia, way["kind"], way["id"])
+                    sw_ = w
+                    while sw_ >= MIN_W and not rect_clear(mx_, mz_, ux, uz, L_, sw_):
+                        sw_ -= 2.0
+                    # no splitting into fragments: a slab that cannot keep most of
+                    # its width is dropped; the asphalt ground shows there
+                    if sw_ < max(MIN_W, 0.6 * w):
+                        dropped["slab blocked (asphalt terrain shows there)"] += 1
+                        continue
+                    cells_ = footprint_cells(mx_, mz_, ux, uz, L_, sw_)
+                    if cells_ and sum(covered[c_] for c_ in cells_) > DUP_SHARE * len(cells_):
+                        dropped["parallel duplicate"] += 1
+                        continue
+                    y0_, y1_ = height(max(s0_, 0)), height(min(s1_, tl))
+                    lift = 0.04 * (k % 2)     # slabs overlapping at a bend never z-fight
+                    if emit("roadway", mx_, (y0_ + y1_) / 2 + ROAD_LIFT + lift, mz_, math.atan2(uz, ux),
+                            math.atan2(y1_ - y0_, L_), L_, RP.THICKNESS, sw_, way["kind"], way["id"]):
+                        for c_ in cells_:
+                            covered[c_] = True
+                        total += L_
+        if counts["roadway"] > built_before:
+            for nid, rawp, s_end in ((st["f"]["a"], st["raw0"], 0.0), (st["f"]["b"], st["raw1"], tl)):
+                if nid in junction:
+                    jdata[nid]["pts"].append(rawp)
+                    jdata[nid]["h"].append(height(s_end) + ROAD_LIFT)
 
     # ---- clipping check: roadway area over a ground floor
     on = tot = 0
@@ -543,20 +520,23 @@ def main():
         (out / f"{name}.json").write_text(json.dumps({"name": name, "slabs": rows}))
         names.append([name, len(rows)])
     (out / "index.json").write_text(json.dumps(names))
-    print(f"{counts['roadway']} roadway + {counts['pad']} pads + {counts['joint']} joints = {sum(counts.values())} parts "
-          f"over {len(names)} tiles; {total / 4.182937 / 1000:.1f} km of street")
-    print(f"road area (slabs, pads, joint boxes) over a ground floor: {on / max(tot, 1):.2%}  (plain OSM was 11.2%)")
-    print("slabs dropped:", dict(dropped))
-    if blocked_log:
-        from collections import Counter
-        blocked_log = [b for b in blocked_log if in_city(*b[3])]
-        print("IN-CITY mostly-blocked streets:", len(blocked_log), Counter(b[0] for b in blocked_log).most_common())
-        L = sorted(b[1] for b in blocked_log)
-        print("  length median %.0f, p90 %.0f; examples:" % (L[len(L) // 2], L[int(len(L) * .9)]), [b for b in blocked_log if b[1] > 80][:6])
-    if narrow_log:
-        a = np.array(narrow_log)
-        print("too-narrow streets: samples median %.0f | clearance median-of-medians %.1f | p15 median %.1f | share with median clearance >= MIN_W: %.0f%%"
-              % (np.median(a[:, 0]), np.median(a[:, 1]), np.median(a[:, 2]), 100 * np.mean(a[:, 1] >= MIN_W)))
+    # junctions: no parts -- a flat patch of asphalt TERRAIN at the streets'
+    # height, graded by RoadBuilder.GradeCorridors, joins the street ends
+    junctions = []
+    for nid, jd in jdata.items():
+        if len(jd["h"]) < 2:
+            continue
+        cxz = np.mean(jd["pts"], axis=0)
+        if not in_city(float(cxz[0]), float(cxz[1])):
+            continue
+        junctions.append([round(float(cxz[0]), 1), round(float(cxz[1]), 1),
+                          round(node_w[nid] / 2 + JGAP + 3, 1),
+                          round(round((float(np.mean(jd["h"])) - ROAD_LIFT) / SNAP) * SNAP + ROAD_LIFT, 2)])
+    (out / "junctions.json").write_text(json.dumps(junctions))
+    print(f"{len(junctions)} junction patches (terrain, no parts)")
+    print(f"{counts['roadway']} road slabs over {len(names)} tiles; {total / 4.182937 / 1000:.1f} km of street")
+    print(f"road area over a ground floor: {on / max(tot, 1):.2%}  (plain OSM was 11.2%)")
+    print("dropped:", dict(dropped))
 
 
 if __name__ == "__main__":

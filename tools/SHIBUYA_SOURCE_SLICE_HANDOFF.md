@@ -2440,3 +2440,32 @@ physical roads, straight where straight, the middle of the road flat and even.
 Studio: `RestoreCorridors` -> `Clear` -> `BuildAll` -> `SettleOnField` -> `ClearOfBuildings` ->
 `GradeCorridors` -> `GroundTerrain.PaintAll` (paint LAST: grading repaints corridor columns).
 2,023 parts (1,524 streets, 295 pads, 204 joints), 46.9 km, mean street width ~46 studs.
+
+## ONE SLAB PER SECTION, ROAD-DRIVEN GROUND, NO SUNKEN BUILDINGS — Oct 4
+
+Owner: "one part per section of the road and only for its length, not for its width"; leave
+intersections as gaps for now; "the terrain just outside each building [must be] at or below the
+terrain below the building" (ground-floor facades must not look sunk).
+
+Pipeline (Python, then Studio):
+
+1. `tools/ground_clamp.py` (needs `source_slices/live_footprints_top.txt`, exported from Studio:
+   ground-floor rings + slab-top Y). Visible ground within 8 studs of a footprint <= slab top - 1,
+   rising at 0.5/stud beyond; 3 buildings whose floor is >10 studs under the ground around them
+   (basement records) are skipped. -> `terrain_clamped/` (h + `cap`) and `ground_surface.npz`.
+2. `tools/road_fit.py`: heights from `ground_surface.npz`; ONE slab per straight run, full street
+   width (building to building less a sidewalk), no pads/joints; streets stop short of junction
+   nodes (`JGAP`); a street whose centreline is mostly on built road (the other half of a dual
+   carriageway) is dropped whole; blocked slabs are narrowed or dropped, never split. Writes
+   `roads/junctions.json` (flat terrain patches, only where >= 2 streets were built). 828 slabs.
+3. `tools/road_ground.py`: the whole open ground as ONE smooth surface from the road tops and
+   junction patches (normalised smoothing, pinned), blended to natural beyond 60 studs; just
+   under the slab at its edges, deeper in the middle; never above `cap`; building footprints
+   untouched. -> `terrain/`.
+4. Studio: `GroundTerrain.WriteAll(1, 400, 2.5)` -> `RoadBuilder.Clear/BuildAll/ClearOfBuildings`
+   -> `GroundTerrain.PaintAll(1, 400)`. **No `GradeCorridors` any more.** Chunk fetches are cached
+   (Studio allows ~500 HTTP requests/minute; wait ~30 s between full passes).
+
+Measured: ground outside ground floors above the slab top on 0.04% of 51k samples (8 buildings,
+3 of them basement records); slab end/side meeting the ground median 0.34/0.21 studs; 16 slabs with
+terrain through the surface and 17 with air under, of 828.

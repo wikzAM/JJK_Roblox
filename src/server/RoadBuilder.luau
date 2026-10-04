@@ -348,6 +348,22 @@ end
 -- gives a point's distance from a part's footprint and the road's top there.
 -- Shared by ShapeTerrain and RestoreCorridors.
 local CELL = 32
+-- terrain chunk JSON, cached (Studio allows ~500 HTTP requests a minute);
+-- RoadBuilder.ClearChunkCache() after the chunk files change
+local chunkCache = {}
+local function getChunk(base, name)
+	if chunkCache[name] then return chunkCache[name] end
+	local ok, body
+	for attempt = 1, 4 do
+		ok, body = pcall(function() return Http:GetAsync(base .. name .. ".json", true) end)
+		if ok then break end
+		task.wait(15)
+	end
+	assert(ok, "sink unreachable: " .. tostring(body))
+	chunkCache[name] = Http:JSONDecode(body)
+	return chunkCache[name]
+end
+function RoadBuilder.ClearChunkCache() chunkCache = {} end
 -- Studio's terrain = the chunk files + FILE_TO_STUDIO. Until Sept 24 it was -5
 -- (terrain written with SUBSURFACE 8 under the old part ground, never rewritten
 -- when that ground was removed, so every building stood on a 5-stud plinth).
@@ -390,7 +406,9 @@ local function roadIndex(reach)
 		end
 		local a, b = rx * g.d.X + rz * g.d.Z, rx * -g.d.Z + rz * g.d.X
 		local dx, dz = math.max(math.abs(a) - g.hx, 0), math.max(math.abs(b) - g.hz, 0)
-		return math.sqrt(dx * dx + dz * dz), g.top + math.clamp(a, -g.hx, g.hx) * g.slopeAlong
+		local d = math.sqrt(dx * dx + dz * dz)
+		if d == 0 then d = -math.min(g.hx - math.abs(a), g.hz - math.abs(b)) end   -- inside: minus the depth
+		return d, g.top + math.clamp(a, -g.hx, g.hx) * g.slopeAlong
 	end
 	local function near(x, z)
 		return hash[math.floor(x / CELL) * 100000 + math.floor(z / CELL)] or {}
@@ -411,7 +429,7 @@ function RoadBuilder.RestoreCorridors(first, last, margin)
 	local index = Http:JSONDecode(Http:GetAsync(TSINK .. "index.json", true))
 	local restored, chunks = 0, 0
 	for ci = first or 1, math.min(last or #index, #index) do
-		local c = Http:JSONDecode(Http:GetAsync(TSINK .. index[ci] .. ".json", true))
+		local c = getChunk(TSINK, index[ci])
 		-- which columns are in a road corridor?
 		local want, any = {}, false
 		for i = 1, c.nx do
@@ -473,13 +491,20 @@ function RoadBuilder.GradeCorridors(first, last, reach, cut, berm)
 	-- the ground rises to meet a road edge over BERM studs at BERM_SLOPE, so the
 	-- slab's side does not show. It was off (Sept 24) because a 3-stud berm is
 	-- narrower than a voxel and rendered as spikes; 8 studs is two voxels wide.
-	berm = berm or 8
+	berm = berm or 12
 	local BERM_SLOPE = 0.6
+	local SHOULDER = 4
+	local EDGE = 4
+	-- the ground meeting a road is aimed MEET studs above its top: measured, the
+	-- rendered ground otherwise sat a median 0.6 below, exposing slab edges; a
+	-- hair above buries the edge in asphalt-painted ground instead
+	local MEET = 0.6
 	local TSINK = "http://127.0.0.1:58999/get/tools/source_slices/ground/terrain/"
 	local V, RAMP = 4, 8     -- GroundTerrain's own values
-	local RAMP_BIAS = 4.0    -- studs the ramp's visible surface sits above the height it encodes (measured 3 to 3.9)
+	local DELTA_MED, DELTA_MAX = 2.8, 4.0   -- visible - encoded, typical and worst (measured Sept 30)
+	local RAMP_BIAS = DELTA_MAX
 	local GAP = 18           -- studs: ground between two different streets closer than this is held flat
-	local TERRACE_MARGIN = 2.5
+	local TERRACE_MARGIN = 1.0
 	-- ...and painted: terrain under a road, within PAVE of its edge, or in such a
 	-- gap is Asphalt, so gaps between OSM ways at junctions read as road instead
 	-- of pale ground showing through (terrain Asphalt is tinted to the slabs)
@@ -487,10 +512,24 @@ function RoadBuilder.GradeCorridors(first, last, reach, cut, berm)
 	workspace.Terrain:SetMaterialColor(Enum.Material.Asphalt, Color3.fromRGB(62, 62, 66))
 	local _, near, probe = roadIndex(reach)
 	if not near then return "no roads" end
+	local jok, jbody = pcall(function() return Http:GetAsync(SINK .. "junctions.json", true) end)
+	local jhash = {}
+	if jok then
+		for _, jn in Http:JSONDecode(jbody) do
+			for cx = math.floor((jn[1] - jn[3]) / CELL), math.floor((jn[1] + jn[3]) / CELL) do
+				for cz = math.floor((jn[2] - jn[3]) / CELL), math.floor((jn[2] + jn[3]) / CELL) do
+					local key = cx * 100000 + cz
+					jhash[key] = jhash[key] or {}
+					table.insert(jhash[key], jn)
+				end
+			end
+		end
+	end
+	local function nearJ(x, z) return jhash[math.floor(x / CELL) * 100000 + math.floor(z / CELL)] or {} end
 	local index = Http:JSONDecode(Http:GetAsync(TSINK .. "index.json", true))
 	local graded, lowered, raised, chunks = 0, 0, 0, 0
 	for ci = first or 1, math.min(last or #index, #index) do
-		local c = Http:JSONDecode(Http:GetAsync(TSINK .. index[ci] .. ".json", true))
+		local c = getChunk(TSINK, index[ci])
 		local target, any, top = {}, false, -math.huge
 		local pavedCols = {}
 		for i = 1, c.nx do
@@ -504,33 +543,37 @@ function RoadBuilder.GradeCorridors(first, last, reach, cut, berm)
 					local d, t = probe(g, x, z)
 					if d < reach then
 						hit = true
-						-- TERRACE_MARGIN deeper than the collision surface needs: on a slope
-						-- smooth terrain RENDERS in steps that swing 2-4 studs around its
-						-- collision surface (a ramp slope tested at y 1600, Sept 29), and the
-						-- step peaks came up through roads that were correctly above it
-						-- beside a road the ground now comes right up to its top edge: the
-						-- ground is painted asphalt too (GroundTerrain.PaintAll), so terrain
-						-- meeting the slab reads as more road, while a gap showed the slab's
-						-- dark side. Only UNDER the road is it held TERRACE_MARGIN deeper.
-						ceil = math.min(ceil, (d <= 0 and t - 1.2 - TERRACE_MARGIN
-							or t + 0.2 + d * cut) - RAMP_BIAS)
-						if d < berm then floor = math.max(floor, t - 0.4 - d * BERM_SLOPE - RAMP_BIAS) end
-						-- under a road the ground must reach at least into the slab (8 deep):
-						-- where the road crosses a dip it otherwise floated with air beneath
+						-- Smooth terrain renders DELTA_MED (typical) .. DELTA_MAX (worst) above
+						-- the height it encodes (measured Sept 30). Ceilings that must never
+						-- poke through a road use the worst case; heights the ground should
+						-- REACH (meeting a road edge) use the typical one -- using the worst
+						-- case for both left every slab edge ~1.5 studs proud.
+						-- a SHOULDER: within SHOULDER studs of the edge the ground is held at
+						-- the road's own height (it is asphalt too), so no slab side or end
+						-- shows; only beyond it does the bank open (berm down, cut up)
+						local dd = math.max(0, d - SHOULDER)
+						-- under the road: deep in the middle (isolated voxels render as
+						-- peaks), but just below the slab within EDGE studs of its edge --
+						-- terrain interpolates between columns, and a deep column at the
+						-- edge dragged the shoulder down into a visible step
+						local underT = d <= -EDGE and t - 1.2 - TERRACE_MARGIN - DELTA_MAX or t - 0.2 - DELTA_MAX
 						if d <= 0 then
-							floor = math.max(floor, t - 6.5 - RAMP_BIAS)
+							ceil = math.min(ceil, underT)
+						else
+							ceil = math.min(ceil, t + MEET + 0.3 + dd * cut - DELTA_MED)
+						end
+						if d < berm then floor = math.max(floor, t + MEET - 0.3 - dd * BERM_SLOPE - DELTA_MED) end
+						-- under a road the ground must reach at least into the slab (8 deep)
+						if d <= 0 then
+							floor = math.max(floor, d <= -EDGE and t - 6.5 - DELTA_MED or t - 1.0 - DELTA_MAX)
 							under = true
-							underCeil = math.min(underCeil, t - 1.2 - TERRACE_MARGIN - RAMP_BIAS)
+							underCeil = math.min(underCeil, underT)
 						end
 						local way = g.way
 						if not byWay[way] or d < byWay[way][1] then byWay[way] = {d, t} end
 					end
 				end
-				-- Between two DIFFERENT streets less than GAP apart, the cut banks
-				-- rising from each meet in a thin ridge, and smooth terrain draws a
-				-- ridge one or two voxels wide as spikes above its height -- rims
-				-- tracing every junction. Hold such a gap flat at road level instead,
-				-- so it reads as paving between the carriageways.
+				-- Between two DIFFERENT streets less than GAP apart: held flat at road level
 				local d1, t1, d2, t2 = math.huge, 0, math.huge, 0
 				for _, v in byWay do
 					if v[1] < d1 then d2, t2, d1, t1 = d1, t1, v[1], v[2]
@@ -538,21 +581,34 @@ function RoadBuilder.GradeCorridors(first, last, reach, cut, berm)
 				end
 				local paved = d1 <= PAVE
 				if d1 + d2 < GAP then
-					-- held AT road level (not below it: the ground is asphalt now, so
-					-- it reads as more road; 2.5 below showed every slab's side)
 					local lvl = math.min(t1, t2)
-					ceil = math.min(ceil, lvl + 0.2 - RAMP_BIAS)
-					floor = math.max(floor, lvl - 0.4 - RAMP_BIAS)
+					ceil = math.min(ceil, lvl + 0.3 - DELTA_MED)
+					floor = math.max(floor, lvl - 0.3 - DELTA_MED)
 					paved = true
 				end
-				-- UNDER a road only the roads covering it cap the ground: a lower
-				-- neighbour's cut bank used to carve beneath a higher road, which then
-				-- floated (28 pieces). The drop between them becomes a steep bank.
+				-- JUNCTIONS (tools/road_fit.py junctions.json): no parts -- the ground in
+				-- the gap where streets meet is held flat at their height, so the street
+				-- ends meet a level asphalt patch instead of a dip
+				for _, jn in nearJ(x, z) do
+					local dx, dz = x - jn[1], z - jn[2]
+					if dx * dx + dz * dz <= jn[3] * jn[3] then
+						hit = true
+						paved = true
+						ceil = math.min(ceil, jn[4] + MEET + 0.3 - DELTA_MED)
+						floor = math.max(floor, jn[4] + MEET - 0.3 - DELTA_MED)
+					end
+				end
+				-- UNDER a road only the roads covering it cap the ground
 				if under then ceil = underCeil end
 				if hit then
 					local idx = (i - 1) * c.nz + k
 					local h0 = c.h[idx] + FILE_TO_STUDIO
 					local h = math.min(math.max(h0, floor), ceil)
+					-- buildings are never sunk (tools/ground_clamp.py): the per-column cap
+					-- next to a building wins over any road berm or gap fill
+					if c.cap and c.cap[idx] and c.cap[idx] < 99999 then
+						h = math.min(h, c.cap[idx] + FILE_TO_STUDIO)
+					end
 					target[idx] = h
 					if paved then pavedCols[idx] = true end
 					any = true
