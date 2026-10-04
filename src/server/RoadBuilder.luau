@@ -16,14 +16,16 @@ local Http = game:GetService("HttpService")
 local SINK = "http://127.0.0.1:58999/get/tools/source_slices/ground/roads/"
 
 local LOOK = {
-	roadway = {material = Enum.Material.Asphalt, color = Color3.fromRGB(62, 62, 66)},
+	-- parts render darker than asphalt TERRAIN of the same colour (39 vs 49-54 on
+	-- screen from above): lighter so slabs do not read as dark patches in the asphalt
+	roadway = {material = Enum.Material.Asphalt, color = Color3.fromRGB(88, 88, 92)},
 	pavement = {material = Enum.Material.Concrete, color = Color3.fromRGB(154, 152, 148)},
 	-- the ground between the roads: terrain alone terraces on gentle slopes
 	apron = {material = Enum.Material.Concrete, color = Color3.fromRGB(138, 136, 132)},
 	-- a round cap at a node where a road bends or ends: fills the outside of the corner
-	joint = {material = Enum.Material.Asphalt, color = Color3.fromRGB(62, 62, 66)},
+	joint = {material = Enum.Material.Asphalt, color = Color3.fromRGB(88, 88, 92)},
 	-- one flat square per junction (tools/road_fit.py); the streets stop at its edge
-	pad = {material = Enum.Material.Asphalt, color = Color3.fromRGB(62, 62, 66)},
+	pad = {material = Enum.Material.Asphalt, color = Color3.fromRGB(88, 88, 92)},
 }
 
 local function fetch(name)

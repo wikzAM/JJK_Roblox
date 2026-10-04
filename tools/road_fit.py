@@ -52,6 +52,7 @@ STRAIGHTEN = 6.0     # studs: a street's polyline is simplified this hard -> lon
 EVEN_SPAN = 40.0     # studs: heights are averaged over this span along a street
 JRAMP = 0.1          # grade at which a street end ramps down to its junction's height
 JDROP_MAX = 8.0      # ... but never by more than this
+CLASH_H = 1.0        # studs: two streets' slabs may overlap only this close in height
 BLEND = 20.0         # studs over which a street's height eases into its junction pad      # a turn sharper than this inside an edge gets a round joint
 DROP_KINDS = {"service"}
 PAD_OVER = 2.0       # studs a pad extends past the widest street
@@ -418,6 +419,18 @@ def main():
     # a divided road as its own way) and is dropped -> never two side by side
     covered = np.zeros((bnx, bnz), bool)
     cov_yaw = np.zeros((bnx, bnz), np.float32)       # direction of the road covering a cell
+    cov_h = np.zeros((bnx, bnz), np.float32)         # ... its surface height
+    cov_way = np.zeros((bnx, bnz), np.int64)         # ... and its OSM way
+
+    def height_clash(cx, cz, ux, uz, L, W, ymid, grade, wid):
+        # another street's slab already covers part of this one at a different
+        # height: overlapping, the lower one showed terrain through it (steps of 8)
+        for a in np.arange(-L / 2, L / 2 + 0.01, 2.0):
+            for b in np.arange(-W / 2, W / 2 + 0.01, 2.0):
+                i, j = int((cx + ux * a - uz * b - bx0) / bcell), int((cz + uz * a + ux * b - bz0) / bcell)
+                if 0 <= i < bnx and 0 <= j < bnz and covered[i, j] and cov_way[i, j] != wid                         and abs(float(cov_h[i, j]) - (ymid + a * grade)) > CLASH_H:
+                    return True
+        return False
 
     def footprint_cells(cx, cz, ux, uz, L, W):
         out = []
@@ -571,8 +584,19 @@ def main():
                     ax_, az_ = ax + ux * (s0_ - cum[k]), az + uz * (s0_ - cum[k])
                     bx_, bz_ = ax + ux * (s1_ - cum[k]), az + uz * (s1_ - cum[k])
                     mx_, mz_ = (ax_ + bx_) / 2, (az_ + bz_) / 2
+                    # heights at the bend VERTICES, extrapolated along the slab's grade
+                    # into the corner extensions: both slabs meeting at a bend pass
+                    # through the same height there (ends taken at the extended
+                    # stations stepped by up to 8 studs on hills)
+                    se0 = s0_ + (ext0 if t_ == 0 else 0.0)
+                    se1 = s1_ - (ext1 if t_ == n - 1 else 0.0)
+                    ya_, yb_ = height(max(se0, 0)), height(min(se1, tl))
+                    gr_ = (yb_ - ya_) / max(se1 - se0, 1e-6)
+                    y0_, y1_ = ya_ - gr_ * (se0 - s0_), yb_ + gr_ * (s1_ - se1)
+                    ymid_ = (y0_ + y1_) / 2 + ROAD_LIFT
                     sw_ = w
-                    while sw_ >= MIN_W and not rect_clear(mx_, mz_, ux, uz, L_, sw_):
+                    while sw_ >= MIN_W and (not rect_clear(mx_, mz_, ux, uz, L_, sw_)
+                                            or height_clash(mx_, mz_, ux, uz, L_, sw_, ymid_, gr_, way["id"])):
                         sw_ -= 2.0
                     # no splitting into fragments: a slab that cannot keep most of
                     # its width is dropped; the asphalt ground shows there
@@ -583,21 +607,16 @@ def main():
                     if cells_ and sum(covered[c_] for c_ in cells_) > DUP_SHARE * len(cells_):
                         dropped["parallel duplicate"] += 1
                         continue
-                    # heights at the bend VERTICES, extrapolated along the slab's grade
-                    # into the corner extensions: both slabs meeting at a bend pass
-                    # through the same height there (ends taken at the extended
-                    # stations stepped by up to 8 studs on hills)
-                    se0 = s0_ + (ext0 if t_ == 0 else 0.0)
-                    se1 = s1_ - (ext1 if t_ == n - 1 else 0.0)
-                    ya_, yb_ = height(max(se0, 0)), height(min(se1, tl))
-                    gr_ = (yb_ - ya_) / max(se1 - se0, 1e-6)
-                    y0_, y1_ = ya_ - gr_ * (se0 - s0_), yb_ + gr_ * (s1_ - se1)
                     lift = 0.04 * (k % 2)     # slabs overlapping at a bend never z-fight
                     if emit("roadway", mx_, (y0_ + y1_) / 2 + ROAD_LIFT + lift, mz_, math.atan2(uz, ux),
                             math.atan2(y1_ - y0_, L_), L_, RP.THICKNESS, sw_, way["kind"], way["id"]):
                         for c_ in cells_:
                             covered[c_] = True
                             cov_yaw[c_] = math.atan2(uz, ux)
+                            cov_way[c_] = way["id"]
+                            # surface height at this cell (its station along the slab)
+                            a_c = (bx0 + (c_[0] + 0.5) * bcell - mx_) * ux + (bz0 + (c_[1] + 0.5) * bcell - mz_) * uz
+                            cov_h[c_] = ymid_ + a_c * gr_
                         total += L_
         if counts["roadway"] > built_before:
             for nid, rawp, s_end in ((st["f"]["a"], st["raw0"], 0.0), (st["f"]["b"], st["raw1"], tl)):
@@ -607,6 +626,33 @@ def main():
                     e_ = pts[0] if s_end == 0.0 else pts[-1]
                     jdata[nid]["ends"].append([round(float(e_[0]), 1), round(float(e_[1]), 1),
                                                round(height(s_end) + ROAD_LIFT, 2)])
+
+    # ---- a lone slab not much longer than it is wide (what is left of a street between
+    # a junction circle and a blocked stretch) reads as a stray rectangle in the
+    # asphalt, not a road (Scramble Crossing): dropped, the asphalt ground covers it
+    ends_by_way = defaultdict(list)
+    for rows in tiles.values():
+        for r in rows:
+            _, cx_, _, cz_, yaw_, _, L, _, W = r[:9]
+            for sg in (-1, 1):
+                ends_by_way[r[10]].append((cx_ + sg * math.cos(yaw_) * L / 2, cz_ + sg * math.sin(yaw_) * L / 2, id(r)))
+    for key in list(tiles):
+        keep = []
+        for r in tiles[key]:
+            _, cx_, _, cz_, yaw_, _, L, _, W = r[:9]
+            if L < 1.5 * W:
+                mine = [(cx_ + sg * math.cos(yaw_) * L / 2, cz_ + sg * math.sin(yaw_) * L / 2) for sg in (-1, 1)]
+                # an end is joined when a slab of its street or a junction circle
+                # is there; a short slab joining two junctions is a real street
+                def joined(m):
+                    return any(e[2] != id(r) and math.hypot(e[0] - m[0], e[1] - m[1]) < W / 2
+                               for e in ends_by_way[r[10]]) or                         any(math.hypot(c_[0] - m[0], c_[1] - m[1]) < R_ + 6 for c_, R_ in cl_info.values())
+                if not (joined(mine[0]) and joined(mine[1])):
+                    dropped["lone slab under 1.5x its width"] += 1
+                    counts["roadway"] -= 1
+                    continue
+            keep.append(r)
+        tiles[key] = keep
 
     # ---- clipping check: roadway area over a ground floor
     on = tot = 0
