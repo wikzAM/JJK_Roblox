@@ -624,8 +624,11 @@ def main():
                     jdata[nid]["pts"].append(rawp)
                     jdata[nid]["h"].append(height(s_end) + ROAD_LIFT)
                     e_ = pts[0] if s_end == 0.0 else pts[-1]
+                    d_ = (pts[0] - pts[1]) if s_end == 0.0 else (pts[-1] - pts[-2])   # into the junction
+                    d_ = d_ / (np.hypot(*d_) or 1.0)
                     jdata[nid]["ends"].append([round(float(e_[0]), 1), round(float(e_[1]), 1),
-                                               round(height(s_end) + ROAD_LIFT, 2)])
+                                               round(height(s_end) + ROAD_LIFT, 2),
+                                               round(float(d_[0]), 4), round(float(d_[1]), 4), w])
 
     # ---- a lone slab not much longer than it is wide (what is left of a street between
     # a junction circle and a blocked stretch) reads as a stray rectangle in the
@@ -653,6 +656,61 @@ def main():
                     continue
             keep.append(r)
         tiles[key] = keep
+
+    # ---- JUNCTION PLATES: one flat part per junction at its height, the rectangle
+    # (along the widest street) bounding the end edges of the streets that arrive
+    # at that height; shrunk off buildings and other streets' slabs
+    plates = 0
+    pl_ends = defaultdict(list)
+    for nid, jd in jdata.items():
+        if nid in node_cluster:
+            pl_ends[node_cluster[nid][0]].extend(jd["ends"])
+    for cid, ends in pl_ends.items():
+        if cid not in j_h or cid not in cl_info:
+            continue
+        centre, _R = cl_info[cid]
+        if not in_city(float(centre[0]), float(centre[1])):
+            continue
+        top = math.floor(j_h[cid] / SNAP) * SNAP + ROAD_LIFT
+        ends = [e for e in ends if abs(e[2] - top) <= 1.0]
+        if len(ends) < 2:
+            continue
+        wide = max(ends, key=lambda e: e[5])
+        ux, uz = wide[3], wide[4]
+        nx_, nz_ = -uz, ux
+        A, B = [], []
+        for ex, ez, _eh, tx, tz, ew in ends:
+            for sg in (-1, 1):
+                qx, qz = ex - tz * ew / 2 * sg, ez + tx * ew / 2 * sg
+                A.append((qx - centre[0]) * ux + (qz - centre[1]) * uz)
+                B.append((qx - centre[0]) * nx_ + (qz - centre[1]) * nz_)
+        a0, a1, b0, b1 = min(A), max(A), min(B), max(B)
+        area0 = (a1 - a0) * (b1 - b0)
+        if area0 < 16:
+            continue
+
+        def rect(a0, a1, b0, b1):
+            ca, cb = (a0 + a1) / 2, (b0 + b1) / 2
+            return (centre[0] + ux * ca + nx_ * cb, centre[1] + uz * ca + nz_ * cb, a1 - a0, b1 - b0)
+        side = 0
+        for _ in range(400):
+            cx_, cz_, L_, W_ = rect(a0, a1, b0, b1)
+            if L_ < 8 or W_ < 8:
+                break
+            if rect_clear(cx_, cz_, ux, uz, L_, W_) and not height_clash(cx_, cz_, ux, uz, L_, W_, top, 0.0, -1):
+                break
+            if side == 0: a0 += 2.0
+            elif side == 1: a1 -= 2.0
+            elif side == 2: b0 += 2.0
+            else: b1 -= 2.0
+            side = (side + 1) % 4
+        cx_, cz_, L_, W_ = rect(a0, a1, b0, b1)
+        if L_ * W_ < 0.5 * area0 or not rect_clear(cx_, cz_, ux, uz, L_, W_):
+            dropped["junction plate blocked"] += 1
+            continue
+        if emit("pad", cx_, top - 0.02, cz_, math.atan2(uz, ux), 0.0, L_, RP.THICKNESS, W_, "junction", 0):
+            plates += 1
+    print(f"{plates} junction plates")
 
     # ---- clipping check: roadway area over a ground floor
     on = tot = 0

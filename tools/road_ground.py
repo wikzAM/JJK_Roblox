@@ -79,7 +79,7 @@ def main():
     roads = D / "roads"
     for name, _ in json.loads((roads / "index.json").read_text()):
         for r in json.loads((roads / f"{name}.json").read_text())["slabs"]:
-            if r[0] != "roadway":
+            if r[0] not in ("roadway", "pad"):    # pads: the junction plates
                 continue
             _, cx, ytop, cz, yaw, pitch, L, _, W = r[:9]
             ux, uz = math.cos(yaw), math.sin(yaw)
@@ -114,7 +114,7 @@ def main():
             # sloping between the street ends (inverse-distance weights): a FLAT
             # patch at one height left steps of up to 18 studs at hill junctions
             wsum = np.zeros_like(X); hsum = np.zeros_like(X)
-            for ex, ez, eh in ends:
+            for ex, ez, eh in (e[:3] for e in ends):
                 wgt = 1.0 / np.maximum((X - ex) ** 2 + (Z - ez) ** 2, 16.0)
                 wsum += wgt; hsum += wgt * eh
             hp = hsum / wsum
