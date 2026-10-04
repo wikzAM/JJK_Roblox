@@ -692,18 +692,25 @@ def main():
         def rect(a0, a1, b0, b1):
             ca, cb = (a0 + a1) / 2, (b0 + b1) / 2
             return (centre[0] + ux * ca + nx_ * cb, centre[1] + uz * ca + nz_ * cb, a1 - a0, b1 - b0)
-        side = 0
-        for _ in range(400):
-            cx_, cz_, L_, W_ = rect(a0, a1, b0, b1)
-            if L_ < 8 or W_ < 8:
-                break
-            if rect_clear(cx_, cz_, ux, uz, L_, W_) and not height_clash(cx_, cz_, ux, uz, L_, W_, top, 0.0, -1):
-                break
-            if side == 0: a0 += 2.0
-            elif side == 1: a1 -= 2.0
-            elif side == 2: b0 += 2.0
-            else: b1 -= 2.0
-            side = (side + 1) % 4
+        # the starting rectangle sampled once (1 stud): a building, or another
+        # street's slab at a different height, is BAD; then the side whose trim
+        # removes the most bad points is trimmed, until none is left
+        GA, GB = np.meshgrid(np.arange(a0 - 1, a1 + 1.01, 1.0), np.arange(b0 - 1, b1 + 1.01, 1.0), indexing="ij")
+        I_ = ((centre[0] + ux * GA + nx_ * GB - bx0) / bcell).astype(int)
+        J_ = ((centre[1] + uz * GA + nz_ * GB - bz0) / bcell).astype(int)
+        in_ = (I_ >= 0) & (I_ < bnx) & (J_ >= 0) & (J_ < bnz)
+        Ic, Jc = np.clip(I_, 0, bnx - 1), np.clip(J_, 0, bnz - 1)
+        bad = ~in_ | blocked[Ic, Jc] | (covered[Ic, Jc] & (np.abs(cov_h[Ic, Jc] - top) > CLASH_H))
+        BA, BB = GA[bad], GB[bad]
+
+        def nbad(r_):
+            return int(np.count_nonzero((BA >= r_[0] - 1) & (BA <= r_[1] + 1) & (BB >= r_[2] - 1) & (BB <= r_[3] + 1)))
+        r_ = (a0, a1, b0, b1)
+        while nbad(r_) and r_[1] - r_[0] >= 8 and r_[3] - r_[2] >= 8:
+            opts = [(r_[0] + 2, r_[1], r_[2], r_[3]), (r_[0], r_[1] - 2, r_[2], r_[3]),
+                    (r_[0], r_[1], r_[2] + 2, r_[3]), (r_[0], r_[1], r_[2], r_[3] - 2)]
+            r_ = min(opts, key=lambda o: (nbad(o), -(o[1] - o[0]) * (o[3] - o[2])))
+        a0, a1, b0, b1 = r_
         cx_, cz_, L_, W_ = rect(a0, a1, b0, b1)
         if L_ * W_ < 0.5 * area0 or not rect_clear(cx_, cz_, ux, uz, L_, W_):
             dropped["junction plate blocked"] += 1

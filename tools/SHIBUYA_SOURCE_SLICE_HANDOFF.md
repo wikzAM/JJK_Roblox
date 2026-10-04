@@ -2500,3 +2500,12 @@ a road above its edge 7% (was 14%; 31% before the Oct 4 lowering); 14 slab joint
 Still open: the lowest floor of many buildings sits a few studs above the street with an open,
 dark storey under it -- the buildings are floor plates with no walls; ground-floor facades fix it.
 Junctions are terrain only (parts to join them are the next phase).
+
+**Junction plates (first cut of "join the intersections with parts").** `road_fit.py` emits one
+flat `pad` row per junction where >= 2 streets arrive at the junction height: the rectangle along
+the widest arriving street that bounds the arriving end edges, top 0.02 under the street ends,
+trimmed greedily (the side that removes the most blocked points first) off buildings and off
+other streets' slabs at a different height; dropped if under half of it survives. 191 plates,
+26 junctions stay terrain (incl. the Scramble Crossing plaza, where too few streets arrive at its
+height -- it reads as one clean asphalt plaza). `road_ground.py` grades under pads like slabs.
+Plate edges sit a median 0.65 studs over the ground beside them.
