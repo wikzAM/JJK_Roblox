@@ -43,7 +43,8 @@ BAND = 8.0        # studs beside a building where the ground comes up under its 
 FLUSH_GAP = 0.5   # ... to this far under the visible cap (cap = slab top - 1)
 ROAD_CLEAR = 8.0  # ... fully only this far from a road
 MAX_RAISE = 1.5
-UNDER_FLOOR = 6.0 # studs under the cap (slab top - 1) the ground stays beneath a building
+UNDER_FLOOR = 4.6 # studs under the cap (slab top - 1) the ground stays beneath a building:
+                  # just under the slab BOTTOM (top - 5.36); 6 left a dark void under floors
 BANK_FLAT = 6.0   # beside a slab the ground stays at most at its top for this far out,
 BANK_SLOPE = 1.0  # ... then rises no steeper than this: a hillside wall right at the
                   # edge of a road cut rendered leaning over the slab (pokes up to 12)

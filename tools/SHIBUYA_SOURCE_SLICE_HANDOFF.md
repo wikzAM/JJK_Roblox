@@ -2469,3 +2469,34 @@ Pipeline (Python, then Studio):
 Measured: ground outside ground floors above the slab top on 0.04% of 51k samples (8 buildings,
 3 of them basement records); slab end/side meeting the ground median 0.34/0.21 studs; 16 slabs with
 terrain through the surface and 17 with air under, of 828.
+
+### Oct 4 (later) — roads follow the hills, junctions agree, no overlaps
+
+Owner: "the terrain should be lower all around since the road aspects of the terrain are above
+ground". What was actually wrong, and the fixes (all in the same pipeline):
+
+* **The road cap reached far too far.** `ground_clamp.py` ROAD_SLOPE was 0.08/stud, so a valley
+  building 150 studs away capped a hillside street ~45 studs under the ground: the street ran in
+  a canyon and the hillside leaned over the slab edges (most of the "terrain through the road"
+  samples). Now the cap is flat for 8 studs around a footprint, then 0.5/stud, and `road_fit.py`
+  samples it at both slab edges as well as the centreline.
+* **Junctions have ONE height**: the lowest street end arriving at the cluster (ends at one
+  junction differed by a median 4, p90 10 studs). Streets ramp down to it at `JRAMP` 10%, never by
+  more than `JDROP_MAX` 8 (a street ending on a cliff keeps its height). `junctions.json` rows now
+  carry the street ends (`[x, z, R, h, [[ex, ez, eh], ...]]`) and `road_ground.py` slopes the
+  junction terrain between them (inverse distance) instead of one flat disc (steps up to 18).
+* **Bend heights** are taken at the bend vertices and extrapolated into the corner extensions.
+* **Overlaps**: a slab overlapping another street's slab more than `CLASH_H` 1 stud off its height
+  narrows or is dropped. A lone slab under 1.5x its width whose end joins nothing (no slab of its
+  street, no junction circle) is dropped -- they were stray rectangles in the crossing plaza.
+* `road_ground.py`: ground beside a slab stays at most at its top for 6 studs, then rises 1:1
+  (BANK_*); under a building the ground is held 4.6 under the cap (just under the slab bottom).
+* Road parts are 88,88,92: parts render darker than asphalt terrain of the same colour.
+
+Measured (Studio, 672 slabs): terrain above a road surface on 15 samples (was 578); ground beside
+a road above its edge 7% (was 14%; 31% before the Oct 4 lowering); 14 slab joints step > 4 studs
+(cliff streets in the ground data, e.g. a 60-stud rise in 120 at (1326, -406)).
+
+Still open: the lowest floor of many buildings sits a few studs above the street with an open,
+dark storey under it -- the buildings are floor plates with no walls; ground-floor facades fix it.
+Junctions are terrain only (parts to join them are the next phase).
