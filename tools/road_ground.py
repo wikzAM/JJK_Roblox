@@ -38,6 +38,10 @@ EDGE = 4.0        # under a slab within this of its edge, the ground stays just 
 DEEP = 2.2        # ... and this far below it deeper in (isolated voxels render as peaks)
 FAR = 60.0        # beyond this from any road the ground blends back to natural
 SMOOTH_PASSES = 6
+BAND = 8.0        # studs beside a building where the ground comes up under its ground floor
+FLUSH_GAP = 0.5   # ... to this far under the visible cap (cap = slab top - 1)
+ROAD_CLEAR = 8.0  # ... fully only this far from a road
+MAX_RAISE = 10.0  # ... and by no more than this
 
 
 def main():
@@ -124,6 +128,16 @@ def main():
     mi = np.clip(((XC - mx0) / mc).astype(int), 0, M.shape[0] - 1)
     mk = np.clip(((ZC - mz0) / mc).astype(int), 0, M.shape[1] - 1)
     bld = M[np.ix_(mi, mk)]
+    # ...and UP to the ground floor beside a building: "at or below" alone left
+    # ground floors hovering over a dark void. Within BAND of a footprint the
+    # ground rises to FLUSH under the slab top (= cap_vis - FLUSH_GAP), but only
+    # away from roads (full effect beyond ROAD_CLEAR studs of one) and by at most
+    # MAX_RAISE, so a street beside a high-set building is never left in a trench
+    dist_b = ndimage.distance_transform_edt(~bld) * CELL
+    near_b = (dist_b > 0) & (dist_b <= BAND) & np.isfinite(cap_vis)
+    w_road = np.clip((dist - 2.0) / (ROAD_CLEAR - 2.0), 0, 1)
+    want = np.minimum(cap_vis - FLUSH_GAP, vis + MAX_RAISE)
+    vis = np.where(near_b & ~under, np.maximum(vis, vis + (want - vis) * w_road * (want > vis)), vis)
     vis = np.minimum(vis, cap_vis)
     vis = np.where(bld, natural_vis, vis)
     vis = np.where(np.isnan(H), np.nan, vis)
