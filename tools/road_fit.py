@@ -50,6 +50,8 @@ ROAD_LIFT = 0.1      # studs the road top sits above the visible ground
 SNAP = 2.0           # studs: road end heights snap to the terrain's render levels
 STRAIGHTEN = 6.0     # studs: a street's polyline is simplified this hard -> long straight slabs
 EVEN_SPAN = 40.0     # studs: heights are averaged over this span along a street
+JRAMP = 0.1          # grade at which a street end ramps down to its junction's height
+JDROP_MAX = 8.0      # ... but never by more than this
 BLEND = 20.0         # studs over which a street's height eases into its junction pad      # a turn sharper than this inside an edge gets a round joint
 DROP_KINDS = {"service"}
 PAD_OVER = 2.0       # studs a pad extends past the widest street
@@ -426,7 +428,53 @@ def main():
                     out.append((i, j))
         return out
 
-    jdata = defaultdict(lambda: {"pts": [], "h": []})
+    def street_profile(pts, w, cum, tl):
+        ss = np.arange(0, tl + 0.1, 4.0)
+
+        def at(s_, pts=pts, cum=cum):
+            k_ = max(0, min(len(pts) - 2, int(np.searchsorted(cum, s_, side="right") - 1)))
+            L_ = max(cum[k_ + 1] - cum[k_], 1e-6)
+            return pts[k_] + (pts[k_ + 1] - pts[k_]) * ((s_ - cum[k_]) / L_)
+        hs = np.array([ground(*at(s_)) for s_ in ss])
+        # the cap at the centreline AND both slab edges: on a wide street the
+        # buildings beside it are w/2 from the centreline
+        def cap_at(s_):
+            q, q2 = at(s_), at(min(s_ + 2.0, tl))
+            q1 = at(max(s_ - 2.0, 0.0))
+            tx, tz = q2 - q1
+            n_ = math.hypot(tx, tz) or 1.0
+            nx_, nz_ = -tz / n_ * w / 2, tx / n_ * w / 2
+            return min(road_cap(q[0], q[1]), road_cap(q[0] + nx_, q[1] + nz_), road_cap(q[0] - nx_, q[1] - nz_))
+        caps_ = np.array([cap_at(s_) for s_ in ss])
+        win = max(1, int(EVEN_SPAN / 4.0))
+        if len(hs) > 2:
+            hs = np.convolve(np.pad(hs, win, mode="edge"), np.ones(2 * win + 1) / (2 * win + 1), mode="valid")
+            # averaging must not lift the road above its cap anywhere along it
+            hs = np.minimum(hs, caps_)
+        return ss, hs, at
+
+    def street_cum(pts):
+        cum = [0.0]
+        for k in range(len(pts) - 1):
+            cum.append(cum[-1] + float(np.hypot(*(pts[k + 1] - pts[k]))))
+        return cum, cum[-1]
+
+    # junction heights: the lowest end arriving at each cluster (street ends
+    # at one junction differed by a median 4, p90 10 studs)
+    cl_end = defaultdict(list)
+    for st in streets:
+        if st["pts"] is None:
+            continue
+        cum, tl = street_cum(st["pts"])
+        if tl < max(30.0, 0.8 * st["w"]):
+            continue
+        ss, hs, _ = street_profile(st["pts"], st["w"], cum, tl)
+        for nid, h_ in ((st["f"]["a"], hs[0]), (st["f"]["b"], hs[-1])):
+            if nid in node_cluster:
+                cl_end[node_cluster[nid][0]].append(float(h_))
+    j_h = {cid: min(v) for cid, v in cl_end.items() if len(v) >= 2}
+
+    jdata = defaultdict(lambda: {"pts": [], "h": [], "ends": []})
     order = sorted([s_ for s_ in streets if s_["pts"] is not None], key=lambda s_: (-s_["way"]["prio"], -s_["w"]))
     for st in order:
         pts, w, way = st["pts"], st["w"], st["way"]
@@ -442,19 +490,16 @@ def main():
         if tl < max(30.0, 0.8 * w):
             dropped["stub between junctions"] += 1
             continue
-        ss = np.arange(0, tl + 0.1, 4.0)
-
-        def at(s_, pts=pts, cum=cum):
-            k_ = max(0, min(len(pts) - 2, int(np.searchsorted(cum, s_, side="right") - 1)))
-            L_ = max(cum[k_ + 1] - cum[k_], 1e-6)
-            return pts[k_] + (pts[k_ + 1] - pts[k_]) * ((s_ - cum[k_]) / L_)
-        hs = np.array([ground(*at(s_)) for s_ in ss])
-        caps_ = np.array([road_cap(*at(s_)) for s_ in ss])
-        win = max(1, int(EVEN_SPAN / 4.0))
-        if len(hs) > 2:
-            hs = np.convolve(np.pad(hs, win, mode="edge"), np.ones(2 * win + 1) / (2 * win + 1), mode="valid")
-            # averaging must not lift the road above its cap anywhere along it
-            hs = np.minimum(hs, caps_)
+        ss, hs, at = street_profile(pts, w, cum, tl)
+        # every street meeting a junction arrives at the junction's ONE height
+        # (its lowest arriving end), ramping down to it -- lowering only
+        for nid, s_end in ((st["f"]["a"], 0.0), (st["f"]["b"], tl)):
+            if nid in node_cluster and node_cluster[nid][0] in j_h:
+                jh_ = j_h[node_cluster[nid][0]]
+                # a street ending on a cliff above the junction keeps its height
+                # (ramping 34 studs down dug a trench up the hill)
+                if float(np.interp(s_end, ss, hs)) - jh_ <= JDROP_MAX:
+                    hs = np.minimum(hs, jh_ + JRAMP * np.abs(ss - s_end))
 
         def height(s_, ss=ss, hs=hs):
             # snapped to the terrain's render levels: flat smooth terrain can
@@ -538,7 +583,15 @@ def main():
                     if cells_ and sum(covered[c_] for c_ in cells_) > DUP_SHARE * len(cells_):
                         dropped["parallel duplicate"] += 1
                         continue
-                    y0_, y1_ = height(max(s0_, 0)), height(min(s1_, tl))
+                    # heights at the bend VERTICES, extrapolated along the slab's grade
+                    # into the corner extensions: both slabs meeting at a bend pass
+                    # through the same height there (ends taken at the extended
+                    # stations stepped by up to 8 studs on hills)
+                    se0 = s0_ + (ext0 if t_ == 0 else 0.0)
+                    se1 = s1_ - (ext1 if t_ == n - 1 else 0.0)
+                    ya_, yb_ = height(max(se0, 0)), height(min(se1, tl))
+                    gr_ = (yb_ - ya_) / max(se1 - se0, 1e-6)
+                    y0_, y1_ = ya_ - gr_ * (se0 - s0_), yb_ + gr_ * (s1_ - se1)
                     lift = 0.04 * (k % 2)     # slabs overlapping at a bend never z-fight
                     if emit("roadway", mx_, (y0_ + y1_) / 2 + ROAD_LIFT + lift, mz_, math.atan2(uz, ux),
                             math.atan2(y1_ - y0_, L_), L_, RP.THICKNESS, sw_, way["kind"], way["id"]):
@@ -551,6 +604,9 @@ def main():
                 if nid in junction:
                     jdata[nid]["pts"].append(rawp)
                     jdata[nid]["h"].append(height(s_end) + ROAD_LIFT)
+                    e_ = pts[0] if s_end == 0.0 else pts[-1]
+                    jdata[nid]["ends"].append([round(float(e_[0]), 1), round(float(e_[1]), 1),
+                                               round(height(s_end) + ROAD_LIFT, 2)])
 
     # ---- clipping check: roadway area over a ground floor
     on = tot = 0
@@ -578,9 +634,11 @@ def main():
     # height, graded by RoadBuilder.GradeCorridors, joins the street ends
     junctions = []
     cl_h = defaultdict(list)
+    cl_ends = defaultdict(list)
     for nid, jd in jdata.items():
         if nid in node_cluster:
             cl_h[node_cluster[nid][0]].extend(jd["h"])
+            cl_ends[node_cluster[nid][0]].extend(jd["ends"])
     for cid, hs_ in cl_h.items():
         if len(hs_) < 2 or cid not in cl_info:
             continue
@@ -588,7 +646,9 @@ def main():
         if not in_city(float(centre[0]), float(centre[1])):
             continue
         junctions.append([round(float(centre[0]), 1), round(float(centre[1]), 1), round(R + 3, 1),
-                          round(round((float(np.mean(hs_)) - ROAD_LIFT) / SNAP) * SNAP + ROAD_LIFT, 2)])
+                          round(math.floor(j_h[cid] / SNAP) * SNAP + ROAD_LIFT, 2) if cid in j_h else
+                          round(round((float(np.mean(hs_)) - ROAD_LIFT) / SNAP) * SNAP + ROAD_LIFT, 2),
+                          cl_ends[cid]])   # the street ends: the patch slopes between them
     (out / "junctions.json").write_text(json.dumps(junctions))
     print(f"{len(junctions)} junction patches (terrain, no parts)")
     print(f"{counts['roadway']} road slabs over {len(names)} tiles; {total / 4.182937 / 1000:.1f} km of street")

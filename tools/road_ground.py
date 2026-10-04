@@ -43,7 +43,10 @@ BAND = 8.0        # studs beside a building where the ground comes up under its 
 FLUSH_GAP = 0.5   # ... to this far under the visible cap (cap = slab top - 1)
 ROAD_CLEAR = 8.0  # ... fully only this far from a road
 MAX_RAISE = 1.5
-UNDER_FLOOR = 6.0 # studs under the cap (slab top - 1) the ground stays beneath a building  # ... and by no more than this
+UNDER_FLOOR = 6.0 # studs under the cap (slab top - 1) the ground stays beneath a building
+BANK_FLAT = 6.0   # beside a slab the ground stays at most at its top for this far out,
+BANK_SLOPE = 1.0  # ... then rises no steeper than this: a hillside wall right at the
+                  # edge of a road cut rendered leaning over the slab (pokes up to 12)
 
 
 def main():
@@ -99,13 +102,25 @@ def main():
     # 2. known visible heights: road tops (slightly above, at their edges) and junctions
     known = np.full((NX, NZ), np.nan)
     known[under] = road_top[under] + MEET
-    for x, z, rad, h in json.loads((roads / "junctions.json").read_text()):
+    for jn in json.loads((roads / "junctions.json").read_text()):
+        x, z, rad, h = jn[:4]
+        ends = jn[4] if len(jn) > 4 else []
         i0 = max(int((x - rad - gx0) / CELL), 0); i1 = min(int((x + rad - gx0) / CELL) + 1, NX)
         k0 = max(int((z - rad - gz0) / CELL), 0); k1 = min(int((z + rad - gz0) / CELL) + 1, NZ)
         X, Z = np.meshgrid(XC[i0:i1], ZC[k0:k1], indexing="ij")
         disc = (X - x) ** 2 + (Z - z) ** 2 <= rad * rad
+        if ends:
+            # sloping between the street ends (inverse-distance weights): a FLAT
+            # patch at one height left steps of up to 18 studs at hill junctions
+            wsum = np.zeros_like(X); hsum = np.zeros_like(X)
+            for ex, ez, eh in ends:
+                wgt = 1.0 / np.maximum((X - ex) ** 2 + (Z - ez) ** 2, 16.0)
+                wsum += wgt; hsum += wgt * eh
+            hp = hsum / wsum
+        else:
+            hp = np.full_like(X, h)
         sub = known[i0:i1, k0:k1]
-        sub[disc & np.isnan(sub)] = h + MEET
+        sub[disc & np.isnan(sub)] = hp[disc & np.isnan(sub)] + MEET
     K = ~np.isnan(known)
     print(f"{int(under.sum())} cells under road slabs, {int(K.sum())} known cells")
 
@@ -143,6 +158,11 @@ def main():
     want = np.minimum(cap_vis - FLUSH_GAP, vis + MAX_RAISE)
     vis = np.where(near_b & ~under, np.maximum(vis, vis + (want - vis) * w_road * (want > vis)), vis)
     vis = np.minimum(vis, cap_vis)
+    # embankment: no ground wall right at a slab edge
+    dr, ridx = ndimage.distance_transform_edt(~under, return_indices=True)
+    dr *= CELL
+    bank = road_top[tuple(ridx)] + BANK_SLOPE * np.maximum(dr - BANK_FLAT, 0)
+    vis = np.where(~under, np.minimum(vis, bank), vis)
     # under a building: below its ground-floor slab BOTTOM (cap_vis = top - 1,
     # the slab is 5.36 deep): ground held just under the floor top rounded out
     # past the slab edges as pale jagged ridges along every building base
