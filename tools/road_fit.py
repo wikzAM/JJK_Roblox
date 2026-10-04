@@ -277,6 +277,7 @@ def main():
     for n in jn:
         clusters[find(n)].append(n)
     pads = []
+    node_cluster = {}                                # junction node -> (cluster id, centre, spread)
     edge_trim = {}                                   # (id(edge), end index) -> (pad centre, pad half-size)
     for members in clusters.values():
         touching = [(f, k) for n in members for f, k in ends[n]]
@@ -299,6 +300,8 @@ def main():
         pad = dict(x=float(centre[0]), z=float(centre[1]), side=side, yaw=yaw,
                    prio=kind["prio"], kind=kind["kind"], way=kind["id"], dropped=False)
         pads.append(pad)
+        for n in members:
+            node_cluster[n] = (id(pad), centre, spread)
         for f, k in touching:
             edge_trim[(id(f), k)] = (centre, pad)     # trimmed to the pad's FINAL size, if it survives
     print(f"{len(jn)} junction nodes -> {len(pads)} pads")
@@ -362,39 +365,49 @@ def main():
             continue
         streets.append(dict(f=f, way=way, pts=pts, w=w, raw0=pts[0].copy(), raw1=pts[-1].copy()))
 
-    # pass B: intersections are left as GAPS -- each street stops short of a
-    # junction node by half the widest street meeting there plus JGAP
-    node_w = defaultdict(float)
+    # pass B: intersections are left as GAPS. A junction is a CLUSTER of OSM
+    # nodes (a big crossing has many); every street ending in a cluster stops on
+    # ONE circle around its centre -- trimming at each node separately left
+    # tongues of different lengths side by side (Scramble Crossing)
+    cl_w = defaultdict(float)
     for st in streets:
         for k in (0, -1):
             nid = st["f"]["a"] if k == 0 else st["f"]["b"]
-            if nid in junction:
-                node_w[nid] = max(node_w[nid], st["w"])
+            if nid in node_cluster:
+                cl_w[node_cluster[nid][0]] = max(cl_w[node_cluster[nid][0]], st["w"])
+    cl_info = {}
     for st in streets:
         pts = st["pts"]
         for k in (0, -1):
             if pts is None:
                 break
             nid = st["f"]["a"] if k == 0 else st["f"]["b"]
-            if nid not in junction:
+            if nid not in node_cluster:
                 continue
-            cut = node_w[nid] / 2 + JGAP
+            cid, centre, spread = node_cluster[nid]
+            R = cl_w[cid] / 2 + spread + JGAP
+            cl_info[cid] = (centre, R)
             seq = list(pts) if k == 0 else list(pts[::-1])
-            left = cut
-            while len(seq) >= 2:
-                L = float(np.hypot(*(seq[1] - seq[0])))
-                if L > left:
-                    seq = [seq[0] + (seq[1] - seq[0]) * (left / L)] + seq[1:]
-                    break
-                left -= L
+            # drop points inside the circle, then cut the first segment at it
+            while len(seq) >= 2 and np.hypot(*(seq[1] - centre)) <= R:
                 seq = seq[1:]
-            pts = (seq if k == 0 else seq[::-1]) if len(seq) >= 2 else None
+            if len(seq) >= 2 and np.hypot(*(seq[0] - centre)) < R:
+                a_, b_ = seq[0], seq[1]
+                d_ = b_ - a_
+                A = d_ @ d_; B = 2 * d_ @ (a_ - centre); C = (a_ - centre) @ (a_ - centre) - R * R
+                disc = B * B - 4 * A * C
+                if A > 1e-9 and disc >= 0:
+                    tt = (-B + math.sqrt(disc)) / (2 * A)
+                    seq = [a_ + d_ * min(max(tt, 0.0), 1.0)] + seq[1:]
+            pts = (seq if k == 0 else seq[::-1]) if len(seq) >= 2 and np.hypot(*(seq[-1] - seq[0])) > 4 else None
         st["pts"] = pts
+    node_w = {n: cl_w[node_cluster[n][0]] for n in node_cluster}
 
     # pass C: emit, most important streets first; a slab whose footprint is
     # already mostly road is a parallel duplicate (OSM draws each direction of
     # a divided road as its own way) and is dropped -> never two side by side
     covered = np.zeros((bnx, bnz), bool)
+    cov_yaw = np.zeros((bnx, bnz), np.float32)       # direction of the road covering a cell
 
     def footprint_cells(cx, cz, ux, uz, L, W):
         out = []
@@ -415,6 +428,11 @@ def main():
         tl = cum[-1]
         if tl < 6:
             dropped["street shorter than its gaps"] += 1
+            continue
+        # a STUB between two junctions -- shorter than about its own width -- is
+        # part of the junction, not a street: the asphalt ground covers it
+        if tl < max(30.0, 0.8 * w):
+            dropped["stub between junctions"] += 1
             continue
         ss = np.arange(0, tl + 0.1, 4.0)
 
@@ -444,6 +462,30 @@ def main():
                 on_road += covered[i_, j_]
         if n_samp and on_road > 0.5 * n_samp:
             dropped["parallel duplicate street"] += 1
+            continue
+        # ALONGSIDE an already built parallel street (a gap of a few studs between
+        # two slabs): drop it, the asphalt ground covers the space -- never two
+        # slabs side by side
+        beside = n_b = 0
+        for s_ in np.arange(2.0, tl - 1.9, 6.0):
+            q = at(s_)
+            q2 = at(min(s_ + 2.0, tl))
+            dvec = q2 - q
+            if np.hypot(*dvec) < 1e-6:
+                continue
+            ux_, uz_ = dvec / np.hypot(*dvec)
+            yaw_ = math.atan2(uz_, ux_)
+            n_b += 1
+            hit_ = False
+            for side in (1, -1):
+                for off in (w / 2 + 3, w / 2 + 8):
+                    x_, z_ = q[0] - uz_ * off * side, q[1] + ux_ * off * side
+                    i_, j_ = int((x_ - bx0) / bcell), int((z_ - bz0) / bcell)
+                    if 0 <= i_ < bnx and 0 <= j_ < bnz and covered[i_, j_] and abs(math.sin(cov_yaw[i_, j_] - yaw_)) < 0.34:
+                        hit_ = True
+            beside += hit_
+        if n_b and beside > 0.6 * n_b:
+            dropped["alongside a parallel street"] += 1
             continue
 
         for k in range(len(pts) - 1):
@@ -491,6 +533,7 @@ def main():
                             math.atan2(y1_ - y0_, L_), L_, RP.THICKNESS, sw_, way["kind"], way["id"]):
                         for c_ in cells_:
                             covered[c_] = True
+                            cov_yaw[c_] = math.atan2(uz, ux)
                         total += L_
         if counts["roadway"] > built_before:
             for nid, rawp, s_end in ((st["f"]["a"], st["raw0"], 0.0), (st["f"]["b"], st["raw1"], tl)):
@@ -523,15 +566,18 @@ def main():
     # junctions: no parts -- a flat patch of asphalt TERRAIN at the streets'
     # height, graded by RoadBuilder.GradeCorridors, joins the street ends
     junctions = []
+    cl_h = defaultdict(list)
     for nid, jd in jdata.items():
-        if len(jd["h"]) < 2:
+        if nid in node_cluster:
+            cl_h[node_cluster[nid][0]].extend(jd["h"])
+    for cid, hs_ in cl_h.items():
+        if len(hs_) < 2 or cid not in cl_info:
             continue
-        cxz = np.mean(jd["pts"], axis=0)
-        if not in_city(float(cxz[0]), float(cxz[1])):
+        centre, R = cl_info[cid]
+        if not in_city(float(centre[0]), float(centre[1])):
             continue
-        junctions.append([round(float(cxz[0]), 1), round(float(cxz[1]), 1),
-                          round(node_w[nid] / 2 + JGAP + 3, 1),
-                          round(round((float(np.mean(jd["h"])) - ROAD_LIFT) / SNAP) * SNAP + ROAD_LIFT, 2)])
+        junctions.append([round(float(centre[0]), 1), round(float(centre[1]), 1), round(R + 3, 1),
+                          round(round((float(np.mean(hs_)) - ROAD_LIFT) / SNAP) * SNAP + ROAD_LIFT, 2)])
     (out / "junctions.json").write_text(json.dumps(junctions))
     print(f"{len(junctions)} junction patches (terrain, no parts)")
     print(f"{counts['roadway']} road slabs over {len(names)} tiles; {total / 4.182937 / 1000:.1f} km of street")
