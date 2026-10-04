@@ -108,6 +108,14 @@ def main():
     gs = np.load(DATA / "ground_surface.npz")
     GS, gx0_, gz0_, gcell = gs["G"].astype(float), float(gs["x0"]), float(gs["z0"]), float(gs["cell"])
     GS = np.where(np.isnan(GS), np.nanmedian(GS), GS)
+    # never above the road cap (a curb below the nearby ground floors)
+    RCg = gs["RC"].astype(float)
+    GS = np.minimum(GS, RCg)
+
+    def road_cap(x, z):
+        i = int(min(max((x - gx0_) / gcell, 0), RCg.shape[0] - 1))
+        j = int(min(max((z - gz0_) / gcell, 0), RCg.shape[1] - 1))
+        return float(RCg[i, j])
 
     def ground(x, z):
         fi = min(max((x - gx0_) / gcell - 0.5, 0), GS.shape[0] - 1.001)
@@ -441,15 +449,18 @@ def main():
             L_ = max(cum[k_ + 1] - cum[k_], 1e-6)
             return pts[k_] + (pts[k_ + 1] - pts[k_]) * ((s_ - cum[k_]) / L_)
         hs = np.array([ground(*at(s_)) for s_ in ss])
+        caps_ = np.array([road_cap(*at(s_)) for s_ in ss])
         win = max(1, int(EVEN_SPAN / 4.0))
         if len(hs) > 2:
             hs = np.convolve(np.pad(hs, win, mode="edge"), np.ones(2 * win + 1) / (2 * win + 1), mode="valid")
+            # averaging must not lift the road above its cap anywhere along it
+            hs = np.minimum(hs, caps_)
 
         def height(s_, ss=ss, hs=hs):
             # snapped to the terrain's render levels: flat smooth terrain can
             # only render on even heights, so a road end anywhere between met
             # the ground with a 0-2 stud step (median 0.74, p90 2.7)
-            return round(float(np.interp(s_, ss, hs)) / SNAP) * SNAP
+            return math.floor(float(np.interp(s_, ss, hs)) / SNAP) * SNAP
         built_before = counts["roadway"]
         # a street whose centreline is mostly on road already built is the other
         # half of a dual carriageway (or a parallel OSM duplicate): drop it whole

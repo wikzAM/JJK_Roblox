@@ -92,7 +92,7 @@ local PAINT = "http://127.0.0.1:58999/get/tools/source_slices/ground/paint/"
 function GroundTerrain.PaintAll(first, last)
 	local T = workspace.Terrain
 	T:SetMaterialColor(Enum.Material.Asphalt, Color3.fromRGB(62, 62, 66))
-	T:SetMaterialColor(Enum.Material.Pavement, Color3.fromRGB(150, 148, 144))
+	T:SetMaterialColor(Enum.Material.Pavement, Color3.fromRGB(112, 111, 110))
 	local index = fetch("index")
 	local painted = 0
 	for ci = first or 1, math.min(last or #index, #index) do

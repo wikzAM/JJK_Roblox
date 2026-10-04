@@ -33,7 +33,8 @@ D = ROOT / "source_slices" / "ground"
 CELL = 4.0
 FILE_TO_STUDIO = 2.5
 DELTA_MED, DELTA_MAX = 2.8, 4.0
-MEET = 0.6        # open ground aimed this far above the road surface it continues
+MEET = -0.4       # open ground aimed this far relative to the road surface it continues:
+                  # BELOW it (owner: terrain sat above the roads -- 51% of samples)
 EDGE = 4.0        # under a slab within this of its edge, the ground stays just below it
 DEEP = 2.2        # ... and this far below it deeper in (isolated voxels render as peaks)
 FAR = 60.0        # beyond this from any road the ground blends back to natural
@@ -41,7 +42,8 @@ SMOOTH_PASSES = 6
 BAND = 8.0        # studs beside a building where the ground comes up under its ground floor
 FLUSH_GAP = 0.5   # ... to this far under the visible cap (cap = slab top - 1)
 ROAD_CLEAR = 8.0  # ... fully only this far from a road
-MAX_RAISE = 10.0  # ... and by no more than this
+MAX_RAISE = 1.5
+UNDER_FLOOR = 6.0 # studs under the cap (slab top - 1) the ground stays beneath a building  # ... and by no more than this
 
 
 def main():
@@ -116,6 +118,8 @@ def main():
         F[K] = known[K]
     # blend back to the natural ground far from roads
     wnat = np.clip((dist - FAR / 2) / FAR, 0, 1)
+    # (capping this at the road surface F was tried: it cut the slopes hillside
+    # buildings stand on, leaving ground floors up to 21 studs in the air)
     vis = (1 - wnat) * F + wnat * natural_vis
 
     # 4. under the slabs themselves: just below the surface at the edges, deeper in
@@ -139,7 +143,10 @@ def main():
     want = np.minimum(cap_vis - FLUSH_GAP, vis + MAX_RAISE)
     vis = np.where(near_b & ~under, np.maximum(vis, vis + (want - vis) * w_road * (want > vis)), vis)
     vis = np.minimum(vis, cap_vis)
-    vis = np.where(bld, natural_vis, vis)
+    # under a building: below its ground-floor slab BOTTOM (cap_vis = top - 1,
+    # the slab is 5.36 deep): ground held just under the floor top rounded out
+    # past the slab edges as pale jagged ridges along every building base
+    vis = np.where(bld, np.minimum(natural_vis, cap_vis - UNDER_FLOOR), vis)
     vis = np.where(np.isnan(H), np.nan, vis)
 
     # 6. encode: on open ground use the typical render offset, under roads the worst

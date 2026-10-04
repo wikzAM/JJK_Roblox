@@ -36,6 +36,8 @@ D = ROOT / "source_slices" / "ground"
 GAP = 1.0          # studs the visible ground stays below a ground-floor slab top
 BAND = 8.0         # studs from the footprint the cap stays flat (the sidewalk)
 SLOPE = 0.5        # studs of rise per stud beyond the band
+ROAD_CURB = 1.0    # studs a road surface stays below the nearest ground floors
+ROAD_SLOPE = 0.08  # ... easing off this much per stud of distance
 DELTA_MAX = 4.0    # visible - encoded, upper end (measured)
 DELTA_MED = 2.8    # ... median, for the expected visible surface
 FILE_TO_STUDIO = 2.5
@@ -168,7 +170,20 @@ def main():
         c2["cap"] = [round(float(v), 2) if np.isfinite(v) else 99999 for v in fc.ravel()]
         (out / f"{name}.json").write_text(json.dumps(c2))
     (out / "index.json").write_text(json.dumps(index))
-    np.savez_compressed(D / "ground_surface.npz", G=visible.astype(np.float32), x0=gx0, z0=gz0, cell=CELL)
+    # ROAD cap: a street surface stays ROAD_CURB below every nearby ground floor,
+    # easing off at ROAD_SLOPE per stud (owner, Oct 4: the roads sat above the
+    # ground floors -- median +0.4 studs, p90 +4.7). road_fit takes min(G, RC).
+    rc = np.where(np.isfinite(T), T - ROAD_CURB, np.inf)
+    step, diag = ROAD_SLOPE * CELL, ROAD_SLOPE * CELL * 2 ** 0.5
+    for _ in range(400):
+        p_ = np.pad(rc, 1, mode="edge")
+        new = np.minimum.reduce([rc, p_[:-2, 1:-1] + step, p_[2:, 1:-1] + step, p_[1:-1, :-2] + step, p_[1:-1, 2:] + step,
+                                 p_[:-2, :-2] + diag, p_[:-2, 2:] + diag, p_[2:, :-2] + diag, p_[2:, 2:] + diag])
+        if np.array_equal(new, rc):
+            break
+        rc = new
+    np.savez_compressed(D / "ground_surface.npz", G=visible.astype(np.float32),
+                        RC=np.where(np.isfinite(rc), rc, 1e6).astype(np.float32), x0=gx0, z0=gz0, cell=CELL)
     drop = H - clamped
     outside = ~occ & ~np.isnan(drop)
     od = drop[outside & (drop > 0.05)]
