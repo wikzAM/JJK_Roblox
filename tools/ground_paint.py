@@ -21,7 +21,7 @@ from scipy import ndimage  # noqa: E402
 
 D = ROOT / "source_slices" / "ground"
 SIDEWALK = 8.0      # studs of pavement along every building (road_fit keeps MARGIN 2 + SIDEWALK_BAND 6 clear)
-CITY_MARGIN = 150.0
+CITY_MARGIN = 400.0   # the station plaza is >150 studs from any building; it showed as bare concrete
 
 
 def main():
