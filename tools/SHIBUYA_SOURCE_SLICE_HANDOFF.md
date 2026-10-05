@@ -2509,3 +2509,48 @@ other streets' slabs at a different height; dropped if under half of it survives
 26 junctions stay terrain (incl. the Scramble Crossing plaza, where too few streets arrive at its
 height -- it reads as one clean asphalt plaza). `road_ground.py` grades under pads like slabs.
 Plate edges sit a median 0.65 studs over the ground beside them.
+
+## THE 360-DEGREE FLOOR CAP — Oct 5
+
+Owner: "the nearest buildings in the 360 degrees for each section of the road will have the
+terrain and thus the road too be below the floor slab height ... terrain needs to be lower and
+flatter".
+
+**New first step.** Export every ground-floor slab piece from Studio (Command Bar / MCP, Edit),
+POSTed to the sink as `source_slices/floor1_parts.txt` (`building|topY|corners x,z;...`; 8 corners
+for a box, 6 for a wedge -- a wedge has no top-front edge):
+
+    for each Building model: Interior.Floor1 descendants named Slab / Part / GrayBlock
+
+Then `python tools/floor_cap.py` -> `ground/floor_cap.npz`: the pieces rasterised (FL = lowest
+slab top per 4-stud cell); from every cell, 24 directions, the FIRST building cell met caps it
+at that floor - 1 (strict within 48 studs, +0.5/stud beyond, 160 reach). The cap is grey-closed
+(5 cells) against one-cell streaks of rays slipping down alleys, then floors within 8 studs are
+imposed again exactly. Full pipeline now:
+
+    floor_cap.py -> ground_clamp.py -> road_fit.py -> road_ground.py -> ground_paint.py
+    Studio: GroundTerrain.WriteAll(1, 91, 2.5); WriteAll(92, 400, 2.5)   (two calls: one
+            400-chunk call timed out the MCP and Studio crashed once)
+            RoadBuilder.Clear/BuildAll(1, 400)/ClearOfBuildings; GroundTerrain.PaintAll(1, 400)
+
+What uses it: `ground_clamp.py` caps the ground with it and the road cap 0.5 under it;
+`road_fit.py` samples the road cap at the slab edges, eases it into dips at 20%, SPLITS a slab
+riding more than 1 stud over its capped profile (pieces >= 30 studs), takes a junction's height as
+its lowest end within 10 of its highest and under the cap along the lines to the ends that join it
+(streets ramp to it at 15% by up to 24), trims plates off cells under the cap, and leaves streets
+steeper than 0.2 as ground (stairs). `road_ground.py`: no raising toward floors except a gentle
+apron (<= 2 studs, away from roads) back toward the capped original ground; flatter (open ground
+eroded to its local low over 20 studs away from roads, 12 smoothing passes, natural only beyond
+200 studs); ground beside a slab held MEET under its top for 8 studs then 1:2; under a building
+no higher than the ground outside it; the worst-case render offset wherever the cap binds.
+
+Measured in Studio (805 slabs, 185 plates): exposed ground above a ground-floor top **0 of 146k**
+edge samples (was 3,847 = 2.7%); ground beside roads above their edge 0% (median 0.9 under); road
+surface above the nearest floor (cap) 0.03% of samples; terrain through road surfaces 28 samples
+(mostly one 18%-grade stair slab at (1339, -205)). Ground right next to buildings: median 4.4
+studs under the floor top (p90 ~17: hillside buildings next to lower streets -- the facades/plinths
+will have to cover those).
+
+Measurement snippet: `ServerStorage.Measure` (`M.floors(post)`) casts just outside every corner of
+every ground-floor piece, keeps hits with no building part above them, and counts ground above the
+piece's top.
