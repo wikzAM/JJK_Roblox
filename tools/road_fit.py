@@ -56,6 +56,7 @@ JPICK = 10.0         # a junction's height: its lowest end within this of its hi
 CLASH_H = 1.0        # studs: two streets' slabs may overlap only this close in height
 CLASH_NEAR = 3.0     # ... and lie within 4 studs of each other only this close
 CAP_GRADE = 0.2      # rise per stud at which a street's cap eases out of a dip
+MAX_SLAB_GRADE = 0.2  # rise per stud: steeper streets are stairs, left as ground
 SPLIT_DEV = 1.0      # studs a slab may ride over its street's capped profile before it is split
 BLEND = 20.0         # studs over which a street's height eases into its junction pad      # a turn sharper than this inside an edge gets a round joint
 DROP_KINDS = {"service"}
@@ -658,6 +659,11 @@ def main():
                     cells_ = footprint_cells(mx_, mz_, ux, uz, L_, sw_)
                     if cells_ and sum(covered[c_] for c_ in cells_) > DUP_SHARE * len(cells_):
                         dropped["parallel duplicate"] += 1
+                        continue
+                    # a steep slab (a stair street: 0.18 rise per stud) sits on a ground the
+                    # terrain cannot render under it -- the hillside poked through its top
+                    if abs(gr_) > MAX_SLAB_GRADE:
+                        dropped["too steep for a slab (stairs)"] += 1
                         continue
                     lift = 0.04 * (k % 2)     # slabs overlapping at a bend never z-fight
                     if emit("roadway", mx_, (y0_ + y1_) / 2 + ROAD_LIFT + lift, mz_, math.atan2(uz, ux),

@@ -50,8 +50,8 @@ FLAT_BLEND = 14.0 # ... and over which it comes in fully
 JDROP_MAX = 24.0  # as tools/road_fit.py: street ends further off a junction's height are cliffs
 UNDER_FLOOR = 4.6 # studs under the cap (slab top - 1) the ground stays beneath a building:
                   # just under the slab BOTTOM (top - 5.36); 6 left a dark void under floors
-BANK_FLAT = 6.0   # beside a slab the ground stays at most at its top for this far out,
-BANK_SLOPE = 1.0  # ... then rises no steeper than this: a hillside wall right at the
+BANK_FLAT = 8.0   # beside a slab the ground stays at most at its top for this far out,
+BANK_SLOPE = 0.5  # ... then rises no steeper than this: a hillside wall right at the
                   # edge of a road cut rendered leaning over the slab (pokes up to 12)
 
 
