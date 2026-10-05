@@ -43,6 +43,7 @@ BAND = 8.0        # studs beside a building where the ground comes up under its 
 FLUSH_GAP = 0.5   # ... to this far under the visible cap (cap = slab top - 1)
 ROAD_CLEAR = 8.0  # ... fully only this far from a road
 MAX_RAISE = 1.5
+JDROP_MAX = 24.0  # as tools/road_fit.py: street ends further off a junction's height are cliffs
 UNDER_FLOOR = 4.6 # studs under the cap (slab top - 1) the ground stays beneath a building:
                   # just under the slab BOTTOM (top - 5.36); 6 left a dark void under floors
 BANK_FLAT = 6.0   # beside a slab the ground stays at most at its top for this far out,
@@ -106,6 +107,8 @@ def main():
     for jn in json.loads((roads / "junctions.json").read_text()):
         x, z, rad, h = jn[:4]
         ends = jn[4] if len(jn) > 4 else []
+        # ends far off the junction height are cliffs (stairs): not part of its ground
+        ends = [e for e in ends if abs(e[2] - h) <= JDROP_MAX]
         i0 = max(int((x - rad - gx0) / CELL), 0); i1 = min(int((x + rad - gx0) / CELL) + 1, NX)
         k0 = max(int((z - rad - gz0) / CELL), 0); k1 = min(int((z + rad - gz0) / CELL) + 1, NZ)
         X, Z = np.meshgrid(XC[i0:i1], ZC[k0:k1], indexing="ij")

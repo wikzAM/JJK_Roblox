@@ -30,8 +30,10 @@ CELL = 4.0
 GAP = 1.0        # studs the ground stays under a floor's top
 DIRS = 24        # directions looked along from every cell
 REACH = 160.0    # studs: buildings further than this do not cap a cell
-STRICT = 60.0    # ... within this the cap is the floor itself (minus GAP)
-EASE = 0.3       # ... beyond it the cap rises this much per stud
+STRICT = 48.0    # ... within this the cap is the floor itself (minus GAP)
+EASE = 0.5       # ... beyond it the cap rises this much per stud
+CLOSE = 5        # cells: caps narrower than this are closed (alley streaks)
+LOCAL = 8.0      # studs: floors this close cap the ground exactly, after the closing
 
 
 def hull(P):
@@ -96,8 +98,12 @@ def main():
     BM = np.isfinite(FL)
     print(f"{n} ground-floor pieces -> {int(BM.sum())} building cells")
 
-    # first building cell hit in each direction
+    # first building cell hit in each direction. Hits within STRICT are taken as
+    # they are; FARTHER hits are kept apart and closed (grey closing) before use:
+    # a single ray slipping down an alley to a building far down the hill left
+    # one-cell streaks of a low cap, dug into the ground as lines of pits
     CAP = np.where(BM, FL - GAP, np.inf)
+    FAR = np.full((NX, NZ), np.inf)
     steps = int(REACH / CELL)
     pad = steps + 1
     FLp = np.pad(FL, pad, constant_values=np.inf)
@@ -116,9 +122,25 @@ def main():
             new = ~found & np.isfinite(sh)
             if new.any():
                 dist = math.hypot(oi, ok) * CELL
-                hit[new] = sh[new] - GAP + EASE * max(0.0, dist - STRICT)
+                if dist <= STRICT:
+                    hit[new] = sh[new] - GAP
+                else:
+                    farv = sh - GAP + EASE * (dist - STRICT)
+                    FAR[new] = np.minimum(FAR[new], farv[new])
                 found |= new
         CAP = np.minimum(CAP, hit)
+    from scipy import ndimage
+    FARf = np.where(np.isfinite(FAR), FAR, 1e6)
+    FARc = ndimage.grey_closing(FARf, size=(CLOSE, CLOSE))
+    CAP = np.minimum(CAP, np.where(FARc >= 1e5, np.inf, FARc))
+    # the same for the whole cap (a ray through a one-cell gap to a nearer lower
+    # building streaks too), then the floors within LOCAL studs imposed again
+    # exactly: ground is never above a floor that close, whatever the closing did
+    Cf = np.where(np.isfinite(CAP), CAP, 1e6)
+    Cc = ndimage.grey_closing(Cf, size=(CLOSE, CLOSE))
+    near_floor = ndimage.minimum_filter(np.where(BM, FL - GAP, 1e6), size=2 * int(LOCAL / CELL) + 1)
+    CAP = np.minimum(Cc, near_floor)
+    CAP = np.where(CAP >= 1e5, np.inf, CAP)
     capped = np.isfinite(CAP)
     print(f"cells capped: {capped.mean():.1%}")
     np.savez_compressed(D / "floor_cap.npz", CAP=np.where(capped, CAP, 1e6).astype(np.float32),

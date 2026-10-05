@@ -50,8 +50,9 @@ ROAD_LIFT = 0.1      # studs the road top sits above the visible ground
 SNAP = 2.0           # studs: road end heights snap to the terrain's render levels
 STRAIGHTEN = 6.0     # studs: a street's polyline is simplified this hard -> long straight slabs
 EVEN_SPAN = 40.0     # studs: heights are averaged over this span along a street
-JRAMP = 0.1          # grade at which a street end ramps down to its junction's height
-JDROP_MAX = 8.0      # ... but never by more than this
+JRAMP = 0.15         # grade at which a street end ramps down to its junction's height
+JDROP_MAX = 24.0     # ... but never by more than this
+JPICK = 10.0         # a junction's height: its lowest end within this of its highest
 CLASH_H = 1.0        # studs: two streets' slabs may overlap only this close in height
 CLASH_NEAR = 3.0     # ... and lie within 4 studs of each other only this close
 BLEND = 20.0         # studs over which a street's height eases into its junction pad      # a turn sharper than this inside an edge gets a round joint
@@ -489,10 +490,31 @@ def main():
         if tl < max(30.0, 0.8 * st["w"]):
             continue
         ss, hs, _ = street_profile(st["pts"], st["w"], cum, tl)
-        for nid, h_ in ((st["f"]["a"], hs[0]), (st["f"]["b"], hs[-1])):
+        for nid, h_, e_ in ((st["f"]["a"], hs[0], st["pts"][0]), (st["f"]["b"], hs[-1], st["pts"][-1])):
             if nid in node_cluster:
-                cl_end[node_cluster[nid][0]].append(float(h_))
-    j_h = {cid: min(v) for cid, v in cl_end.items() if len(v) >= 2}
+                cl_end[node_cluster[nid][0]].append((float(h_), float(e_[0]), float(e_[1])))
+    # the lowest end, but no lower than JDROP_MAX under the highest: a valley
+    # street 42 under a hill junction (a stair) pulled it into a hole
+    def pick_j(v):
+        # the lowest end every higher end can ramp down to (ends under it: cliffs)
+        hs_ = sorted(e[0] for e in v)
+        # (within JPICK of the highest: a stray end 24 under pulled hill junctions
+        # down into trenches)
+        return next(h for h in hs_ if hs_[-1] - h <= JPICK)
+    j_h = {cid: pick_j(v) for cid, v in cl_end.items() if len(v) >= 2}
+    # ...and never above the road cap on the junction's own surface -- the lines
+    # from its centre to the street ends that join it (not cliff ends): a corner
+    # building lower than the streets arriving left a pit between road ends over
+    # its floor (owner: roads under every floor around). Sampling the whole circle
+    # reached down the hill to the valley street's buildings.
+    for cid in list(j_h):
+        if cid in cl_info:
+            (jx, jz), _R = cl_info[cid]
+            caps_j = [road_cap(jx, jz)]
+            for eh, ex, ez in cl_end[cid]:
+                if eh >= j_h[cid] - JPICK:      # the ends that join it, not the cliff ones
+                    caps_j += [road_cap(jx + (ex - jx) * f, jz + (ez - jz) * f) for f in (0.25, 0.5, 0.75, 1.0)]
+            j_h[cid] = min(j_h[cid], min(caps_j))
 
     jdata = defaultdict(lambda: {"pts": [], "h": [], "ends": []})
     order = sorted([s_ for s_ in streets if s_["pts"] is not None], key=lambda s_: (-s_["way"]["prio"], -s_["w"]))
