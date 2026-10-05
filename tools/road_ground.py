@@ -214,6 +214,11 @@ def main():
     delta = np.where(under | (vis >= cap_vis - 1.5), DELTA_MAX, DELTA_MED)
     # at a slab's bank: halfway (worst case 0.2 over the edge, typically 1 under)
     delta = np.where(at_bank & ~under & (vis < cap_vis - 1.5), (DELTA_MAX + DELTA_MED) / 2, delta)
+    # the offset changes gradually: cells side by side with different offsets
+    # encoded steps of up to 1.2 into flat ground (lumps). Only ever raised,
+    # so the ground only renders lower than it would
+    delta = np.maximum(delta, ndimage.gaussian_filter(delta, 1.5, mode="nearest"))
+    delta = np.maximum(delta, ndimage.gaussian_filter(delta, 1.5, mode="nearest"))
     h_file = vis - delta - FILE_TO_STUDIO
     out = D / "terrain"
     for name, c in chunks.items():
