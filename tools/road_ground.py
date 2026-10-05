@@ -43,6 +43,9 @@ BAND = 8.0        # studs beside a building where the ground comes up under its 
 FLUSH_GAP = 0.5   # ... to this far under the visible cap (cap = slab top - 1)
 ROAD_CLEAR = 8.0  # ... fully only this far from a road
 MAX_RAISE = 1.5
+APRON_IN = 4.0    # studs from a building: the apron is full this close,
+APRON_OUT = 14.0  # ... gone this far out
+APRON_MAX = 2.0   # ... and raises the ground by at most this (more rose as jagged mounds)
 FLAT_SPAN = 20.0  # studs: the open ground away from roads is taken to its low over this span
 FLAT_SIGMA = 1.5  # cells: ... then smoothed
 FLAT_NEAR = 6.0   # studs from a road where flattening starts
@@ -177,10 +180,22 @@ def main():
     E = np.minimum(E, cap_vis)
     w_flat = np.clip((dist - FLAT_NEAR) / FLAT_BLEND, 0, 1)
     vis = np.where(~under & np.isfinite(vis), (1 - w_flat) * vis + w_flat * np.minimum(E, vis + 0.0), vis)
+    # APRON: right beside a building (away from the roads) the ground comes back up
+    # toward its floor -- to the capped original ground there, never above it and
+    # never over the floor (cap_vis = floor - 1). The road-driven spread and the
+    # flattening had left buildings a median 6.5 (p90 20) studs over the ground.
+    w_b = np.clip((APRON_OUT - dist_b) / (APRON_OUT - APRON_IN), 0, 1) * (dist_b > 0)
+    want = np.minimum(cap_vis - FLUSH_GAP, natural_vis)
+    rise = np.clip(want - vis, 0, APRON_MAX) * w_b * w_road
+    vis = np.where(~under & np.isfinite(rise), vis + np.nan_to_num(rise), vis)
+    vis = np.minimum(vis, cap_vis)
     # embankment: no ground wall right at a slab edge
     dr, ridx = ndimage.distance_transform_edt(~under, return_indices=True)
     dr *= CELL
-    bank = road_top[tuple(ridx)] + BANK_SLOPE * np.maximum(dr - BANK_FLAT, 0)
+    # (held MEET under the road top and encoded with the worst-case offset below,
+    # so it never renders over the slab edge)
+    bank = road_top[tuple(ridx)] + MEET + BANK_SLOPE * np.maximum(dr - BANK_FLAT, 0)
+    at_bank = ~under & (vis >= bank - 0.3)
     vis = np.where(~under, np.minimum(vis, bank), vis)
     # under a building: below its ground-floor slab BOTTOM (cap_vis = top - 1,
     # the slab is 5.36 deep): ground held just under the floor top rounded out
@@ -197,6 +212,8 @@ def main():
     # where the cap holds the ground (within 1.5 of it) the worst-case offset is
     # used too, so the rendered surface never rises over a floor
     delta = np.where(under | (vis >= cap_vis - 1.5), DELTA_MAX, DELTA_MED)
+    # at a slab's bank: halfway (worst case 0.2 over the edge, typically 1 under)
+    delta = np.where(at_bank & ~under & (vis < cap_vis - 1.5), (DELTA_MAX + DELTA_MED) / 2, delta)
     h_file = vis - delta - FILE_TO_STUDIO
     out = D / "terrain"
     for name, c in chunks.items():
