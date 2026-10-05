@@ -43,6 +43,10 @@ BAND = 8.0        # studs beside a building where the ground comes up under its 
 FLUSH_GAP = 0.5   # ... to this far under the visible cap (cap = slab top - 1)
 ROAD_CLEAR = 8.0  # ... fully only this far from a road
 MAX_RAISE = 1.5
+FLAT_SPAN = 20.0  # studs: the open ground away from roads is taken to its low over this span
+FLAT_SIGMA = 1.5  # cells: ... then smoothed
+FLAT_NEAR = 6.0   # studs from a road where flattening starts
+FLAT_BLEND = 14.0 # ... and over which it comes in fully
 JDROP_MAX = 24.0  # as tools/road_fit.py: street ends further off a junction's height are cliffs
 UNDER_FLOOR = 4.6 # studs under the cap (slab top - 1) the ground stays beneath a building:
                   # just under the slab BOTTOM (top - 5.36); 6 left a dark void under floors
@@ -162,6 +166,17 @@ def main():
     # (the ground used to be raised up to FLUSH_GAP under the floor here; owner,
     # Oct 5: ground beside buildings must stay BELOW the floor -- no raise now)
     vis = np.minimum(vis, cap_vis)
+    # FLATTER (owner, Oct 5): away from the roads the open ground is taken down to
+    # its local low (grey erosion over FLAT_SPAN) and smoothed -- courtyards were
+    # mounds and pits between floors of different heights. Blends back in over
+    # FLAT_BLEND studs from a road so slab edges still meet the ground.
+    span = int(FLAT_SPAN / CELL) | 1
+    big = np.where(np.isfinite(vis), vis, 1e4)
+    E = ndimage.grey_erosion(big, size=(span, span))
+    E = ndimage.gaussian_filter(np.where(E > 9e3, np.nan_to_num(vis, nan=0.0), E), FLAT_SIGMA)
+    E = np.minimum(E, cap_vis)
+    w_flat = np.clip((dist - FLAT_NEAR) / FLAT_BLEND, 0, 1)
+    vis = np.where(~under & np.isfinite(vis), (1 - w_flat) * vis + w_flat * np.minimum(E, vis + 0.0), vis)
     # embankment: no ground wall right at a slab edge
     dr, ridx = ndimage.distance_transform_edt(~under, return_indices=True)
     dr *= CELL
