@@ -37,8 +37,8 @@ MEET = -0.4       # open ground aimed this far relative to the road surface it c
                   # BELOW it (owner: terrain sat above the roads -- 51% of samples)
 EDGE = 4.0        # under a slab within this of its edge, the ground stays just below it
 DEEP = 2.2        # ... and this far below it deeper in (isolated voxels render as peaks)
-FAR = 60.0        # beyond this from any road the ground blends back to natural
-SMOOTH_PASSES = 6
+FAR = 200.0       # beyond this from any road the ground blends back to natural (owner: flatter)
+SMOOTH_PASSES = 12
 BAND = 8.0        # studs beside a building where the ground comes up under its ground floor
 FLUSH_GAP = 0.5   # ... to this far under the visible cap (cap = slab top - 1)
 ROAD_CLEAR = 8.0  # ... fully only this far from a road
@@ -156,8 +156,8 @@ def main():
     dist_b = ndimage.distance_transform_edt(~bld) * CELL
     near_b = (dist_b > 0) & (dist_b <= BAND) & np.isfinite(cap_vis)
     w_road = np.clip((dist - 2.0) / (ROAD_CLEAR - 2.0), 0, 1)
-    want = np.minimum(cap_vis - FLUSH_GAP, vis + MAX_RAISE)
-    vis = np.where(near_b & ~under, np.maximum(vis, vis + (want - vis) * w_road * (want > vis)), vis)
+    # (the ground used to be raised up to FLUSH_GAP under the floor here; owner,
+    # Oct 5: ground beside buildings must stay BELOW the floor -- no raise now)
     vis = np.minimum(vis, cap_vis)
     # embankment: no ground wall right at a slab edge
     dr, ridx = ndimage.distance_transform_edt(~under, return_indices=True)
@@ -167,11 +167,18 @@ def main():
     # under a building: below its ground-floor slab BOTTOM (cap_vis = top - 1,
     # the slab is 5.36 deep): ground held just under the floor top rounded out
     # past the slab edges as pale jagged ridges along every building base
-    vis = np.where(bld, np.minimum(natural_vis, cap_vis - UNDER_FLOOR), vis)
+    # ...and no higher than the ground just outside it (nearest open cell): a
+    # base standing above a lowered street rounded out past the floor edges as
+    # jagged facets (Oct 5) -- the ground runs flat in under the building instead
+    _, oidx = ndimage.distance_transform_edt(bld, return_indices=True)
+    outside_vis = vis[tuple(oidx)]
+    vis = np.where(bld, np.minimum(np.minimum(natural_vis, cap_vis - UNDER_FLOOR), outside_vis), vis)
     vis = np.where(np.isnan(H), np.nan, vis)
 
     # 6. encode: on open ground use the typical render offset, under roads the worst
-    delta = np.where(under, DELTA_MAX, DELTA_MED)
+    # where the cap holds the ground (within 1.5 of it) the worst-case offset is
+    # used too, so the rendered surface never rises over a floor
+    delta = np.where(under | (vis >= cap_vis - 1.5), DELTA_MAX, DELTA_MED)
     h_file = vis - delta - FILE_TO_STUDIO
     out = D / "terrain"
     for name, c in chunks.items():

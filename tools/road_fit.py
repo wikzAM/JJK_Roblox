@@ -53,6 +53,7 @@ EVEN_SPAN = 40.0     # studs: heights are averaged over this span along a street
 JRAMP = 0.1          # grade at which a street end ramps down to its junction's height
 JDROP_MAX = 8.0      # ... but never by more than this
 CLASH_H = 1.0        # studs: two streets' slabs may overlap only this close in height
+CLASH_NEAR = 3.0     # ... and lie within 4 studs of each other only this close
 BLEND = 20.0         # studs over which a street's height eases into its junction pad      # a turn sharper than this inside an edge gets a round joint
 DROP_KINDS = {"service"}
 PAD_OVER = 2.0       # studs a pad extends past the widest street
@@ -423,12 +424,18 @@ def main():
     cov_way = np.zeros((bnx, bnz), np.int64)         # ... and its OSM way
 
     def height_clash(cx, cz, ux, uz, L, W, ymid, grade, wid):
+        # overlapping at a different height, or right BESIDE another street's
+        # slab at a very different one (a 16-stud cliff between two slabs let the
+        # high one's ground spill over the low one)
+        return height_clash1(cx, cz, ux, uz, L, W, ymid, grade, wid, CLASH_H) or             height_clash1(cx, cz, ux, uz, L + 8, W + 8, ymid, grade, wid, CLASH_NEAR)
+
+    def height_clash1(cx, cz, ux, uz, L, W, ymid, grade, wid, tol):
         # another street's slab already covers part of this one at a different
         # height: overlapping, the lower one showed terrain through it (steps of 8)
         for a in np.arange(-L / 2, L / 2 + 0.01, 2.0):
             for b in np.arange(-W / 2, W / 2 + 0.01, 2.0):
                 i, j = int((cx + ux * a - uz * b - bx0) / bcell), int((cz + uz * a + ux * b - bz0) / bcell)
-                if 0 <= i < bnx and 0 <= j < bnz and covered[i, j] and cov_way[i, j] != wid                         and abs(float(cov_h[i, j]) - (ymid + a * grade)) > CLASH_H:
+                if 0 <= i < bnx and 0 <= j < bnz and covered[i, j] and cov_way[i, j] != wid                         and abs(float(cov_h[i, j]) - (ymid + a * grade)) > tol:
                     return True
         return False
 

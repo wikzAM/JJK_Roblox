@@ -45,7 +45,7 @@ def main():
                 if not (0 <= mi < M.shape[0] and 0 <= mj < M.shape[1]) or not city[mi, mj]:
                     v = "-"
                 elif M[mi, mj]:
-                    v = "s"      # under a building: pavement, in case it shows at the edge
+                    v = "s"      # under a building: pavement, flush with the sidewalk beside it
                 elif dist[mi, mj] <= SIDEWALK:
                     v = "s"
                 else:

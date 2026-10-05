@@ -43,6 +43,7 @@ DELTA_MAX = 4.0    # visible - encoded, upper end (measured)
 DELTA_MED = 2.8    # ... median, for the expected visible surface
 FILE_TO_STUDIO = 2.5
 CELL = 4.0
+ROAD_UNDER = 0.5   # studs a road surface stays under the 360-degree floor cap (itself floor - 1)
 MAX_CUT = 10.0     # studs: buildings needing a deeper cut than this are skipped
 
 
@@ -153,6 +154,12 @@ def main():
         if np.array_equal(new, cap):
             break
         cap = new
+    # 2b. the 360-degree floor cap (tools/floor_cap.py): never above the floor of
+    # the nearest building in any direction
+    fc = np.load(D / "floor_cap.npz")
+    assert fc["CAP"].shape == cap.shape, "floor_cap.npz is on a different grid -- re-run tools/floor_cap.py"
+    CAP360 = np.where(fc["CAP"] >= 1e5, np.inf, fc["CAP"].astype(float))
+    cap = np.minimum(cap, CAP360)
     # 3. file heights clamped, and the expected visible surface for the roads
     file_cap = cap - DELTA_MAX - FILE_TO_STUDIO
     clamped = np.where(np.isnan(H), H, np.minimum(H, file_cap))
@@ -184,6 +191,7 @@ def main():
         if np.array_equal(new, rc):
             break
         rc = new
+    rc = np.minimum(rc, CAP360 - ROAD_UNDER)     # a road under every floor around it too
     np.savez_compressed(D / "ground_surface.npz", G=visible.astype(np.float32),
                         RC=np.where(np.isfinite(rc), rc, 1e6).astype(np.float32), x0=gx0, z0=gz0, cell=CELL)
     drop = H - clamped

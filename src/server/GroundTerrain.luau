@@ -116,7 +116,8 @@ function GroundTerrain.PaintAll(first, last)
 			local row = rows[i]
 			for k = 1, c.nz do
 				local ch = string.sub(row, k, k)
-				local m = ch == "a" and Enum.Material.Asphalt or ch == "s" and Enum.Material.Pavement or nil
+				local m = ch == "a" and Enum.Material.Asphalt or ch == "s" and Enum.Material.Pavement
+					or ch == "b" and Enum.Material.Concrete or nil   -- under a building: its plinth
 				if m then
 					for j = 1, ny do if occ[i][j][k] > 0 then mats[i][j][k] = m end end
 					painted += 1
