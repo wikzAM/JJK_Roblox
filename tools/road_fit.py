@@ -55,6 +55,8 @@ JDROP_MAX = 24.0     # ... but never by more than this
 JPICK = 10.0         # a junction's height: its lowest end within this of its highest
 CLASH_H = 1.0        # studs: two streets' slabs may overlap only this close in height
 CLASH_NEAR = 3.0     # ... and lie within 4 studs of each other only this close
+CAP_GRADE = 0.2      # rise per stud at which a street's cap eases out of a dip
+SPLIT_DEV = 1.0      # studs a slab may ride over its street's capped profile before it is split
 BLEND = 20.0         # studs over which a street's height eases into its junction pad      # a turn sharper than this inside an edge gets a round joint
 DROP_KINDS = {"service"}
 PAD_OVER = 2.0       # studs a pad extends past the widest street
@@ -467,6 +469,13 @@ def main():
             nx_, nz_ = -tz / n_ * w / 2, tx / n_ * w / 2
             return min(road_cap(q[0], q[1]), road_cap(q[0] + nx_, q[1] + nz_), road_cap(q[0] - nx_, q[1] - nz_))
         caps_ = np.array([cap_at(s_) for s_ in ss])
+        # a low floor beside the street pulls its cap down sharply (the floors
+        # within 8 studs apply exactly): the cap eases into such a dip at CAP_GRADE
+        # so the road starts down in time instead of a slab riding over the dip
+        for i_ in range(1, len(caps_)):
+            caps_[i_] = min(caps_[i_], caps_[i_ - 1] + CAP_GRADE * 4.0)
+        for i_ in range(len(caps_) - 2, -1, -1):
+            caps_[i_] = min(caps_[i_], caps_[i_ + 1] + CAP_GRADE * 4.0)
         win = max(1, int(EVEN_SPAN / 4.0))
         if len(hs) > 2:
             hs = np.convolve(np.pad(hs, win, mode="edge"), np.ones(2 * win + 1) / (2 * win + 1), mode="valid")
@@ -617,11 +626,25 @@ def main():
                     # into the corner extensions: both slabs meeting at a bend pass
                     # through the same height there (ends taken at the extended
                     # stations stepped by up to 8 studs on hills)
-                    se0 = s0_ + (ext0 if t_ == 0 else 0.0)
-                    se1 = s1_ - (ext1 if t_ == n - 1 else 0.0)
+                    se0 = s0_ + (ext0 if (t_ == 0 and s0_ == s0) else 0.0)
+                    se1 = s1_ - (ext1 if (t_ == n - 1 and s1_ == s1) else 0.0)
                     ya_, yb_ = height(max(se0, 0)), height(min(se1, tl))
                     gr_ = (yb_ - ya_) / max(se1 - se0, 1e-6)
                     y0_, y1_ = ya_ - gr_ * (se0 - s0_), yb_ + gr_ * (s1_ - se1)
+                    # a straight slab cannot follow a dip in the (capped) profile:
+                    # where the profile falls more than SPLIT_DEV under the slab's
+                    # line it is split at the worst point (a 190-stud slab rode 11
+                    # studs over a low building's floor in its middle)
+                    st_ = np.arange(max(se0, 0.0), min(se1, tl) + 0.01, 4.0)
+                    if len(st_) > 2:
+                        dev_ = (ya_ + gr_ * (st_ - se0)) - np.interp(st_, ss, hs)
+                        piece = 30.0
+                        okm = (st_ - s0_ >= piece) & (s1_ - st_ >= piece)
+                        if dev_.max() > SPLIT_DEV and okm.any() and depth < 4:
+                            sm_ = float(st_[okm][np.argmax(np.where(okm, dev_, -1e9)[okm])])
+                            stack.append((sm_, s1_, depth + 1))
+                            stack.append((s0_, sm_, depth + 1))
+                            continue
                     ymid_ = (y0_ + y1_) / 2 + ROAD_LIFT
                     sw_ = w
                     while sw_ >= MIN_W and (not rect_clear(mx_, mz_, ux, uz, L_, sw_)
@@ -730,6 +753,10 @@ def main():
         in_ = (I_ >= 0) & (I_ < bnx) & (J_ >= 0) & (J_ < bnz)
         Ic, Jc = np.clip(I_, 0, bnx - 1), np.clip(J_, 0, bnz - 1)
         bad = ~in_ | blocked[Ic, Jc] | (covered[Ic, Jc] & (np.abs(cov_h[Ic, Jc] - top) > CLASH_H))
+        # ...or under the road cap (a floor nearby lower than the plate)
+        Ri = np.clip(((centre[0] + ux * GA + nx_ * GB - gx0_) / gcell).astype(int), 0, RCg.shape[0] - 1)
+        Rk = np.clip(((centre[1] + uz * GA + nz_ * GB - gz0_) / gcell).astype(int), 0, RCg.shape[1] - 1)
+        bad |= RCg[Ri, Rk] < top - 0.25
         BA, BB = GA[bad], GB[bad]
 
         def nbad(r_):
