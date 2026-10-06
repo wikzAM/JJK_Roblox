@@ -39,6 +39,7 @@ EDGE = 4.0        # under a slab within this of its edge, the ground stays just 
 DEEP = 2.2        # ... and this far below it deeper in (isolated voxels render as peaks)
 FAR = 40.0        # (unused since Oct 6: see JOIN)
 FS_RING = 8.0     # studs round a building where the ground is its floor surface
+SIDE_RISE_OK = 6.0  # studs: ground behind a sidewalk up to this above it is left alone (a building's floor)
 SIDE_BANK = 1.0   # rise per stud of the ground behind a sidewalk
 SIDE_SINK = 3.0   # studs the ground stays under a sidewalk slab's top
 JOIN = 8.0        # studs from a road over which the ground goes from the road's level to the floor surface
@@ -248,6 +249,8 @@ def main():
     # ...and in a band just beyond its outer edge, under its top (the ground beside a
     # building with a higher floor than the street side's lowest poked over the edge)
     band_top = ndimage.minimum_filter(np.where(np.isfinite(side_top), side_top, 1e9), size=3)
+    # (tried: only on the road side -- terrain then poked over 3x as many sidewalk
+    # edges; both sides it is)
     near_side = (band_top < 1e8) & ~np.isfinite(side_top) & ~under & ~bld
     vis = np.where(near_side, np.minimum(vis, band_top - 0.6), vis)
     # beyond that band a hillside rises from the sidewalk no steeper than 1:1 (a wall
@@ -255,7 +258,8 @@ def main():
     ds_, sidx_ = ndimage.distance_transform_edt(~np.isfinite(side_top), return_indices=True)
     st_n = side_top[tuple(sidx_)]
     slope_cap = st_n - 0.6 + np.maximum(ds_ * CELL - CELL, 0) * SIDE_BANK
-    vis = np.where(np.isfinite(st_n) & (ds_ * CELL <= 24) & ~under & ~bld, np.minimum(vis, slope_cap), vis)
+    vis = np.where(np.isfinite(st_n) & (ds_ * CELL <= 24) & ~under & ~bld & (vis > st_n + SIDE_RISE_OK),
+                   np.minimum(vis, np.maximum(slope_cap, st_n + SIDE_RISE_OK)), vis)
     near_road = (dr <= 2 * CELL) & onside
     vis = np.where(near_road, np.minimum(vis, road_top[tuple(ridx)] - 0.4), vis)
     vis = np.where(np.isnan(H), np.nan, vis)

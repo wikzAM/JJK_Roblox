@@ -44,6 +44,7 @@ DELTA_MAX = 4.0    # visible - encoded, upper end (measured)
 DELTA_MED = 2.8    # ... median, for the expected visible surface
 FILE_TO_STUDIO = 2.5
 CELL = 4.0
+RING_SLACK = 0.0   # studs the pinned ring may sit above the general cap
 NEAR_ANY = 6.0     # studs: no ground above any floor this close
 VORONOI_R = 60.0   # studs: within this the ground is capped by its nearest building's floor
 FS_BELOW = 2.0     # studs under the nearest ground-floor top the ground is pinned (slab is 5.36)
@@ -217,6 +218,12 @@ def main():
         FS = ndimage.gaussian_filter(FS, FS_SIGMA, mode="nearest")
         FS[Kf] = known[Kf]
     FS = np.minimum(FS, cap)                                  # never over a floor
+    # the pinned ring itself straight from the pins after the cap: a lower
+    # neighbour's cap rippling in held the ring under its own building (the
+    # pins already respect every floor within 6 studs, below)
+    ring_cap = np.minimum(known, ndimage.minimum_filter(np.where(np.isfinite(FLv), FLv - GAP, np.inf),
+                                                       size=2 * int(math.ceil(NEAR_ANY / CELL)) + 1, mode="nearest"))
+    FS = np.where(Kf, np.minimum(ring_cap, cap + RING_SLACK), FS)
     wfar = np.clip((dB - FS_FAR) / FS_FAR, 0, 1)
     FS = np.where(np.isnan(H), np.nan, (1 - wfar) * FS + wfar * visible)
     under_b = BMc                                             # under a building: left as clamped
