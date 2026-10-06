@@ -25,6 +25,8 @@ local LOOK = {
 	sidewalk = {material = Enum.Material.Concrete, color = Color3.fromRGB(40, 90, 230)},
 	-- curbs along the sidewalks' road edges (tools/terrain_streets.py)
 	curb = {material = Enum.Material.Concrete, color = Color3.fromRGB(170, 168, 162)},
+	-- thin asphalt skin over each street on the levelled terrain (tools/terrain_streets.py)
+	skin = {material = Enum.Material.Asphalt, color = Color3.fromRGB(88, 88, 92)},
 	-- the ground between the roads: terrain alone terraces on gentle slopes
 	apron = {material = Enum.Material.Concrete, color = Color3.fromRGB(138, 136, 132)},
 	-- a round cap at a node where a road bends or ends: fills the outside of the corner
@@ -68,11 +70,11 @@ function RoadBuilder.BuildTile(name)
 	for _, s in tile.slabs do
 		local kind, x, y, z, yaw, pitch, length, thickness, width, class, wayId, slopeZ = table.unpack(s)
 		if RoadBuilder.TERRAIN_ROADS and PART_KINDS[kind] then continue end
-		if not RoadBuilder.TERRAIN_ROADS and kind == "curb" then continue end
+		if not RoadBuilder.TERRAIN_ROADS and (kind == "curb" or kind == "skin") then continue end
 		local look = LOOK[kind]
 		local part = Instance.new("Part")
 		part.Name = kind == "roadway" and "Road" or kind == "apron" and "Apron" or kind == "joint" and "Joint"
-			or kind == "pad" and "Pad" or kind == "sidewalk" and "Sidewalk" or kind == "curb" and "Curb" or "Pavement"
+			or kind == "pad" and "Pad" or kind == "sidewalk" and "Sidewalk" or kind == "curb" and "Curb" or kind == "skin" and "Road" or "Pavement"
 		part.Size = Vector3.new(length, thickness, width)
 		-- y is the SURFACE height: drop the part by half its depth so its top lands there
 		if kind == "joint" then
@@ -107,7 +109,7 @@ function RoadBuilder.BuildTile(name)
 		part:SetAttribute("RoadClass", class)
 		-- small streets (2 lanes or fewer, tools/road_fit.py centres them between the
 		-- buildings): YELLOW while their placement is being checked (owner, Oct 6)
-		if s[13] == true and kind == "roadway" then
+		if s[13] == true and (kind == "roadway" or kind == "skin") then
 			part.Color = s[14] == "alley" and ALLEY_CHECK_COLOR or SMALL_CHECK_COLOR
 			part:SetAttribute("RoadSmall", true)
 			if s[14] == "alley" then part:SetAttribute("RoadAlley", true) end
