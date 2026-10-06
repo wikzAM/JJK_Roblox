@@ -75,6 +75,7 @@ SIDE_STEP = 3.0      # studs the face reach may vary within one sidewalk slab
 SIDE_OPEN_M = 3.0    # metres of sidewalk where no building face is within SIDE_MAX
 CURB = 0.5           # studs a sidewalk stands above its street (at least)
 SIDE_RISE = 6.0      # ... and at most
+SIDE_EVEN = 1.5      # studs: neighbouring sidewalk pieces this close in curb height share the lowest
 CURB_MAX = 2.0       # studs: the tallest curb (a sidewalk higher than this was a wall)
 SIDE_BELOW = 1.0     # studs a sidewalk stays under the floor it runs along
 ALLEY_KINDS = {"service", "footway"}
@@ -1246,6 +1247,7 @@ def main():
             runs = merged
             side_fl = min([floor_near(rx + ux * a + nx_ * sg * (W / 2 + d_ + 2.0), rz + uz * a + nz_ * sg * (W / 2 + d_ + 2.0))
                            for run in runs for a, d_ in run] or [1e9])
+            pend = []
             for run in runs:
                 a0, a1 = run[0][0] - 1.0, run[-1][0] + 1.0
                 if a1 - a0 < SIDE_MIN_L:
@@ -1269,11 +1271,66 @@ def main():
                 y_side = min(max(fl_ - SIDE_BELOW - abs(math.tan(pitch)) * (a1 - a0) / 2, road_at + CURB), road_at + SIDE_RISE)
                 # a curb, not a wall: within CURB_MAX of the road, rounded to 0.5
                 y_side = road_at + min(round((y_side - road_at) * 2) / 2, CURB_MAX)
-                if emit("sidewalk", sx, y_side, sz, yaw, pitch, a1 - a0,
+                pend.append([sx, y_side, sz, a1 - a0, sw, y_side - road_at])
+            # neighbouring pieces on one side within SIDE_EVEN of each other share the
+            # lowest curb (steps of 0.5..1.5 between pieces, p90 1.5)
+            for i_ in range(1, len(pend)):
+                if abs(pend[i_][5] - pend[i_ - 1][5]) <= SIDE_EVEN:
+                    lo_ = min(pend[i_][5], pend[i_ - 1][5])
+                    for q_ in (pend[i_], pend[i_ - 1]):
+                        q_[1] -= q_[5] - lo_; q_[5] = lo_
+            for i_ in range(len(pend) - 2, -1, -1):
+                if abs(pend[i_][5] - pend[i_ + 1][5]) <= SIDE_EVEN:
+                    lo_ = min(pend[i_][5], pend[i_ + 1][5])
+                    for q_ in (pend[i_], pend[i_ + 1]):
+                        q_[1] -= q_[5] - lo_; q_[5] = lo_
+            for sx, y_side, sz, Lp, sw, _ in pend:
+                if emit("sidewalk", sx, y_side, sz, yaw, pitch, Lp,
                         RP.THICKNESS, sw, r[9], r[10], True):
-                    raster(sx, sz, ux, uz, a1 - a0, sw, occ)
+                    raster(sx, sz, ux, uz, Lp, sw, occ)
                     n_side += 1
     print(f"{n_side} sidewalk slabs beside {len(side_rows)} small street slabs")
+    # level sidewalk joints across road slabs too: an end within SIDE_EVEN above the
+    # end of the piece it meets (same street) comes down to it (a few passes)
+    srows = [r for rows in tiles.values() for r in rows if r[0] == "sidewalk"]
+    # each piece's floor: never below CURB over the road beside it
+    road_by_way = defaultdict(list)
+    for rows in tiles.values():
+        for r in rows:
+            if r[0] == "roadway":
+                road_by_way[r[10]].append(r)
+    min_y = {}
+    for r in srows:
+        best_ = None
+        for q_ in road_by_way[r[10]]:
+            a_ = (r[1] - q_[1]) * math.cos(q_[4]) + (r[3] - q_[3]) * math.sin(q_[4])
+            if abs(a_) <= q_[6] / 2 + 2:
+                d_ = abs(-(r[1] - q_[1]) * math.sin(q_[4]) + (r[3] - q_[3]) * math.cos(q_[4]))
+                if best_ is None or d_ < best_[0]:
+                    best_ = (d_, q_[2] + a_ * math.tan(q_[5]))
+        min_y[id(r)] = (best_[1] + CURB) if best_ else -1e9
+    for _pass in range(4):
+        ends_ = defaultdict(list)
+        for r in srows:
+            for sg in (-1, 1):
+                ends_[r[10]].append((r[1] + sg * math.cos(r[4]) * r[6] / 2, r[3] + sg * math.sin(r[4]) * r[6] / 2,
+                                     r[2] + sg * r[6] / 2 * math.tan(r[5]), r))
+        moved = 0
+        for wid_, E_ in ends_.items():
+            for i_ in range(len(E_)):
+                for j_ in range(i_ + 1, len(E_)):
+                    a_, b_ = E_[i_], E_[j_]
+                    if a_[3] is b_[3] or math.hypot(a_[0] - b_[0], a_[1] - b_[1]) > 12:
+                        continue
+                    d_ = a_[2] - b_[2]
+                    if 0.05 < abs(d_) <= SIDE_EVEN:
+                        hi_ = a_[3] if d_ > 0 else b_[3]
+                        new_y = max(round(hi_[2] - abs(d_), 2), min_y[id(hi_)])
+                        if new_y < hi_[2] - 0.01:
+                            hi_[2] = new_y
+                            moved += 1
+        if not moved:
+            break
 
     # ---- clipping check: roadway area over a ground floor
     on = tot = 0
