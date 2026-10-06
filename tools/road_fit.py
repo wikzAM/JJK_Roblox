@@ -66,6 +66,8 @@ SCAN_C = 120.0       # studs: how far across a small street the building faces a
 SIDE_MIN_M = 1.0     # metres: narrower than lanes + two of these, a small street is wall to wall
 SIDE_MAX = 40.0      # studs: the widest sidewalk slab (~9.5 m)
 SIDE_MIN_W = 3.0     # ... and the narrowest
+MOUTH = 8.0          # studs: another road this close beside a street is a mouth, no sidewalk
+SIDE_MIN_L = 16.0    # studs: shorter sidewalk pieces are left out
 SIDE_STEP = 3.0      # studs the face reach may vary within one sidewalk slab
 SIDE_OPEN_M = 3.0    # metres of sidewalk where no building face is within SIDE_MAX
 CURB = 0.5           # studs a sidewalk stands above its street (at least)
@@ -982,12 +984,18 @@ def main():
                 # (the first 2 studs share 2-stud cells with this street's own slab)
                 d_ = 2.0 if not blocked[min(max(int((ex + nx_ * sg * 2 - bx0) / bcell), 0), bnx - 1),
                                        min(max(int((ez + nz_ * sg * 2 - bz0) / bcell), 0), bnz - 1)] else 0.0
+                hit_road = False
                 while d_ < SIDE_MAX:
                     qx, qz = ex + nx_ * sg * (d_ + 1.0), ez + nz_ * sg * (d_ + 1.0)
                     i, j = int((qx - bx0) / bcell), int((qz - bz0) / bcell)
-                    if not (0 <= i < bnx and 0 <= j < bnz) or face_mask[i, j] or occ[i, j]:
+                    if not (0 <= i < bnx and 0 <= j < bnz) or face_mask[i, j]:
+                        break
+                    if occ[i, j]:
+                        hit_road = True
                         break
                     d_ += 1.0
+                if hit_road and d_ < MOUTH:
+                    d_ = 0.0                              # another road right there: a street mouth
                 # no building face within reach: a standard sidewalk, not the whole lot
                 st_.append(a); rc_.append(SIDE_OPEN_M * s if d_ >= SIDE_MAX else d_)
             # runs of stations with room for a sidewalk
@@ -1016,7 +1024,7 @@ def main():
                            for run in runs for a, d_ in run] or [1e9])
             for run in runs:
                 a0, a1 = run[0][0] - 1.0, run[-1][0] + 1.0
-                if a1 - a0 < 8.0:
+                if a1 - a0 < SIDE_MIN_L:
                     continue
                 sw = min(max(SIDE_MIN_W, float(np.percentile([d_ for _, d_ in run], 10)) - 0.5), SIDE_MAX)
                 am = (a0 + a1) / 2

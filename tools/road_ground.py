@@ -235,6 +235,11 @@ def main():
         sub[inside] = np.minimum(sub[inside], top[inside])
     onside = np.isfinite(side_top) & ~under & ~bld
     vis = np.where(onside, np.minimum(vis, side_top - SIDE_SINK), vis)
+    # ...and in a band just beyond its outer edge, under its top (the ground beside a
+    # building with a higher floor than the street side's lowest poked over the edge)
+    band_top = ndimage.minimum_filter(np.where(np.isfinite(side_top), side_top, 1e9), size=3)
+    near_side = (band_top < 1e8) & ~np.isfinite(side_top) & ~under & ~bld
+    vis = np.where(near_side, np.minimum(vis, band_top - 0.6), vis)
     near_road = (dr <= 2 * CELL) & onside
     vis = np.where(near_road, np.minimum(vis, road_top[tuple(ridx)] - 0.4), vis)
     vis = np.where(np.isnan(H), np.nan, vis)
@@ -242,7 +247,7 @@ def main():
     # 6. encode: on open ground use the typical render offset, under roads the worst
     # where the cap holds the ground (within 1.5 of it) the worst-case offset is
     # used too, so the rendered surface never rises over a floor
-    delta = np.where(under | (vis >= cap_vis - 1.5), DELTA_MAX, DELTA_MED)
+    delta = np.where(under | (vis >= cap_vis - 1.5) | near_side | onside, DELTA_MAX, DELTA_MED)
     # at a slab's bank: halfway (worst case 0.2 over the edge, typically 1 under)
     delta = np.where(at_bank & ~under & (vis < cap_vis - 1.5), (DELTA_MAX + DELTA_MED) / 2, delta)
     # the offset changes gradually: cells side by side with different offsets
