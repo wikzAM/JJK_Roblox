@@ -72,6 +72,7 @@ SIDE_STEP = 3.0      # studs the face reach may vary within one sidewalk slab
 SIDE_OPEN_M = 3.0    # metres of sidewalk where no building face is within SIDE_MAX
 CURB = 0.5           # studs a sidewalk stands above its street (at least)
 SIDE_RISE = 6.0      # ... and at most
+CURB_MAX = 2.0       # studs: the tallest curb (a sidewalk higher than this was a wall)
 SIDE_BELOW = 1.0     # studs a sidewalk stays under the floor it runs along
 ALLEY_KINDS = {"service", "footway"}
 ALLEY_M = 4.0        # metres: an alley's nominal width
@@ -1171,6 +1172,8 @@ def main():
                           for a, d_ in run)
                 road_at = top + am * math.tan(pitch)
                 y_side = min(max(fl_ - SIDE_BELOW - abs(math.tan(pitch)) * (a1 - a0) / 2, road_at + CURB), road_at + SIDE_RISE)
+                # a curb, not a wall: within CURB_MAX of the road, rounded to 0.5
+                y_side = road_at + min(round((y_side - road_at) * 2) / 2, CURB_MAX)
                 if emit("sidewalk", sx, y_side, sz, yaw, pitch, a1 - a0,
                         RP.THICKNESS, sw, r[9], r[10], True):
                     raster(sx, sz, ux, uz, a1 - a0, sw, occ)
