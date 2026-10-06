@@ -23,6 +23,8 @@ local LOOK = {
 	-- sidewalk slabs beside the small streets (tools/road_fit.py): BLUE while the
 	-- layout is being checked (owner, Oct 6)
 	sidewalk = {material = Enum.Material.Concrete, color = Color3.fromRGB(40, 90, 230)},
+	-- curbs along the sidewalks' road edges (tools/terrain_streets.py)
+	curb = {material = Enum.Material.Concrete, color = Color3.fromRGB(170, 168, 162)},
 	-- the ground between the roads: terrain alone terraces on gentle slopes
 	apron = {material = Enum.Material.Concrete, color = Color3.fromRGB(138, 136, 132)},
 	-- a round cap at a node where a road bends or ends: fills the outside of the corner
@@ -30,6 +32,11 @@ local LOOK = {
 	-- one flat square per junction (tools/road_fit.py); the streets stop at its edge
 	pad = {material = Enum.Material.Asphalt, color = Color3.fromRGB(88, 88, 92)},
 }
+
+-- Roads and sidewalks are TERRAIN (tools/terrain_streets.py, Oct 6): only the curb
+-- parts are built; set false to build the old road/sidewalk/pad slabs again
+RoadBuilder.TERRAIN_ROADS = true
+local PART_KINDS = {roadway = true, sidewalk = true, pad = true}
 
 local SMALL_CHECK_COLOR = Color3.fromRGB(235, 200, 40)
 -- alleys (OSM service / footway between buildings): ORANGE while being checked
@@ -60,10 +67,12 @@ function RoadBuilder.BuildTile(name)
 	model.Name = name
 	for _, s in tile.slabs do
 		local kind, x, y, z, yaw, pitch, length, thickness, width, class, wayId, slopeZ = table.unpack(s)
+		if RoadBuilder.TERRAIN_ROADS and PART_KINDS[kind] then continue end
+		if not RoadBuilder.TERRAIN_ROADS and kind == "curb" then continue end
 		local look = LOOK[kind]
 		local part = Instance.new("Part")
 		part.Name = kind == "roadway" and "Road" or kind == "apron" and "Apron" or kind == "joint" and "Joint"
-			or kind == "pad" and "Pad" or kind == "sidewalk" and "Sidewalk" or "Pavement"
+			or kind == "pad" and "Pad" or kind == "sidewalk" and "Sidewalk" or kind == "curb" and "Curb" or "Pavement"
 		part.Size = Vector3.new(length, thickness, width)
 		-- y is the SURFACE height: drop the part by half its depth so its top lands there
 		if kind == "joint" then

@@ -67,10 +67,14 @@ def main():
     NX, NZ = int(round((gx1 - gx0) / CELL)), int(round((gz1 - gz0) / CELL))
 
     FL = np.full((NX, NZ), np.inf)
+    # buildings tools/flatten_fit.py left in place (stilted / slope-straddling / floating
+    # records): no ground or road is held to their floors
+    sk = D / "flatten_skip.json"
+    skip_b = set(json.loads(sk.read_text())) if sk.exists() else set()
     n = 0
     for line in open(ROOT / "source_slices" / "floor1_parts.txt", encoding="utf-8"):
         f = line.strip().split("|")
-        if len(f) != 3:
+        if len(f) != 3 or f[0] in skip_b:
             continue
         pts = f[2].split(";")
         if len(pts) not in (6, 8):     # a wedge piece has 6 corners

@@ -53,6 +53,8 @@ function GroundTerrain.ClearAll()
 end
 
 -- offset: studs added to every height (0 = the files as generated)
+local CLEAR_ABOVE = 60
+
 function GroundTerrain.WriteChunk(name, offset)
 	offset = offset or 0
 	local c = fetch(name)
@@ -62,7 +64,10 @@ function GroundTerrain.WriteChunk(name, offset)
 	local top = -math.huge
 	for _, h in c.h do if h > top then top = h end end
 	-- one more layer, so the ramp's upper (mostly empty) voxel exists
-	local ny = math.max(1, math.ceil((top + RAMP - c.y0) / VOXEL))
+	-- ...and CLEAR_ABOVE studs of air over that: where the ground was lowered (the
+	-- buildings were moved onto one smooth surface, Oct 6) the old higher ground
+	-- above the region survived
+	local ny = math.max(1, math.ceil((top + RAMP + CLEAR_ABOVE - c.y0) / VOXEL))
 	local materials, occupancy = {}, {}
 	for i = 1, c.nx do
 		local mi, oi = {}, {}

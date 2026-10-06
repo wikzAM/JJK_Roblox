@@ -56,7 +56,7 @@ FS_PASSES = 16     # membrane smoothing passes between the pins
 FS_SIGMA = 2.0     # cells
 FS_FAR = 120.0     # studs past the last building before the natural ground takes over
 ROAD_UNDER = 0.5   # studs a road surface stays under the 360-degree floor cap (itself floor - 1)
-MAX_CUT = 10.0     # studs: buildings needing a deeper cut than this are skipped
+MAX_CUT = 1e9      # studs: buildings needing a deeper cut than this are skipped
 
 
 def contains(P, C):
@@ -90,12 +90,16 @@ def main():
 
     # 1. ground-floor tops rasterised: the LOWEST building top covering each cell
     tops = {}
+    fsk = D / "flatten_skip.json"
+    flat_skip = set(json.loads(fsk.read_text())) if fsk.exists() else set()
     polys = []
     for line in open(ROOT / "source_slices" / "live_footprints_top.txt", encoding="utf-8"):
         parts = line.strip().split("|")
         if len(parts) != 3:
             continue
         name, top, pts = parts[0], float(parts[1]), parts[2]
+        if name in flat_skip:
+            continue          # left in place by tools/flatten_fit.py: no ground held to it
         tops[name] = min(tops.get(name, top), top)
         polys.append((name, np.array([[float(a) for a in p.split(",")] for p in pts.split(";")])))
     # per building: which cells it covers (to judge how deep a cut it would need)
