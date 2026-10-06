@@ -57,6 +57,7 @@ CLASH_H = 1.0        # studs: two streets' slabs may overlap only this close in 
 CLASH_NEAR = 3.0     # ... and lie within 4 studs of each other only this close
 CAP_GRADE = 0.2      # rise per stud at which a street's cap eases out of a dip
 MAX_SLAB_GRADE = 0.2  # rise per stud: steeper streets are stairs, left as ground
+CENTRE_MAIN = True   # main streets centred between the faces too
 CENTRE_ITER = 2      # small streets: centring passes
 CENTRE_MAX = 24.0    # ... studs a segment may move in one pass
 LANE_SMALL_M = 3.25  # metres per lane on a small street
@@ -518,6 +519,17 @@ def main():
         pts = [np.array(q, float) for q in RP.simplify([tuple(q) for q in f["pts"]], STRAIGHTEN)]
         if len(pts) < 2:
             continue
+        if not is_small(way) and CENTRE_MAIN:
+            # MAIN streets: centred the same way, width = OSM width capped by the
+            # corridor less a 3 m sidewalk each side (yellow-free: dark, for the
+            # owner to judge or redo by hand)
+            pts_m, widths_m = centre_line(pts, way["width"])
+            if widths_m:
+                c_m = float(np.percentile(widths_m, 25))
+                w_m = math.floor(min(way["width"], max(c_m - 2 * SIDE_TARGET_M * s, MIN_W), WIDE_MAX) / 2) * 2
+                if w_m >= MIN_W:
+                    streets.append(dict(f=f, way=way, pts=pts_m, w=w_m, small=False, raw0=pts_m[0].copy(), raw1=pts_m[-1].copy()))
+                    continue
         if is_small(way):
             pts0 = [q.copy() for q in pts]
             pts, widths = centre_line(pts, lanes_width(way))
