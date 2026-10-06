@@ -64,6 +64,9 @@ SHOULDER_M = 1.0     # ... plus this (2 lanes = 7.5 m, one-way 1 lane = 4.25 m)
 SIDE_TARGET_M = 3.0  # metres of sidewalk kept off a building face when only one side has buildings
 SCAN_C = 120.0       # studs: how far across a small street the building faces are looked for
 SIDE_MIN_M = 1.0     # metres: narrower than lanes + two of these, a small street is wall to wall
+SIDE_MAX = 24.0      # studs: the widest sidewalk slab
+SIDE_MIN_W = 3.0     # ... and the narrowest
+CURB = 0.5           # studs a sidewalk stands above its street
 SPLIT_DEV = 1.0      # studs a slab may ride over its street's capped profile before it is split
 BLEND = 20.0         # studs over which a street's height eases into its junction pad      # a turn sharper than this inside an edge gets a round joint
 DROP_KINDS = {"service"}
@@ -457,7 +460,11 @@ def main():
         if way["kind"] == "pedestrian":
             w = c - 2 * MARGIN                      # a pedestrian street is wall to wall
         elif c >= lanes_w + 2 * SIDE_MIN_M * s:
-            w = lanes_w                            # room for the lanes and both sidewalks
+            # room for the lanes and both sidewalks: the street takes what a 3 m
+            # sidewalk each side leaves, at least its lanes, at most two lanes (a
+            # one-way 14-stud lane in a 60-stud corridor left 23-stud sidewalks)
+            two = (2 * LANE_SMALL_M + SHOULDER_M) * s
+            w = min(max(c - 2 * SIDE_TARGET_M * s, lanes_w), max(two, lanes_w))
         else:
             w = c - 2 * MARGIN                      # an alley: the street is the whole gap
         return math.floor(max(w, 0.0) / 2) * 2
@@ -465,6 +472,7 @@ def main():
     # pass A: every street's straightened line and its one width
     streets = []
     centred = []
+    narrow_dbg = []
     for f in fitted:
         way = f["way"]
         pts = [np.array(q, float) for q in RP.simplify([tuple(q) for q in f["pts"]], STRAIGHTEN)]
@@ -476,6 +484,7 @@ def main():
             w = small_width(way, widths)
             if w < MIN_W:
                 dropped["street too narrow"] += 1
+                narrow_dbg.append([[round(float(q[0]), 1), round(float(q[1]), 1)] for q in pts0])
                 continue
             centred.append(max(float(np.hypot(*(a_ - b_))) for a_, b_ in zip(pts, pts0)))
             streets.append(dict(f=f, way=way, pts=pts, w=w, small=True, raw0=pts[0].copy(), raw1=pts[-1].copy()))
@@ -501,6 +510,7 @@ def main():
             dropped["street too narrow"] += 1
             continue
         streets.append(dict(f=f, way=way, pts=pts, w=w, small=False, raw0=pts[0].copy(), raw1=pts[-1].copy()))
+    (DATA / "narrow_dropped.json").write_text(json.dumps(narrow_dbg))
     if centred:
         print("centring segments:", dict(CSTAT))
         print(f"{len(centred)} small streets centred: moved median {np.median(centred):.1f}, p90 {np.percentile(centred, 90):.1f} studs")
@@ -904,6 +914,65 @@ def main():
         if emit("pad", cx_, top - 0.02, cz_, math.atan2(uz, ux), 0.0, L_, RP.THICKNESS, W_, "junction", 0):
             plates += 1
     print(f"{plates} junction plates")
+
+    # ---- SIDEWALKS (owner, Oct 6: "if we can set the roads properly, then we can make
+    # the sidewalks properly"): beside every small street slab, flat slabs from the
+    # road edge out to the building face (live footprints; at most SIDE_MAX),
+    # CURB above the road, broken wherever another road or plate is in the way
+    occ = np.zeros((bnx, bnz), bool)
+
+    def raster(rx, rz, ux, uz, L, W, into):
+        for a in np.arange(-L / 2, L / 2 + 0.01, 1.0):
+            for b in np.arange(-W / 2, W / 2 + 0.01, 1.0):
+                i, j = int((rx + ux * a - uz * b - bx0) / bcell), int((rz + uz * a + ux * b - bz0) / bcell)
+                if 0 <= i < bnx and 0 <= j < bnz:
+                    into[i, j] = True
+    for rows in tiles.values():
+        for r in rows:
+            if r[0] in ("roadway", "pad"):
+                raster(r[1], r[3], math.cos(r[4]), math.sin(r[4]), r[6], r[8], occ)
+    n_side = 0
+    side_rows = [r for rows in tiles.values() for r in rows if r[0] == "roadway" and len(r) > 12 and r[12]]
+    for r in side_rows:
+        _, rx, top, rz, yaw, pitch, L, _, W = r[:9]
+        ux, uz = math.cos(yaw), math.sin(yaw)
+        nx_, nz_ = -uz, ux
+        for sg in (1, -1):
+            st_, rc_ = [], []
+            for a in np.arange(-L / 2 + 1.0, L / 2 - 0.99, 2.0):
+                ex, ez = rx + ux * a + nx_ * sg * W / 2, rz + uz * a + nz_ * sg * W / 2
+                # (the first 2 studs share 2-stud cells with this street's own slab)
+                d_ = 2.0 if not blocked[min(max(int((ex + nx_ * sg * 2 - bx0) / bcell), 0), bnx - 1),
+                                       min(max(int((ez + nz_ * sg * 2 - bz0) / bcell), 0), bnz - 1)] else 0.0
+                while d_ < SIDE_MAX:
+                    qx, qz = ex + nx_ * sg * (d_ + 1.0), ez + nz_ * sg * (d_ + 1.0)
+                    i, j = int((qx - bx0) / bcell), int((qz - bz0) / bcell)
+                    if not (0 <= i < bnx and 0 <= j < bnz) or blocked[i, j] or occ[i, j]:
+                        break
+                    d_ += 1.0
+                st_.append(a); rc_.append(d_)
+            # runs of stations with room for a sidewalk
+            runs, cur = [], []
+            for a, d_ in zip(st_, rc_):
+                if d_ >= SIDE_MIN_W:
+                    cur.append((a, d_))
+                elif cur:
+                    runs.append(cur); cur = []
+            if cur:
+                runs.append(cur)
+            for run in runs:
+                a0, a1 = run[0][0] - 1.0, run[-1][0] + 1.0
+                if a1 - a0 < 8.0:
+                    continue
+                sw = min(max(SIDE_MIN_W, float(np.percentile([d_ for _, d_ in run], 20)) - 0.5), SIDE_MAX)
+                am = (a0 + a1) / 2
+                off = sg * (W / 2 + sw / 2)
+                sx, sz = rx + ux * am + nx_ * off, rz + uz * am + nz_ * off
+                if emit("sidewalk", sx, top + am * math.tan(pitch) + CURB, sz, yaw, pitch, a1 - a0,
+                        RP.THICKNESS, sw, r[9], r[10], True):
+                    raster(sx, sz, ux, uz, a1 - a0, sw, occ)
+                    n_side += 1
+    print(f"{n_side} sidewalk slabs beside {len(side_rows)} small street slabs")
 
     # ---- clipping check: roadway area over a ground floor
     on = tot = 0

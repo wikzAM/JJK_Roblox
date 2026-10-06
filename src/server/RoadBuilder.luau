@@ -20,6 +20,9 @@ local LOOK = {
 	-- screen from above): lighter so slabs do not read as dark patches in the asphalt
 	roadway = {material = Enum.Material.Asphalt, color = Color3.fromRGB(88, 88, 92)},
 	pavement = {material = Enum.Material.Concrete, color = Color3.fromRGB(154, 152, 148)},
+	-- sidewalk slabs beside the small streets (tools/road_fit.py): BLUE while the
+	-- layout is being checked (owner, Oct 6)
+	sidewalk = {material = Enum.Material.Concrete, color = Color3.fromRGB(40, 90, 230)},
 	-- the ground between the roads: terrain alone terraces on gentle slopes
 	apron = {material = Enum.Material.Concrete, color = Color3.fromRGB(138, 136, 132)},
 	-- a round cap at a node where a road bends or ends: fills the outside of the corner
@@ -58,7 +61,7 @@ function RoadBuilder.BuildTile(name)
 		local look = LOOK[kind]
 		local part = Instance.new("Part")
 		part.Name = kind == "roadway" and "Road" or kind == "apron" and "Apron" or kind == "joint" and "Joint"
-			or kind == "pad" and "Pad" or "Pavement"
+			or kind == "pad" and "Pad" or kind == "sidewalk" and "Sidewalk" or "Pavement"
 		part.Size = Vector3.new(length, thickness, width)
 		-- y is the SURFACE height: drop the part by half its depth so its top lands there
 		if kind == "joint" then
@@ -93,7 +96,7 @@ function RoadBuilder.BuildTile(name)
 		part:SetAttribute("RoadClass", class)
 		-- small streets (2 lanes or fewer, tools/road_fit.py centres them between the
 		-- buildings): YELLOW while their placement is being checked (owner, Oct 6)
-		if s[13] == true then
+		if s[13] == true and kind == "roadway" then
 			part.Color = SMALL_CHECK_COLOR
 			part:SetAttribute("RoadSmall", true)
 		end
@@ -785,6 +788,26 @@ function RoadBuilder.ClearOfBuildings(minWidth)
 	for _, tile in workspace.Roads:GetChildren() do
 		for _, p in tile:GetChildren() do
 			local w = p.Name == "Joint" and p.Size.Y or p.Size.Z
+			if p.Name == "Sidewalk" then
+				-- a sidewalk reaches up to the building face: trimmed from the side
+				-- that touches (shifted, not shrunk about its centre), down to 3 studs
+				if touches(p, w) then
+					local cf0, w0, done = p.CFrame, w, false
+					for ww = w0 - 1, 3, -1 do
+						for _, off in {-(w0 - ww) / 2, (w0 - ww) / 2} do
+							p.CFrame = cf0 * CFrame.new(0, 0, off)
+							if not touches(p, ww) then
+								p.Size = Vector3.new(p.Size.X, p.Size.Y, ww)
+								done = true
+								break
+							end
+						end
+						if done then break end
+					end
+					if done then narrowed += 1 else p:Destroy(); removed += 1 end
+				end
+				continue
+			end
 			if touches(p, w) then
 				while w >= minWidth and touches(p, w) do w -= 2 end
 				if w < minWidth then

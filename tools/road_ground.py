@@ -87,7 +87,7 @@ def main():
     roads = D / "roads"
     for name, _ in json.loads((roads / "index.json").read_text()):
         for r in json.loads((roads / f"{name}.json").read_text())["slabs"]:
-            if r[0] not in ("roadway", "pad"):    # pads: the junction plates
+            if r[0] not in ("roadway", "pad", "sidewalk"):    # pads: the junction plates
                 continue
             _, cx, ytop, cz, yaw, pitch, L, _, W = r[:9]
             ux, uz = math.cos(yaw), math.sin(yaw)

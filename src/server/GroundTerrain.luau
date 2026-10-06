@@ -94,7 +94,7 @@ function GroundTerrain.PaintAll(first, last)
 	T:SetMaterialColor(Enum.Material.Asphalt, Color3.fromRGB(62, 62, 66))
 	-- sidewalks BLUE while the street layout is being checked (owner, Oct 6);
 	-- back to 112, 111, 110 when it is set
-	T:SetMaterialColor(Enum.Material.Pavement, Color3.fromRGB(60, 120, 230))
+	T:SetMaterialColor(Enum.Material.Pavement, Color3.fromRGB(20, 70, 255))
 	local index = fetch("index")
 	local painted = 0
 	for ci = first or 1, math.min(last or #index, #index) do
