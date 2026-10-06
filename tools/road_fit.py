@@ -70,6 +70,7 @@ SIDE_MIN_W = 3.0     # ... and the narrowest
 MOUTH = 8.0          # studs: another road this close beside a street is a mouth, no sidewalk
 SIDE_MIN_REAL = 6.0  # studs (~1.4 m): narrower sidewalks are left out
 SIDE_MIN_L = 16.0    # studs: shorter sidewalk pieces are left out
+SIDE_MERGE = 24.0    # studs: sidewalk runs shorter than this merge into a neighbour
 SIDE_STEP = 3.0      # studs the face reach may vary within one sidewalk slab
 SIDE_OPEN_M = 3.0    # metres of sidewalk where no building face is within SIDE_MAX
 CURB = 0.5           # studs a sidewalk stands above its street (at least)
@@ -1229,10 +1230,11 @@ def main():
                     cur = [(a, d_)] if d_ >= SIDE_MIN_W else []
             if cur:
                 runs.append(cur)
-            # short runs merge into a neighbour (take the narrower width)
+            # short runs merge into a neighbour (take the narrower width): a sidewalk
+            # broke into many 10..20-stud pieces wherever the faces stepped a little
             merged = []
             for run in runs:
-                if merged and (run[-1][0] - run[0][0] < 10.0 or merged[-1][-1][0] - merged[-1][0][0] < 10.0)                         and abs(run[0][0] - merged[-1][-1][0]) <= 2.01:
+                if merged and (run[-1][0] - run[0][0] < SIDE_MERGE or merged[-1][-1][0] - merged[-1][0][0] < SIDE_MERGE)                         and abs(run[0][0] - merged[-1][-1][0]) <= 2.01:
                     merged[-1] = merged[-1] + run
                 else:
                     merged.append(run)
