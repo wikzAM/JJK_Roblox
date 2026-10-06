@@ -404,7 +404,22 @@ def main():
         out = []
         for s_ in np.arange(2.0, seg - 1.9, 4.0):
             q = a + u * s_
-            out.append((reach_c(q[0], q[1], nrm[0], nrm[1]), reach_c(q[0], q[1], -nrm[0], -nrm[1])))
+            base = 0.0
+            if is_face(q[0], q[1]):
+                # the OSM line runs through a building (OSM is up to ~11 m off):
+                # the nearest open ground across it, within CENTRE_MAX
+                base = None
+                for d_ in np.arange(1.0, CENTRE_MAX + 0.1, 1.0):
+                    for sg in (1.0, -1.0):
+                        if not is_face(q[0] + nrm[0] * d_ * sg, q[1] + nrm[1] * d_ * sg):
+                            base = d_ * sg
+                            break
+                    if base is not None:
+                        break
+                if base is None:
+                    continue
+                q = q + nrm * base
+            out.append((reach_c(q[0], q[1], nrm[0], nrm[1]) + base, reach_c(q[0], q[1], -nrm[0], -nrm[1]) - base))
         return out, nrm
 
     def sample_offset(L, R, w):
