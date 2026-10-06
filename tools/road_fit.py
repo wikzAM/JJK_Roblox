@@ -73,6 +73,11 @@ SIDE_OPEN_M = 3.0    # metres of sidewalk where no building face is within SIDE_
 CURB = 0.5           # studs a sidewalk stands above its street (at least)
 SIDE_RISE = 4.0      # ... and at most
 SIDE_BELOW = 1.0     # studs a sidewalk stays under the floor it runs along
+ALLEY_KINDS = {"service", "footway"}
+ALLEY_M = 4.0        # metres: an alley's nominal width
+ALLEY_MAX = 48.0     # studs: an alley's corridor (wall to wall) is at most this
+ALLEY_SHARE = 0.6    # ... over this share of its readings
+ALLEY_MIN_L = 30.0   # studs: shorter alley stretches are left out
 SPLIT_DEV = 1.0      # studs a slab may ride over its street's capped profile before it is split
 BLEND = 20.0         # studs over which a street's height eases into its junction pad      # a turn sharper than this inside an edge gets a round joint
 DROP_KINDS = {"service"}
@@ -156,7 +161,10 @@ def main():
     for w in osm["elements"]:
         tags = w.get("tags", {})
         kind = tags.get("highway")
-        if not w.get("geometry") or kind not in RP.KIND or kind in DROP_KINDS:
+        # ALLEYS (Oct 6): service / footway ways become candidate alleys -- kept only
+        # where they run between buildings (pass A), coloured orange for checking
+        alley = kind in ALLEY_KINDS and tags.get("footway") not in ("sidewalk", "crossing")             and tags.get("service") not in ("parking_aisle", "drive-through", "parking")
+        if not w.get("geometry") or ((kind not in RP.KIND or kind in DROP_KINDS) and not alley):
             continue
         # off the ground: tunnels and underpasses (layer < 0), bridges and the
         # elevated Shuto Expressway (motorway / layer > 0) -- the viaducts were
@@ -172,7 +180,7 @@ def main():
                 or kind == "motorway" or (layer.lstrip("-").isdigit() and int(layer) != 0)):
             skipped_level[kind] += 1
             continue
-        road_m, _, prio = RP.KIND[kind]
+        road_m, _, prio = (ALLEY_M, 0.0, -1) if alley else RP.KIND[kind]
         oneway = tags.get("oneway") in ("yes", "-1")
         if tags.get("lanes", "").isdigit():
             # on a one-way way, lanes counts only its own direction
@@ -184,9 +192,11 @@ def main():
         pts = [to_studs(p["lat"], p["lon"]) for p in w["geometry"]]
         lanes_tag = int(tags["lanes"]) if tags.get("lanes", "").isdigit() else None
         ways.append(dict(id=w["id"], kind=kind, prio=prio, width=road_m * s, nodes=w["nodes"], pts=pts,
-                         lanes=lanes_tag, oneway=oneway))
+                         lanes=lanes_tag, oneway=oneway, alley=alley))
     uses = defaultdict(int)
     for w in ways:
+        if w["alley"]:
+            continue          # alleys never split the streets into more pieces
         for k, nid in enumerate(w["nodes"]):
             uses[nid] += 2 if 0 < k < len(w["nodes"]) - 1 else 1
     junction = {nid for nid, u in uses.items() if u >= 3}
@@ -346,14 +356,14 @@ def main():
     tiles, counts, total = defaultdict(list), defaultdict(int), 0.0
     dropped = defaultdict(int)
 
-    def emit(kind, x, y, z, yaw, pitch, length, thick, width, cls, wid, small=False):
+    def emit(kind, x, y, z, yaw, pitch, length, thick, width, cls, wid, small=False, tag=None):
         if not in_city(x, z):
             dropped["outside the city"] += 1
             return False
         key = (int(math.floor(x / RP.TILE)), int(math.floor(z / RP.TILE)))
         tiles[key].append([kind, round(x, 2), round(y, 2), round(z, 2), round(yaw, 5), round(pitch, 5),
                            round(length, 2), round(thick, 2), round(width, 2), cls, wid]
-                          + ([0, True] if small else []))
+                          + ([0, True] if small else []) + ([tag] if small and tag else []))
         counts[kind] += 1
         return True
 
@@ -378,6 +388,8 @@ def main():
     # its two sides (median over samples every 4 studs, both sides bounded within
     # SCAN), the vertices rebuilt as the meeting points of the moved segments.
     def is_small(way):
+        if way.get("alley"):
+            return True
         if way["kind"] in ("residential", "unclassified", "living_street", "pedestrian"):
             return True
         return way["kind"] == "tertiary" and (way["lanes"] or 2) <= 2
@@ -503,6 +515,14 @@ def main():
             pts0 = [q.copy() for q in pts]
             pts, widths = centre_line(pts, lanes_width(way))
             w = small_width(way, widths)
+            if way.get("alley"):
+                n_rd = sum(len(seg_readings(np.array(pts[k_], float), np.array(pts[k_ + 1], float))[0])
+                           for k_ in range(len(pts) - 1))
+                tight = [c_ for c_ in widths if c_ <= ALLEY_MAX]
+                if n_rd == 0 or len(tight) < ALLEY_SHARE * n_rd:
+                    dropped["alley not between buildings"] += 1
+                    continue
+                w = math.floor(min(float(np.percentile(tight, 25)) - 2 * MARGIN, (2 * LANE_SMALL_M + SHOULDER_M) * s) / 2) * 2
             if w < MIN_W:
                 dropped["street too narrow"] += 1
                 narrow_dbg.append([[round(float(q[0]), 1), round(float(q[1]), 1)] for q in pts0])
@@ -685,6 +705,41 @@ def main():
     order = sorted([s_ for s_ in streets if s_["pts"] is not None], key=lambda s_: (-s_["way"]["prio"], -s_["w"]))
     for st in order:
         pts, w, way = st["pts"], st["w"], st["way"]
+        if way.get("alley"):
+            # an alley stops where it meets a street: its longest stretch clear of
+            # the roads already built (they come first), 3 studs short of them
+            P_ = [np.array(q, float) for q in pts]
+            dens = []
+            for k_ in range(len(P_) - 1):
+                seg_ = float(np.hypot(*(P_[k_ + 1] - P_[k_])))
+                if seg_ < 1e-6:
+                    continue
+                u_ = (P_[k_ + 1] - P_[k_]) / seg_
+                nrm_ = np.array([-u_[1], u_[0]])
+                for s_ in np.arange(0.0, seg_, 2.0):
+                    q_ = P_[k_] + u_ * s_
+                    hit_ = False
+                    for b_ in np.arange(-w / 2 - 3, w / 2 + 3.01, 2.0):
+                        i_, j_ = int((q_[0] + nrm_[0] * b_ - bx0) / bcell), int((q_[1] + nrm_[1] * b_ - bz0) / bcell)
+                        if 0 <= i_ < bnx and 0 <= j_ < bnz and covered[i_, j_]:
+                            hit_ = True
+                            break
+                    dens.append((q_, hit_))
+            best_, cur_ = [], []
+            for q_, h_ in dens:
+                if h_:
+                    if len(cur_) > len(best_): best_ = cur_
+                    cur_ = []
+                else:
+                    cur_.append(q_)
+            if len(cur_) > len(best_): best_ = cur_
+            if len(best_) * 2.0 < ALLEY_MIN_L:
+                dropped["alley too short between streets"] += 1
+                continue
+            pts = [best_[0]] + [q_ for q_ in P_ if any(np.hypot(*(q_ - b2_)) < 1.0 for b2_ in best_[1:-1])] + [best_[-1]]
+            pts = [np.array(q, float) for q in RP.simplify([tuple(q) for q in pts], STRAIGHTEN)]
+            if len(pts) < 2:
+                continue
         cum = [0.0]
         for k in range(len(pts) - 1):
             cum.append(cum[-1] + float(np.hypot(*(pts[k + 1] - pts[k]))))
@@ -822,7 +877,8 @@ def main():
                         continue
                     lift = 0.04 * (k % 2)     # slabs overlapping at a bend never z-fight
                     if emit("roadway", mx_, (y0_ + y1_) / 2 + ROAD_LIFT + lift, mz_, math.atan2(uz, ux),
-                            math.atan2(y1_ - y0_, L_), L_, RP.THICKNESS, sw_, way["kind"], way["id"], st["small"]):
+                            math.atan2(y1_ - y0_, L_), L_, RP.THICKNESS, sw_, way["kind"], way["id"], st["small"],
+                            "alley" if way.get("alley") else None):
                         for c_ in cells_:
                             covered[c_] = True
                             cov_yaw[c_] = math.atan2(uz, ux)
@@ -969,7 +1025,8 @@ def main():
         return any((x - jx) ** 2 + (z - jz) ** 2 <= (jr + 2.0) ** 2 for jx, jz, jr in jc_list
                    if abs(x - jx) <= jr + 2 and abs(z - jz) <= jr + 2)
     n_side = 0
-    side_rows = [r for rows in tiles.values() for r in rows if r[0] == "roadway" and len(r) > 12 and r[12]]
+    side_rows = [r for rows in tiles.values() for r in rows if r[0] == "roadway" and len(r) > 12 and r[12]
+                 and not (len(r) > 13 and r[13] == "alley")]
     for r in side_rows:
         _, rx, top, rz, yaw, pitch, L, _, W = r[:9]
         ux, uz = math.cos(yaw), math.sin(yaw)

@@ -32,6 +32,8 @@ local LOOK = {
 }
 
 local SMALL_CHECK_COLOR = Color3.fromRGB(235, 200, 40)
+-- alleys (OSM service / footway between buildings): ORANGE while being checked
+local ALLEY_CHECK_COLOR = Color3.fromRGB(255, 120, 0)
 
 local function fetch(name)
 	local ok, body = pcall(function() return Http:GetAsync(SINK .. name .. ".json", true) end)
@@ -97,8 +99,9 @@ function RoadBuilder.BuildTile(name)
 		-- small streets (2 lanes or fewer, tools/road_fit.py centres them between the
 		-- buildings): YELLOW while their placement is being checked (owner, Oct 6)
 		if s[13] == true and kind == "roadway" then
-			part.Color = SMALL_CHECK_COLOR
+			part.Color = s[14] == "alley" and ALLEY_CHECK_COLOR or SMALL_CHECK_COLOR
 			part:SetAttribute("RoadSmall", true)
+			if s[14] == "alley" then part:SetAttribute("RoadAlley", true) end
 		end
 		part:SetAttribute("RoadWay", wayId)
 		part.Parent = model
