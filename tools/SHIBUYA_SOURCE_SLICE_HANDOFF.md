@@ -2554,3 +2554,38 @@ will have to cover those).
 Measurement snippet: `ServerStorage.Measure` (`M.floors(post)`) casts just outside every corner of
 every ground-floor piece, keeps hits with no building part above them, and counts ground above the
 piece's top.
+
+## SMALL STREETS CENTRED, SIDEWALK SLABS, GROUND WITHIN THE FLOOR SLAB — Oct 6
+
+Owner: centre the small (2 lanes max) streets between the buildings, size them properly, then
+proper sidewalks; terrain within the floor slab and flat; roads YELLOW, sidewalks BLUE while
+checking (change back when set); main roads probably by hand; use the FBX to verify.
+
+* `tools/fbx_mask.py` -> `ground/fbx_footprints.npz`: PLATEAU FBX ground footprints (triangles in
+  the lowest 12 studs of each building, outlines filled) on the 2-stud live grid. The faces a
+  small street is centred between are live buildings OR FBX ones.
+* `road_fit.py` small streets (residential / unclassified / living_street / pedestrian /
+  tertiary <= 2 lanes, row field 13 = true): each straight segment moved to the middle between
+  the faces on its two sides (median of readings every 4 studs, scan 120); a reading inside a
+  building first steps sideways <= 24 to open ground (OSM up to ~11 m off); with one side open,
+  3 m of sidewalk off the face. Width: lanes x 3.25 m + 1 m (2 lanes 7.5 m), grown to the
+  corridor less 3 m sidewalks up to two lanes; wall to wall in alleys and pedestrian streets.
+* SIDEWALK slabs (`sidewalk` rows, small streets only): from the road edge to the face (live +
+  FBX; <= 40 studs, 3 m where no face), split where the face steps (> 3 studs), none in junction
+  circles / road mouths (another road < 8 studs) / under 16 studs long; ONE height per street side:
+  1 under the lowest floor along it, 0.5..4 above the road. `RoadBuilder.ClearOfBuildings` trims
+  a sidewalk from the side that touches a building.
+* Ground: `ground_clamp.py` builds a FLOOR SURFACE -- pinned 2 under the nearest ground-floor top
+  in an 8-stud ring round every building, a smooth membrane between, natural 120+ studs out; each
+  cell capped by its NEAREST building (Voronoi, the old band+cone dragged ground down to a lower
+  neighbour). The 360 cap now holds only the roads. `road_ground.py`: floor surface everywhere
+  but the last 8 studs at a road edge; ground under sidewalks sunk 3, and a 4-stud band beyond
+  them 0.6 under their top.
+* Paint: the strip from every slab edge to the building face is Pavement (blue for now).
+
+Measured: small streets off-centre (live + FBX faces) median 1.5, p90 6.2 studs; ground next to
+buildings within the ground-floor slab 82% (worst render), median 2 under the floor top; ground
+above a floor top 0.04% (all under half a stud). 936 road slabs (25.3 km), ~2900 sidewalk slabs.
+
+Check colours: `RoadBuilder` SMALL_CHECK_COLOR (yellow) + LOOK.sidewalk (blue);
+`GroundTerrain.PaintAll` Pavement 20,70,255. Put back 88,88,92 / concrete / 112,111,110.
