@@ -651,6 +651,11 @@ def main():
 
     def street_profile(pts, w, cum, tl):
         ss = np.arange(0, tl + 0.1, 4.0)
+        # the exact end too: heights at the street's end were read off the last
+        # sample before it, and ends meeting at one junction rounded to different
+        # 2-stud levels (64.26 vs 63.86 -> a 2-stud step)
+        if tl - ss[-1] > 1e-6:
+            ss = np.append(ss, tl)
 
         def at(s_, pts=pts, cum=cum):
             k_ = max(0, min(len(pts) - 2, int(np.searchsorted(cum, s_, side="right") - 1)))
