@@ -56,6 +56,19 @@ def main():
             if r[0] == "roadway":
                 side[i0:i1, k0:k1] |= along & (np.abs(b) > W / 2) & (np.abs(b) <= W / 2 + SIDE_MAX)
     side &= ~road & ~M
+    # junction gaps stay asphalt (the streets meet across them); everything else
+    # open is pavement (owner, Oct 6: verify the roads -- open lots painted asphalt
+    # read as road)
+    jroad = np.zeros_like(M)
+    for jn in json.loads((D / "roads" / "junctions.json").read_text()):
+        jx, jz, jr = jn[0], jn[1], jn[2]
+        i0 = max(int((jx - jr - x0) / c), 0); i1 = min(int((jx + jr - x0) / c) + 1, NXm)
+        k0 = max(int((jz - jr - z0) / c), 0); k1 = min(int((jz + jr - z0) / c) + 1, NZm)
+        if i1 <= i0 or k1 <= k0:
+            continue
+        I, K = np.meshgrid(np.arange(i0, i1), np.arange(k0, k1), indexing="ij")
+        jroad[i0:i1, k0:k1] |= (x0 + (I + 0.5) * c - jx) ** 2 + (z0 + (K + 0.5) * c - jz) ** 2 <= jr * jr
+    road |= jroad & ~M
     out = D / "paint"
     out.mkdir(exist_ok=True)
     index = json.loads((D / "terrain" / "index.json").read_text())
@@ -75,10 +88,8 @@ def main():
                     v = "s"      # under a building: pavement, flush with the sidewalk beside it
                 elif road[mi, mj]:
                     v = "a"
-                elif side[mi, mj] or dist[mi, mj] <= SIDEWALK:
-                    v = "s"
                 else:
-                    v = "a"
+                    v = "s"          # sidewalks, plazas, lots: pavement
                 row.append(v)
                 counts[v] += 1
             rows.append("".join(row))

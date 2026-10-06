@@ -1098,7 +1098,9 @@ def main():
         return any((x - jx) ** 2 + (z - jz) ** 2 <= (jr + 2.0) ** 2 for jx, jz, jr in jc_list
                    if abs(x - jx) <= jr + 2 and abs(z - jz) <= jr + 2)
     n_side = 0
-    side_rows = [r for rows in tiles.values() for r in rows if r[0] == "roadway" and len(r) > 12 and r[12]
+    # every street gets them, main ones too (the ground beside a main road rose in
+    # mounds to the floors above it); never alleys
+    side_rows = [r for rows in tiles.values() for r in rows if r[0] == "roadway"
                  and not (len(r) > 13 and r[13] == "alley")]
     for r in side_rows:
         _, rx, top, rz, yaw, pitch, L, _, W = r[:9]

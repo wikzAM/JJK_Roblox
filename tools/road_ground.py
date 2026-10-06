@@ -38,6 +38,7 @@ MEET = -0.4       # open ground aimed this far relative to the road surface it c
 EDGE = 4.0        # under a slab within this of its edge, the ground stays just below it
 DEEP = 2.2        # ... and this far below it deeper in (isolated voxels render as peaks)
 FAR = 40.0        # (unused since Oct 6: see JOIN)
+FS_RING = 8.0     # studs round a building where the ground is its floor surface
 SIDE_SINK = 3.0   # studs the ground stays under a sidewalk slab's top
 JOIN = 8.0        # studs from a road over which the ground goes from the road's level to the floor surface
 SMOOTH_PASSES = 12
@@ -151,7 +152,15 @@ def main():
     # blend back to the natural ground far from roads
     # the floor surface everywhere but the last JOIN studs at a road's edge
     # (Oct 6: blending over 40 studs held the ground a median 3.2, p90 13 under the floors)
-    wnat = np.clip((dist - 2.0) / (JOIN - 2.0), 0, 1)
+    # Across the open ground between a road and a building the ground goes from the
+    # road's level to the building's floor surface in proportion to the distances
+    # (a fixed JOIN made plazas next to a lower road a bank right at its edge)
+    lf0 = np.load(D / "live_footprints.npz")
+    M0, mx00, mz00, mc0 = lf0["mask"], float(lf0["x0"]), float(lf0["z0"]), float(lf0["cell"])
+    bld0 = M0[np.ix_(np.clip(((XC - mx00) / mc0).astype(int), 0, M0.shape[0] - 1),
+                     np.clip(((ZC - mz00) / mc0).astype(int), 0, M0.shape[1] - 1))]
+    db0 = np.maximum(ndimage.distance_transform_edt(~bld0) * CELL - FS_RING, 0.0)
+    wnat = np.clip((dist - 2.0) / np.maximum(dist - 2.0 + db0, 1e-6), 0, 1)
     # (capping this at the road surface F was tried: it cut the slopes hillside
     # buildings stand on, leaving ground floors up to 21 studs in the air)
     vis = (1 - wnat) * F + wnat * natural_vis
