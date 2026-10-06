@@ -49,6 +49,9 @@ NEAR_ANY = 6.0     # studs: no ground above any floor this close
 VORONOI_R = 60.0   # studs: within this the ground is capped by its nearest building's floor
 FS_BELOW = 2.0     # studs under the nearest ground-floor top the ground is pinned (slab is 5.36)
 FS_PIN = 8.0       # ... in a ring this wide around every building
+FS_LO = 4.5        # the ground next to a building: at most this under its floor top (slab 5.36)
+FS_HI = 1.0        # ... and at least this
+FS_FLAT_PASSES = 30
 FS_PASSES = 16     # membrane smoothing passes between the pins
 FS_SIGMA = 2.0     # cells
 FS_FAR = 120.0     # studs past the last building before the natural ground takes over
@@ -217,11 +220,20 @@ def main():
     for _ in range(FS_PASSES):
         FS = ndimage.gaussian_filter(FS, FS_SIGMA, mode="nearest")
         FS[Kf] = known[Kf]
+    # FLATTEN within the slack: next to a building the ground may sit anywhere in
+    # [floor - FS_LO, floor - FS_HI] (it still meets the slab's side face), so the
+    # surface is smoothed further with the ring only CLAMPED to that band, not pinned
+    lo_ = np.where(Kf, near_floor - FS_LO, -np.inf)
+    hi_ = np.where(Kf, near_floor - FS_HI, np.inf)
+    for _ in range(FS_FLAT_PASSES):
+        FS = ndimage.gaussian_filter(FS, FS_SIGMA, mode="nearest")
+        FS = np.clip(FS, lo_, hi_)
+    FS_flat = FS.copy()
     FS = np.minimum(FS, cap)                                  # never over a floor
     # the pinned ring itself straight from the pins after the cap: a lower
     # neighbour's cap rippling in held the ring under its own building (the
     # pins already respect every floor within 6 studs, below)
-    ring_cap = np.minimum(known, ndimage.minimum_filter(np.where(np.isfinite(FLv), FLv - GAP, np.inf),
+    ring_cap = np.minimum(np.clip(FS_flat, lo_, hi_), ndimage.minimum_filter(np.where(np.isfinite(FLv), FLv - GAP, np.inf),
                                                        size=2 * int(math.ceil(NEAR_ANY / CELL)) + 1, mode="nearest"))
     FS = np.where(Kf, np.minimum(ring_cap, cap + RING_SLACK), FS)
     wfar = np.clip((dB - FS_FAR) / FS_FAR, 0, 1)
