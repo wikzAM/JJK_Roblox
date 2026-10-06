@@ -2607,3 +2607,24 @@ Check colours: `RoadBuilder` SMALL_CHECK_COLOR (yellow) + LOOK.sidewalk (blue);
 Measured (Studio): every visible surface 3 studs outside every ground-floor piece within the
 5.36-stud slab 79%; above a floor 12 of 149k samples. Small streets off-centre (live + FBX faces)
 median 1.5, p90 6.2. Known leftover: the hill cliff at (2350, -250) spills terrain over a street.
+
+### Oct 6 (late) — main streets centred, fragments out, even sidewalks, check-colour switch
+
+* Main streets are centred the same way (width = OSM width capped by the corridor less 3 m
+  sidewalks); they stay dark asphalt. Small streets off-centre median 1.0, main 1.5 studs.
+* Fragments dropped: short slabs with a loose end, short slabs crossing another street (plus
+  signs), whole streets under 100 studs with loose ends.
+* Street profiles include the exact end, so ends meeting at a junction no longer round to
+  different 2-stud levels (junctions with > 1 stud spread 58 -> 30, the rest cliff streets).
+* Sidewalks: runs under 24 studs merge (median piece 60 studs); none narrower than 6 studs;
+  curb 0.5..2; neighbouring pieces level to the lowest curb, also across road slabs (joints
+  stepping > 0.6: 308 -> 47).
+* `RoadBuilder.SetCheckColors(false)` switches the yellow/orange/blue check colours to the final
+  asphalt/concrete in place (true puts them back). BuildTile always builds with check colours.
+
+Measured: ground above a ground-floor top 0 of 150k samples; every surface 3 studs outside a
+ground-floor piece within the slab 79%; road widths small 7.2 m, main 9.1 m, alleys 2.9 m.
+
+Open: on hillsides one side of a street can be > 5.36 studs under its building's floor (35% of
+sidewalks) because a flat street cannot meet both sides; the options are raised "terrace"
+sidewalks (a retaining wall at the curb) or plinths/facades. Owner to choose.
