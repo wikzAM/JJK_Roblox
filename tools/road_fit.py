@@ -67,6 +67,7 @@ SIDE_MIN_M = 1.0     # metres: narrower than lanes + two of these, a small stree
 SIDE_MAX = 40.0      # studs: the widest sidewalk slab (~9.5 m)
 SIDE_MIN_W = 3.0     # ... and the narrowest
 MOUTH = 8.0          # studs: another road this close beside a street is a mouth, no sidewalk
+SIDE_MIN_REAL = 6.0  # studs (~1.4 m): narrower sidewalks are left out
 SIDE_MIN_L = 16.0    # studs: shorter sidewalk pieces are left out
 SIDE_STEP = 3.0      # studs the face reach may vary within one sidewalk slab
 SIDE_OPEN_M = 3.0    # metres of sidewalk where no building face is within SIDE_MAX
@@ -1158,6 +1159,10 @@ def main():
             for run in runs:
                 a0, a1 = run[0][0] - 1.0, run[-1][0] + 1.0
                 if a1 - a0 < SIDE_MIN_L:
+                    continue
+                # a strip narrower than this between road and building is left as
+                # paved ground (a 3-stud slab with a curb was a kerb stone, not a walk)
+                if float(np.percentile([d_ for _, d_ in run], 10)) - 0.5 < SIDE_MIN_REAL:
                     continue
                 sw = min(max(SIDE_MIN_W, float(np.percentile([d_ for _, d_ in run], 10)) - 0.5), SIDE_MAX)
                 am = (a0 + a1) / 2
