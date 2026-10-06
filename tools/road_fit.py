@@ -66,6 +66,7 @@ SCAN_C = 120.0       # studs: how far across a small street the building faces a
 SIDE_MIN_M = 1.0     # metres: narrower than lanes + two of these, a small street is wall to wall
 SIDE_MAX = 40.0      # studs: the widest sidewalk slab (~9.5 m)
 SIDE_MIN_W = 3.0     # ... and the narrowest
+SIDE_STEP = 3.0      # studs the face reach may vary within one sidewalk slab
 SIDE_OPEN_M = 3.0    # metres of sidewalk where no building face is within SIDE_MAX
 CURB = 0.5           # studs a sidewalk stands above its street (at least)
 SIDE_RISE = 4.0      # ... and at most
@@ -960,6 +961,11 @@ def main():
         i = min(max(int((x - fx0) / 4.0), 0), FLn.shape[0] - 1)
         k = min(max(int((z - fz0) / 4.0), 0), FLn.shape[1] - 1)
         return float(FLn[i, k])
+    jc_list = [(float(c_[0]), float(c_[1]), float(R_)) for c_, R_ in cl_info.values()]
+
+    def in_junction(x, z):
+        return any((x - jx) ** 2 + (z - jz) ** 2 <= (jr + 2.0) ** 2 for jx, jz, jr in jc_list
+                   if abs(x - jx) <= jr + 2 and abs(z - jz) <= jr + 2)
     n_side = 0
     side_rows = [r for rows in tiles.values() for r in rows if r[0] == "roadway" and len(r) > 12 and r[12]]
     for r in side_rows:
@@ -970,6 +976,9 @@ def main():
             st_, rc_ = [], []
             for a in np.arange(-L / 2 + 1.0, L / 2 - 0.99, 2.0):
                 ex, ez = rx + ux * a + nx_ * sg * W / 2, rz + uz * a + nz_ * sg * W / 2
+                if in_junction(ex + nx_ * sg * 2.0, ez + nz_ * sg * 2.0):
+                    st_.append(a); rc_.append(0.0)       # a side street's mouth: no sidewalk across it
+                    continue
                 # (the first 2 studs share 2-stud cells with this street's own slab)
                 d_ = 2.0 if not blocked[min(max(int((ex + nx_ * sg * 2 - bx0) / bcell), 0), bnx - 1),
                                        min(max(int((ez + nz_ * sg * 2 - bz0) / bcell), 0), bnz - 1)] else 0.0
@@ -982,27 +991,41 @@ def main():
                 # no building face within reach: a standard sidewalk, not the whole lot
                 st_.append(a); rc_.append(SIDE_OPEN_M * s if d_ >= SIDE_MAX else d_)
             # runs of stations with room for a sidewalk
+            # runs of stations with room for a sidewalk, split where the reach to
+            # the building face changes (one width per run left gaps of terrain
+            # between a narrow sidewalk and a set-back building)
             runs, cur = [], []
             for a, d_ in zip(st_, rc_):
-                if d_ >= SIDE_MIN_W:
+                if d_ >= SIDE_MIN_W and (not cur or abs(d_ - float(np.median([q[1] for q in cur]))) <= SIDE_STEP):
                     cur.append((a, d_))
-                elif cur:
-                    runs.append(cur); cur = []
+                else:
+                    if cur:
+                        runs.append(cur)
+                    cur = [(a, d_)] if d_ >= SIDE_MIN_W else []
             if cur:
                 runs.append(cur)
+            # short runs merge into a neighbour (take the narrower width)
+            merged = []
+            for run in runs:
+                if merged and (run[-1][0] - run[0][0] < 10.0 or merged[-1][-1][0] - merged[-1][0][0] < 10.0)                         and abs(run[0][0] - merged[-1][-1][0]) <= 2.01:
+                    merged[-1] = merged[-1] + run
+                else:
+                    merged.append(run)
+            runs = merged
+            side_fl = min([floor_near(rx + ux * a + nx_ * sg * (W / 2 + d_ + 2.0), rz + uz * a + nz_ * sg * (W / 2 + d_ + 2.0))
+                           for run in runs for a, d_ in run] or [1e9])
             for run in runs:
                 a0, a1 = run[0][0] - 1.0, run[-1][0] + 1.0
                 if a1 - a0 < 8.0:
                     continue
-                sw = min(max(SIDE_MIN_W, float(np.percentile([d_ for _, d_ in run], 20)) - 0.5), SIDE_MAX)
+                sw = min(max(SIDE_MIN_W, float(np.percentile([d_ for _, d_ in run], 10)) - 0.5), SIDE_MAX)
                 am = (a0 + a1) / 2
                 off = sg * (W / 2 + sw / 2)
                 sx, sz = rx + ux * am + nx_ * off, rz + uz * am + nz_ * off
                 # height: just under the LOWEST floor along its outer edge, between a
                 # CURB and SIDE_RISE above the road (owner: terrain within the floor slab;
                 # the road itself stays under every floor around it)
-                fl_ = min(floor_near(rx + ux * a + nx_ * sg * (W / 2 + sw + 2.0), rz + uz * a + nz_ * sg * (W / 2 + sw + 2.0))
-                          for a, _ in run)
+                fl_ = side_fl                      # one height for the whole side of the street
                 road_at = top + am * math.tan(pitch)
                 y_side = min(max(fl_ - SIDE_BELOW - abs(math.tan(pitch)) * (a1 - a0) / 2, road_at + CURB), road_at + SIDE_RISE)
                 if emit("sidewalk", sx, y_side, sz, yaw, pitch, a1 - a0,
