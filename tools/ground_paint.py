@@ -69,6 +69,45 @@ def main():
         I, K = np.meshgrid(np.arange(i0, i1), np.arange(k0, k1), indexing="ij")
         jroad[i0:i1, k0:k1] |= (x0 + (I + 0.5) * c - jx) ** 2 + (z0 + (K + 0.5) * c - jz) ** 2 <= jr * jr
     road |= jroad & ~M
+    # every drivable OSM street at its OSM width, built or not: the main roads are
+    # to be laid by hand, and the Scramble Crossing read as a pavement plaza
+    import math as _m
+    sys.path.insert(0, str(ROOT))
+    import jgd_cs9
+    import road_parts as RP
+    g = json.loads((D / "tile_georef.json").read_text())
+    s_, rot = g["studs_per_m"], _m.radians(g["rotation_deg"])
+    mir = -1.0 if g["mirror_y"] else 1.0
+    cr, sr = _m.cos(rot), _m.sin(rot)
+
+    def to_studs(lat, lon):
+        e, n = jgd_cs9.to_xy(lat, lon)
+        x, y = e * s_, mir * n * s_
+        return x * cr - y * sr + g["t"][0], x * sr + y * cr + g["t"][1]
+    osm = json.loads((D / "osm_roads.json").read_text(encoding="utf-8"))
+    drive = {"trunk", "primary", "secondary", "tertiary", "residential", "unclassified", "living_street"}
+    for w in osm["elements"]:
+        tg = w.get("tags", {})
+        k = tg.get("highway")
+        if k not in drive or not w.get("geometry") or tg.get("tunnel") or tg.get("bridge")                 or tg.get("layer", "0") not in ("0", ""):
+            continue
+        wm = RP.KIND[k][0]
+        if tg.get("lanes", "").isdigit():
+            wm = int(tg["lanes"]) * RP.LANE_M + 1.0
+        half = wm * s_ / 2
+        P = [to_studs(q["lat"], q["lon"]) for q in w["geometry"]]
+        for (ax, az), (bx, bz) in zip(P, P[1:]):
+            L = _m.hypot(bx - ax, bz - az)
+            if L < 1e-6:
+                continue
+            for a in np.arange(0, L + 0.01, c):
+                px, pz = ax + (bx - ax) * a / L, az + (bz - az) * a / L
+                i0 = max(int((px - half - x0) / c), 0); i1 = min(int((px + half - x0) / c) + 1, NXm)
+                k0 = max(int((pz - half - z0) / c), 0); k1 = min(int((pz + half - z0) / c) + 1, NZm)
+                if i1 <= i0 or k1 <= k0:
+                    continue
+                I, K = np.meshgrid(np.arange(i0, i1), np.arange(k0, k1), indexing="ij")
+                road[i0:i1, k0:k1] |= ((x0 + (I + 0.5) * c - px) ** 2 + (z0 + (K + 0.5) * c - pz) ** 2 <= half * half)                     & ~M[i0:i1, k0:k1] & ~side[i0:i1, k0:k1]
     out = D / "paint"
     out.mkdir(exist_ok=True)
     index = json.loads((D / "terrain" / "index.json").read_text())
