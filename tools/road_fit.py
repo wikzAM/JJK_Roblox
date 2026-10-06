@@ -71,7 +71,7 @@ SIDE_MIN_L = 16.0    # studs: shorter sidewalk pieces are left out
 SIDE_STEP = 3.0      # studs the face reach may vary within one sidewalk slab
 SIDE_OPEN_M = 3.0    # metres of sidewalk where no building face is within SIDE_MAX
 CURB = 0.5           # studs a sidewalk stands above its street (at least)
-SIDE_RISE = 4.0      # ... and at most
+SIDE_RISE = 6.0      # ... and at most
 SIDE_BELOW = 1.0     # studs a sidewalk stays under the floor it runs along
 ALLEY_KINDS = {"service", "footway"}
 ALLEY_M = 4.0        # metres: an alley's nominal width
@@ -1163,7 +1163,10 @@ def main():
                 # height: just under the LOWEST floor along its outer edge, between a
                 # CURB and SIDE_RISE above the road (owner: terrain within the floor slab;
                 # the road itself stays under every floor around it)
-                fl_ = side_fl                      # one height for the whole side of the street
+                # the floor of the building THIS piece runs along (one height per side
+                # held the ground beside higher buildings far under their floors)
+                fl_ = min(floor_near(rx + ux * a + nx_ * sg * (W / 2 + d_ + 2.0), rz + uz * a + nz_ * sg * (W / 2 + d_ + 2.0))
+                          for a, d_ in run)
                 road_at = top + am * math.tan(pitch)
                 y_side = min(max(fl_ - SIDE_BELOW - abs(math.tan(pitch)) * (a1 - a0) / 2, road_at + CURB), road_at + SIDE_RISE)
                 if emit("sidewalk", sx, y_side, sz, yaw, pitch, a1 - a0,

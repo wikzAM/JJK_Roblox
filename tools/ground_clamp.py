@@ -23,6 +23,7 @@ for road heights.
   python tools/ground_clamp.py
 """
 import json
+import math
 import shutil
 import sys
 from pathlib import Path
@@ -43,6 +44,7 @@ DELTA_MAX = 4.0    # visible - encoded, upper end (measured)
 DELTA_MED = 2.8    # ... median, for the expected visible surface
 FILE_TO_STUDIO = 2.5
 CELL = 4.0
+NEAR_ANY = 6.0     # studs: no ground above any floor this close
 VORONOI_R = 60.0   # studs: within this the ground is capped by its nearest building's floor
 FS_BELOW = 2.0     # studs under the nearest ground-floor top the ground is pinned (slab is 5.36)
 FS_PIN = 8.0       # ... in a ring this wide around every building
@@ -154,9 +156,16 @@ def main():
     # building within BAND: with neighbours on different floors the band + cone held
     # the ground beside the higher one down at the lower one's level (median 8.7 under
     # its floor). The cone below still rises from there.
-    _, nidx = ndimage.distance_transform_edt(~np.isfinite(T), return_indices=True)
-    nd_ = ndimage.distance_transform_edt(~np.isfinite(T)) * CELL
-    cap = np.where(nd_ <= VORONOI_R, T[tuple(nidx)] - GAP, np.inf)
+    # per ground-floor PIECE (tools/floor_cap.py FL), not per building: T holds a
+    # building's lowest floor everywhere, which held the ground on the high side of
+    # split-level hillside buildings far under their floor
+    fc0 = np.load(D / "floor_cap.npz")
+    FLv = np.where(fc0["BM"], fc0["FL"].astype(float), np.inf)
+    assert FLv.shape == T.shape
+    FLv = np.where(np.isfinite(FLv) | ~np.isfinite(T), FLv, T)    # (skipped records stay out)
+    _, nidx = ndimage.distance_transform_edt(~np.isfinite(FLv), return_indices=True)
+    nd_ = ndimage.distance_transform_edt(~np.isfinite(FLv)) * CELL
+    cap = np.where(nd_ <= VORONOI_R, FLv[tuple(nidx)] - GAP, np.inf)
     step, diag = SLOPE * CELL, SLOPE * CELL * 2 ** 0.5
     for _ in range(200):
         p = np.pad(cap, 1, mode="edge")
@@ -165,6 +174,15 @@ def main():
         if np.array_equal(new, cap):
             break
         cap = new
+    # the cone only beyond the nearest-building zone: inside it, rippling a low
+    # building's cap across the boundary held the ground beside its higher
+    # neighbour up to 18 studs under that neighbour's floor
+    cap = np.where(nd_ <= VORONOI_R, FLv[tuple(nidx)] - GAP, cap)
+    # ...but never above ANY floor within NEAR_ANY studs (in a corner between a high
+    # and a low building the nearest-building rule put ground over the low one)
+    near_any = ndimage.minimum_filter(np.where(np.isfinite(FLv), FLv - GAP, np.inf),
+                                      size=2 * int(math.ceil(NEAR_ANY / CELL)) + 1, mode="nearest")
+    cap = np.minimum(cap, near_any)
     # 2b. the 360-degree floor cap (tools/floor_cap.py): never above the floor of
     # the nearest building in any direction
     fc = np.load(D / "floor_cap.npz")
