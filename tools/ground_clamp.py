@@ -43,6 +43,11 @@ DELTA_MAX = 4.0    # visible - encoded, upper end (measured)
 DELTA_MED = 2.8    # ... median, for the expected visible surface
 FILE_TO_STUDIO = 2.5
 CELL = 4.0
+FS_BELOW = 1.5     # studs under the nearest ground-floor top the ground is pinned (slab is 5.36)
+FS_PIN = 8.0       # ... in a ring this wide around every building
+FS_PASSES = 16     # membrane smoothing passes between the pins
+FS_SIGMA = 2.0     # cells
+FS_FAR = 120.0     # studs past the last building before the natural ground takes over
 ROAD_UNDER = 0.5   # studs a road surface stays under the 360-degree floor cap (itself floor - 1)
 MAX_CUT = 10.0     # studs: buildings needing a deeper cut than this are skipped
 
@@ -159,12 +164,41 @@ def main():
     fc = np.load(D / "floor_cap.npz")
     assert fc["CAP"].shape == cap.shape, "floor_cap.npz is on a different grid -- re-run tools/floor_cap.py"
     CAP360 = np.where(fc["CAP"] >= 1e5, np.inf, fc["CAP"].astype(float))
-    cap = np.minimum(cap, CAP360)
+    # (Oct 6: the 360-degree cap holds the ROADS only -- see rc below. Applied to
+    # the terrain it held the ground beside a high-set building down to the floor
+    # of a lower one across the street; the owner wants the ground within each
+    # building's own floor slab. The terrain keeps the per-building cone above.)
     # 3. file heights clamped, and the expected visible surface for the roads
     file_cap = cap - DELTA_MAX - FILE_TO_STUDIO
     clamped = np.where(np.isnan(H), H, np.minimum(H, file_cap))
     lowered = np.nansum((H - clamped) > 0.05)
     visible = clamped + FILE_TO_STUDIO + DELTA_MED
+    # THE FLOOR SURFACE (owner, Oct 6: "all the terrain should be within the floor
+    # slab in terms of elevations ... as flat as it can be"; lowering only had left
+    # ground up to 20 studs under the floors). Around every building the ground is
+    # pinned FS_BELOW under its ground-floor top; between buildings a smooth
+    # membrane spans the pins (nearest fill + pinned smoothing); natural ground only
+    # FS_FAR beyond the last building. Never above the cap.
+    FLc = np.where(fc["BM"], fc["FL"].astype(float), np.nan)
+    BMc = fc["BM"]
+    dB, iB = ndimage.distance_transform_edt(~BMc, return_indices=True)
+    dB *= CELL
+    near_floor = FLc[tuple(iB)]
+    pin = (dB > 0) & (dB <= FS_PIN)
+    known = np.where(pin, near_floor - FS_BELOW, np.nan)
+    Kf = np.isfinite(known)
+    _, iK = ndimage.distance_transform_edt(~Kf, return_indices=True)
+    FS = known[tuple(iK)]
+    for _ in range(FS_PASSES):
+        FS = ndimage.gaussian_filter(FS, FS_SIGMA, mode="nearest")
+        FS[Kf] = known[Kf]
+    FS = np.minimum(FS, cap)                                  # never over a floor
+    wfar = np.clip((dB - FS_FAR) / FS_FAR, 0, 1)
+    FS = np.where(np.isnan(H), np.nan, (1 - wfar) * FS + wfar * visible)
+    under_b = BMc                                             # under a building: left as clamped
+    visible = np.where(under_b | np.isnan(FS), visible, FS)
+    clamped = np.where(under_b | np.isnan(FS), clamped, FS - FILE_TO_STUDIO - DELTA_MED)
+    print(f"floor surface: change vs natural visible median {np.nanmedian(FS - (H + FILE_TO_STUDIO + DELTA_MED)):+.1f}")
     # written to terrain_clamped/ -- tools/road_ground.py builds the final
     # terrain/ chunks from these plus the roads
     out = D / "terrain_clamped"

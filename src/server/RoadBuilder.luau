@@ -28,6 +28,8 @@ local LOOK = {
 	pad = {material = Enum.Material.Asphalt, color = Color3.fromRGB(88, 88, 92)},
 }
 
+local SMALL_CHECK_COLOR = Color3.fromRGB(235, 200, 40)
+
 local function fetch(name)
 	local ok, body = pcall(function() return Http:GetAsync(SINK .. name .. ".json", true) end)
 	assert(ok, "Could not reach the sink -- is tools/source_slice_sink.py running? " .. tostring(body))
@@ -89,6 +91,12 @@ function RoadBuilder.BuildTile(name)
 		part.TopSurface = Enum.SurfaceType.Smooth
 		part.BottomSurface = Enum.SurfaceType.Smooth
 		part:SetAttribute("RoadClass", class)
+		-- small streets (2 lanes or fewer, tools/road_fit.py centres them between the
+		-- buildings): YELLOW while their placement is being checked (owner, Oct 6)
+		if s[13] == true then
+			part.Color = SMALL_CHECK_COLOR
+			part:SetAttribute("RoadSmall", true)
+		end
 		part:SetAttribute("RoadWay", wayId)
 		part.Parent = model
 	end

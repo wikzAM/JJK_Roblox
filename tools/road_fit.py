@@ -57,6 +57,13 @@ CLASH_H = 1.0        # studs: two streets' slabs may overlap only this close in 
 CLASH_NEAR = 3.0     # ... and lie within 4 studs of each other only this close
 CAP_GRADE = 0.2      # rise per stud at which a street's cap eases out of a dip
 MAX_SLAB_GRADE = 0.2  # rise per stud: steeper streets are stairs, left as ground
+CENTRE_ITER = 2      # small streets: centring passes
+CENTRE_MAX = 24.0    # ... studs a segment may move in one pass
+LANE_SMALL_M = 3.25  # metres per lane on a small street
+SHOULDER_M = 1.0     # ... plus this (2 lanes = 7.5 m, one-way 1 lane = 4.25 m)
+SIDE_TARGET_M = 3.0  # metres of sidewalk kept off a building face when only one side has buildings
+SCAN_C = 120.0       # studs: how far across a small street the building faces are looked for
+SIDE_MIN_M = 1.0     # metres: narrower than lanes + two of these, a small street is wall to wall
 SPLIT_DEV = 1.0      # studs a slab may ride over its street's capped profile before it is split
 BLEND = 20.0         # studs over which a street's height eases into its junction pad      # a turn sharper than this inside an edge gets a round joint
 DROP_KINDS = {"service"}
@@ -166,7 +173,9 @@ def main():
             # way, and both at the full road width stacked into each other
             road_m /= 2
         pts = [to_studs(p["lat"], p["lon"]) for p in w["geometry"]]
-        ways.append(dict(id=w["id"], kind=kind, prio=prio, width=road_m * s, nodes=w["nodes"], pts=pts))
+        lanes_tag = int(tags["lanes"]) if tags.get("lanes", "").isdigit() else None
+        ways.append(dict(id=w["id"], kind=kind, prio=prio, width=road_m * s, nodes=w["nodes"], pts=pts,
+                         lanes=lanes_tag, oneway=oneway))
     uses = defaultdict(int)
     for w in ways:
         for k, nid in enumerate(w["nodes"]):
@@ -328,13 +337,14 @@ def main():
     tiles, counts, total = defaultdict(list), defaultdict(int), 0.0
     dropped = defaultdict(int)
 
-    def emit(kind, x, y, z, yaw, pitch, length, thick, width, cls, wid):
+    def emit(kind, x, y, z, yaw, pitch, length, thick, width, cls, wid, small=False):
         if not in_city(x, z):
             dropped["outside the city"] += 1
             return False
         key = (int(math.floor(x / RP.TILE)), int(math.floor(z / RP.TILE)))
         tiles[key].append([kind, round(x, 2), round(y, 2), round(z, 2), round(yaw, 5), round(pitch, 5),
-                           round(length, 2), round(thick, 2), round(width, 2), cls, wid])
+                           round(length, 2), round(thick, 2), round(width, 2), cls, wid]
+                          + ([0, True] if small else []))
         counts[kind] += 1
         return True
 
@@ -352,12 +362,123 @@ def main():
             reach += 1.0
         return reach
 
+    # SMALL streets (2 lanes or fewer; owner, Oct 6: "so many of the roads lean to one
+    # way or the other ... the roads need to be in the center of the buildings,
+    # properly sized, and then have properly sized sidewalks"). Each straight
+    # segment is moved to the middle of the open run between the building faces on
+    # its two sides (median over samples every 4 studs, both sides bounded within
+    # SCAN), the vertices rebuilt as the meeting points of the moved segments.
+    def is_small(way):
+        if way["kind"] in ("residential", "unclassified", "living_street", "pedestrian"):
+            return True
+        return way["kind"] == "tertiary" and (way["lanes"] or 2) <= 2
+
+    CSTAT = defaultdict(int)
+
+    # the faces a small street is centred between: the live buildings AND the
+    # PLATEAU FBX ones (tools/fbx_mask.py) -- a real building missing from the map
+    # still marks where the street's edge is (owner: verify against the FBX)
+    fbm = np.load(DATA / "fbx_footprints.npz")["mask"] if (DATA / "fbx_footprints.npz").exists() else None
+    face_mask = blocked | fbm if fbm is not None and fbm.shape == blocked.shape else blocked
+
+    def is_face(x, z):
+        i, j = int((x - bx0) / bcell), int((z - bz0) / bcell)
+        return not (0 <= i < bnx and 0 <= j < bnz) or bool(face_mask[i, j])
+
+    def reach_c(x, z, nxv, nzv):
+        r_ = 0.0
+        while r_ < SCAN_C and not is_face(x + nxv * (r_ + 1), z + nzv * (r_ + 1)):
+            r_ += 1.0
+        return r_
+
+    def seg_readings(a, b):
+        seg = float(np.hypot(*(b - a)))
+        if seg < 1.0:
+            return [], None
+        u = (b - a) / seg
+        nrm = np.array([-u[1], u[0]])
+        out = []
+        for s_ in np.arange(2.0, seg - 1.9, 4.0):
+            q = a + u * s_
+            out.append((reach_c(q[0], q[1], nrm[0], nrm[1]), reach_c(q[0], q[1], -nrm[0], -nrm[1])))
+        return out, nrm
+
+    def sample_offset(L, R, w):
+        """Sideways move (toward the L side) that centres the street at this reading."""
+        if L < SCAN_C and R < SCAN_C:
+            return (L - R) / 2                      # buildings both sides: the middle
+        want = w / 2 + SIDE_TARGET_M * s           # one side only: a sidewalk off that face
+        if L < SCAN_C:
+            return min(L - want, 0.0)               # only ever AWAY from the building
+        if R < SCAN_C:
+            return max(want - R, 0.0)
+        return None
+
+    def centre_line(pts, w):
+        P = [np.array(q, float) for q in pts]
+        for _ in range(CENTRE_ITER):
+            offs, nrms = [], []
+            for k in range(len(P) - 1):
+                rd, nrm = seg_readings(P[k], P[k + 1])
+                if nrm is None:
+                    nrm = nrms[-1] if nrms else np.array([0.0, 1.0])
+                os_ = [o_ for o_ in (sample_offset(L, R, w) for L, R in rd) if o_ is not None]
+                o = float(np.median(os_)) if len(os_) >= 3 else 0.0
+                CSTAT['few' if len(rd) < 3 else ('open' if len(os_) < 3 else ('moved' if abs(o) > 0.5 else 'centred'))] += 1
+                offs.append(max(-CENTRE_MAX, min(CENTRE_MAX, o)))
+                nrms.append(nrm)
+            Q = [P[0] + nrms[0] * offs[0]]
+            for j in range(1, len(P) - 1):
+                a1, d1 = P[j - 1] + nrms[j - 1] * offs[j - 1], P[j] - P[j - 1]
+                a2, d2 = P[j] + nrms[j] * offs[j], P[j + 1] - P[j]
+                cr = d1[0] * d2[1] - d1[1] * d2[0]
+                if abs(cr) < 1e-3 * np.hypot(*d1) * np.hypot(*d2):
+                    Q.append(P[j] + (nrms[j - 1] * offs[j - 1] + nrms[j] * offs[j]) / 2)
+                else:
+                    tt = ((a2 - a1)[0] * d2[1] - (a2 - a1)[1] * d2[0]) / cr
+                    Q.append(a1 + d1 * tt)
+            Q.append(P[-1] + nrms[-1] * offs[-1])
+            P = Q
+        widths = []
+        for k in range(len(P) - 1):
+            rd, _ = seg_readings(P[k], P[k + 1])
+            widths += [L + R for L, R in rd if L < SCAN_C and R < SCAN_C]
+        return P, widths
+
+    def lanes_width(way):
+        lanes = way["lanes"] or (1 if way["oneway"] else 2)
+        return (min(lanes, 2) * LANE_SMALL_M + SHOULDER_M) * s
+
+    def small_width(way, widths):
+        lanes_w = lanes_width(way)
+        if not widths:
+            return math.floor(lanes_w / 2) * 2
+        c = float(np.percentile(widths, 25))
+        if way["kind"] == "pedestrian":
+            w = c - 2 * MARGIN                      # a pedestrian street is wall to wall
+        elif c >= lanes_w + 2 * SIDE_MIN_M * s:
+            w = lanes_w                            # room for the lanes and both sidewalks
+        else:
+            w = c - 2 * MARGIN                      # an alley: the street is the whole gap
+        return math.floor(max(w, 0.0) / 2) * 2
+
     # pass A: every street's straightened line and its one width
     streets = []
+    centred = []
     for f in fitted:
         way = f["way"]
         pts = [np.array(q, float) for q in RP.simplify([tuple(q) for q in f["pts"]], STRAIGHTEN)]
         if len(pts) < 2:
+            continue
+        if is_small(way):
+            pts0 = [q.copy() for q in pts]
+            pts, widths = centre_line(pts, lanes_width(way))
+            w = small_width(way, widths)
+            if w < MIN_W:
+                dropped["street too narrow"] += 1
+                continue
+            centred.append(max(float(np.hypot(*(a_ - b_))) for a_, b_ in zip(pts, pts0)))
+            streets.append(dict(f=f, way=way, pts=pts, w=w, small=True, raw0=pts[0].copy(), raw1=pts[-1].copy()))
             continue
         clear = []
         for k in range(len(pts) - 1):
@@ -379,7 +500,10 @@ def main():
         if w < MIN_W:
             dropped["street too narrow"] += 1
             continue
-        streets.append(dict(f=f, way=way, pts=pts, w=w, raw0=pts[0].copy(), raw1=pts[-1].copy()))
+        streets.append(dict(f=f, way=way, pts=pts, w=w, small=False, raw0=pts[0].copy(), raw1=pts[-1].copy()))
+    if centred:
+        print("centring segments:", dict(CSTAT))
+        print(f"{len(centred)} small streets centred: moved median {np.median(centred):.1f}, p90 {np.percentile(centred, 90):.1f} studs")
 
     # pass B: intersections are left as GAPS. A junction is a CLUSTER of OSM
     # nodes (a big crossing has many); every street ending in a cluster stops on
@@ -667,7 +791,7 @@ def main():
                         continue
                     lift = 0.04 * (k % 2)     # slabs overlapping at a bend never z-fight
                     if emit("roadway", mx_, (y0_ + y1_) / 2 + ROAD_LIFT + lift, mz_, math.atan2(uz, ux),
-                            math.atan2(y1_ - y0_, L_), L_, RP.THICKNESS, sw_, way["kind"], way["id"]):
+                            math.atan2(y1_ - y0_, L_), L_, RP.THICKNESS, sw_, way["kind"], way["id"], st["small"]):
                         for c_ in cells_:
                             covered[c_] = True
                             cov_yaw[c_] = math.atan2(uz, ux)

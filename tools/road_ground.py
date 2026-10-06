@@ -37,7 +37,7 @@ MEET = -0.4       # open ground aimed this far relative to the road surface it c
                   # BELOW it (owner: terrain sat above the roads -- 51% of samples)
 EDGE = 4.0        # under a slab within this of its edge, the ground stays just below it
 DEEP = 2.2        # ... and this far below it deeper in (isolated voxels render as peaks)
-FAR = 200.0       # beyond this from any road the ground blends back to natural (owner: flatter)
+FAR = 40.0        # beyond this from any road the ground is the floor surface (tools/ground_clamp.py)
 SMOOTH_PASSES = 12
 BAND = 8.0        # studs beside a building where the ground comes up under its ground floor
 FLUSH_GAP = 0.5   # ... to this far under the visible cap (cap = slab top - 1)
@@ -48,7 +48,7 @@ APRON_OUT = 14.0  # ... gone this far out
 APRON_MAX = 2.0   # ... and raises the ground by at most this (more rose as jagged mounds)
 FLAT_SPAN = 20.0  # studs: the open ground away from roads is taken to its low over this span
 FLAT_SIGMA = 1.5  # cells: ... then smoothed
-FLAT_NEAR = 6.0   # studs from a road where flattening starts
+FLAT_NEAR = 1e9   # (flattening off: the floor surface is already flat and pinned to the floors)
 FLAT_BLEND = 14.0 # ... and over which it comes in fully
 JDROP_MAX = 24.0  # as tools/road_fit.py: street ends further off a junction's height are cliffs
 UNDER_FLOOR = 4.6 # studs under the cap (slab top - 1) the ground stays beneath a building:
