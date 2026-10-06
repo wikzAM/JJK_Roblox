@@ -22,10 +22,10 @@ from floor_cap import hull  # noqa: E402
 
 D = ROOT / "source_slices" / "ground"
 CELL = 4.0
-SIGMA = 30            # cells (120 studs): the scale of the surface
-OUTLIER = 20.0        # studs off the local trend: left out of the fit (and not moved)
+SIGMA = 100           # cells (400 studs): the scale of the surface (owner, Oct 6: flatter, gradual)
+OUTLIER = 25.0        # studs off the local trend: left out of the fit (and not moved)
 MAX_GRADE = 0.05      # rise per stud the surface is limited to
-MAX_MOVE = 30.0       # studs: groups needing more are left where they are (reported)
+MAX_MOVE = 130.0      # studs: groups needing more are left where they are (reported)
 FLOOR_UP = 2.0        # studs a ground-floor top sits above the surface
 
 
@@ -34,11 +34,15 @@ def main():
     x0, z0 = float(fc["x0"]), float(fc["z0"])
     NX, NZ = fc["BM"].shape
     bfloor, bcells = {}, collections.defaultdict(set)
+    # moves already applied in Studio (FlattenDY): the export holds moved floors
+    pf = D / "flatten.json"
+    prev = json.loads(pf.read_text()) if pf.exists() else {}
+    (D / "flatten_prev.json").write_text(json.dumps(prev))
     for line in open(ROOT / "source_slices" / "floor1_parts.txt", encoding="utf-8"):
         f = line.strip().split("|")
         if len(f) != 3:
             continue
-        top = float(f[1])
+        top = float(f[1]) - prev.get(f[0], 0.0)     # the ORIGINAL floor (before any flattening)
         bfloor[f[0]] = min(bfloor.get(f[0], 1e9), top)
         P = hull(np.array([[float(a) for a in q.split(",")] for q in f[2].split(";")]))
         if len(P) < 3:
@@ -72,6 +76,13 @@ def main():
     for c, ns in owner.items():
         for m in ns[1:]:
             parent[find(m)] = find(ns[0])
+    # pairs that collided when moved apart (Studio check): they move together
+    lk = D / "flatten_links.txt"
+    if lk.exists():
+        for line in lk.read_text().splitlines():
+            ab = line.split("|")
+            if len(ab) >= 2 and ab[0] in parent and ab[1] in parent:
+                parent[find(ab[0])] = find(ab[1])
     groups = collections.defaultdict(list)
     for n in names:
         groups[find(n)].append(n)

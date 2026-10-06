@@ -21,6 +21,7 @@ from scipy import ndimage  # noqa: E402
 
 D = ROOT / "source_slices" / "ground"
 SIDEWALK = 8.0      # studs of pavement along every building (road_fit keeps MARGIN 2 + SIDEWALK_BAND 6 clear)
+ALL_ASPHALT = True  # all open ground asphalt (sidewalks are parts)
 SIDE_MAX = 24.0     # studs: the most sidewalk painted beside a street slab (to the building face)
 CITY_MARGIN = 400.0   # the station plaza is >150 studs from any building; it showed as bare concrete
 
@@ -86,9 +87,11 @@ def main():
                 if not (0 <= mi < M.shape[0] and 0 <= mj < M.shape[1]) or not city[mi, mj]:
                     v = "-"
                 elif M[mi, mj]:
-                    v = "s"      # under a building: pavement, flush with the sidewalk beside it
+                    v = "a" if ALL_ASPHALT else "s"      # under a building: as the ground beside it
                 elif road[mi, mj]:
                     v = "a"
+                elif ALL_ASPHALT:
+                    v = "a"          # owner, Oct 6: all asphalt; sidewalks are parts on top
                 else:
                     v = "s"          # sidewalks, plazas, lots: pavement
                 row.append(v)

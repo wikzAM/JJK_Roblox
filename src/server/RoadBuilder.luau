@@ -70,7 +70,8 @@ function RoadBuilder.BuildTile(name)
 	for _, s in tile.slabs do
 		local kind, x, y, z, yaw, pitch, length, thickness, width, class, wayId, slopeZ = table.unpack(s)
 		if RoadBuilder.TERRAIN_ROADS and PART_KINDS[kind] then continue end
-		if not RoadBuilder.TERRAIN_ROADS and (kind == "curb" or kind == "skin") then continue end
+		if not RoadBuilder.TERRAIN_ROADS and (kind == "curb" or kind == "skin" or kind == "walk") then continue end
+		if kind == "walk" then kind = "sidewalk" end     -- sidewalk slabs on the levelled terrain
 		local look = LOOK[kind]
 		local part = Instance.new("Part")
 		part.Name = kind == "roadway" and "Road" or kind == "apron" and "Apron" or kind == "joint" and "Joint"

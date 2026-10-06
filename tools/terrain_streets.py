@@ -40,6 +40,9 @@ ALONG = 10            # stations (4 studs) a street's centreline heights are ave
 SIDE_GRADE = 0.15     # rise per stud of the ground beside a street, from its edge
 SIDEWALK_UP = 0.0     # studs a sidewalk's terrain sits above the surface
 ROAD_UNDER = 0.6      # studs a street's top stays under the floor cap (itself floor - 1)
+SIDEWALK_PARTS = True # sidewalks as thin slabs (their edge is the curb) instead of terrain + curb strips
+WALK_SINK = 2.0       # studs the ground under a sidewalk slab stays below its top
+WALK_T = 1.5          # their thickness
 SKINS = True          # a thin asphalt part over each street: crisp edges (terrain paints in 4-stud blocks)
 SKIN_UP = 0.1         # its top above the street level
 SKIN_T = 1.5          # its thickness
@@ -154,6 +157,25 @@ def main():
     # ...and no higher than the road at its edge, rising SIDE_GRADE per stud away from it
     # (a road lowered under a floor beside it left the sidewalk ground over its edge)
     vis = np.where(side_zone, np.minimum(vis, near_road_y + 0.2 + SIDE_GRADE * np.maximum(dr - CELL, 0)), vis)
+    # under the sidewalk slabs: sunk well under their top (road + CURB_H)
+    if SIDEWALK_PARTS:
+        on_walk = np.zeros_like(on_road)
+        for r in rows:
+            if r[0] != "sidewalk":
+                continue
+            _, sx, _, sz, yaw, _, L, _, W = r[:9]
+            ux, uz = math.cos(yaw), math.sin(yaw)
+            ext = math.hypot(L, W) / 2 + CELL
+            i0 = max(int((sx - ext - gx0) / CELL), 0); i1 = min(int((sx + ext - gx0) / CELL) + 1, NX)
+            k0 = max(int((sz - ext - gz0) / CELL), 0); k1 = min(int((sz + ext - gz0) / CELL) + 1, NZ)
+            if i1 <= i0 or k1 <= k0:
+                continue
+            X, Z = np.meshgrid(XC[i0:i1], ZC[k0:k1], indexing="ij")
+            a = (X - sx) * ux + (Z - sz) * uz
+            b = -(X - sx) * uz + (Z - sz) * ux
+            on_walk[i0:i1, k0:k1] |= (np.abs(a) <= L / 2 + 1) & (np.abs(b) <= W / 2 + 1)
+        on_walk &= ~on_road
+        vis = np.where(on_walk, np.minimum(vis, near_road_y + CURB_H - WALK_SINK), vis)
     # and never above the floor of any building around it (tools/floor_cap.py, 360 deg)
     fc = np.load(D / "floor_cap.npz")
     C360 = np.where(fc["CAP"] >= 1e5, np.inf, fc["CAP"].astype(float))
@@ -165,7 +187,9 @@ def main():
     bld = M[np.ix_(np.clip(((XC - mx0) / mc).astype(int), 0, M.shape[0] - 1),
                    np.clip(((ZC - mz0) / mc).astype(int), 0, M.shape[1] - 1))]
     _, oidx = ndimage.distance_transform_edt(bld, return_indices=True)
-    under_floor = np.where(np.isfinite(FL0), FL0 - UNDER_FLOOR - 1.4, np.inf)
+    # the ground runs on FLAT under a building, hidden inside its 5.36-deep floor slab
+    # (dropping it under the slab bottom rippled every footprint edge)
+    under_floor = np.where(np.isfinite(FL0), FL0 - RING_HI, np.inf)
     vis = np.where(bld, np.minimum(vis[tuple(oidx)], under_floor), vis)
     vis = np.where(np.isnan(H), np.nan, vis)
     # 3. encode: one render offset everywhere (flat stays flat), the worst-case one
@@ -187,8 +211,9 @@ def main():
         if r[0] == "roadway":
             by_way.setdefault(r[10], []).append(r)
     n_curb = 0
+    walk_top = []
     for name, t in tiles.items():
-        t["slabs"] = [r for r in t["slabs"] if r[0] not in ("curb", "skin")]
+        t["slabs"] = [r for r in t["slabs"] if r[0] not in ("curb", "skin", "walk")]
     new_rows = {}
     for r in rows:
         if r[0] != "sidewalk":
@@ -213,6 +238,18 @@ def main():
         y0 = float(np.interp(qa(*e0), st, ys)) + CURB_H
         y1 = float(np.interp(qa(*e1), st, ys)) + CURB_H
         thick = CURB_H + CURB_DEEP
+        if SIDEWALK_PARTS:
+            # the whole sidewalk as one slab, its top a curb's height over the road:
+            # its road-side edge IS the curb
+            s0 = (sx - ux * L / 2, sz - uz * L / 2); s1 = (sx + ux * L / 2, sz + uz * L / 2)
+            w0 = float(np.interp(qa(*s0), st, ys)) + CURB_H
+            w1 = float(np.interp(qa(*s1), st, ys)) + CURB_H
+            keyw = f"tile_{int(math.floor(sx / 512)):+d}_{int(math.floor(sz / 512)):+d}".replace("+", "p").replace("-", "m")
+            new_rows.setdefault(keyw, []).append(["walk", round(sx, 2), round((w0 + w1) / 2, 2), round(sz, 2), round(yaw, 5),
+                                                  round(math.atan2(w1 - w0, L), 5), round(L, 2), WALK_T, round(W, 2), r[9], r[10]])
+            walk_top.append((sx, sz, yaw, L, W, (w0 + w1) / 2, math.atan2(w1 - w0, L)))
+            n_curb += 1
+            continue
         key = f"tile_{int(math.floor(ex / 512)):+d}_{int(math.floor(ez / 512)):+d}".replace("+", "p").replace("-", "m")
         new_rows.setdefault(key, []).append(["curb", round(ex, 2), round((y0 + y1) / 2, 2), round(ez, 2), round(yaw, 5),
                                              round(math.atan2(y1 - y0, L), 5), round(L, 2), round(thick, 2), CURB_W, r[9], r[10]])
