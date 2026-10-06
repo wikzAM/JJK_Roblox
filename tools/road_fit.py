@@ -86,6 +86,8 @@ INF_CLEAR = 12.0     # studs an inferred alley keeps from the streets
 INF_MIN_L = 40.0     # studs: shorter ridge runs are left out
 INF_ASPECT = 3.0     # an inferred alley is at least this many times longer than wide
 INF_STRAIGHT = 2.0   # studs: a run wobbling more than this is not one straight alley
+STREET_MIN_L = 100.0 # studs: a whole street shorter than this with loose ends is a fragment
+STUB_L = 48.0        # studs: a slab this short with a loose end is a stub
 SPLIT_DEV = 1.0      # studs a slab may ride over its street's capped profile before it is split
 BLEND = 20.0         # studs over which a street's height eases into its junction pad      # a turn sharper than this inside an edge gets a round joint
 DROP_KINDS = {"service"}
@@ -917,6 +919,75 @@ def main():
                     jdata[nid]["ends"].append([round(float(e_[0]), 1), round(float(e_[1]), 1),
                                                round(height(s_end) + ROAD_LIFT, 2),
                                                round(float(d_[0]), 4), round(float(d_[1]), 4), w])
+
+    # ---- a STUB: a short slab one of whose ends hangs in the open (no slab of its
+    # street, no junction there) pokes out past a crossing street as a tail (Oct 6)
+    def end_joined(r, m):
+        _, cx_, _, cz_, yaw_, _, L, _, W = r[:9]
+        return any(e[2] != id(r) and math.hypot(e[0] - m[0], e[1] - m[1]) < max(W / 2, 4.0)
+                   for e in ends_all[r[10]]) or             any(math.hypot(c_[0] - m[0], c_[1] - m[1]) < R_ + 6 for c_, R_ in cl_info.values()) or             covered_other(m, r)
+
+    def covered_other(m, r):
+        # the end runs into another street's slab
+        i_, j_ = int((m[0] - bx0) / bcell), int((m[1] - bz0) / bcell)
+        if not (0 <= i_ < bnx and 0 <= j_ < bnz):
+            return False
+        return bool(covered[i_, j_]) and cov_way[i_, j_] != r[10]
+    ends_all = defaultdict(list)
+    for rows in tiles.values():
+        for r in rows:
+            if r[0] == "roadway":
+                for sg in (-1, 1):
+                    ends_all[r[10]].append((r[1] + sg * math.cos(r[4]) * r[6] / 2, r[3] + sg * math.sin(r[4]) * r[6] / 2, id(r)))
+    for key in list(tiles):
+        keep = []
+        for r in tiles[key]:
+            if r[0] == "roadway" and r[6] < STUB_L and r[10] != 0:
+                # a short slab crossing another street's slab (a plus sign)
+                mid_hits = 0
+                for f_ in (-0.25, 0.0, 0.25):
+                    m_ = (r[1] + math.cos(r[4]) * r[6] * f_, r[3] + math.sin(r[4]) * r[6] * f_)
+                    for off in (-r[8] / 2 - 4, r[8] / 2 + 4):
+                        q_ = (m_[0] - math.sin(r[4]) * off, m_[1] + math.cos(r[4]) * off)
+                        i_, j_ = int((q_[0] - bx0) / bcell), int((q_[1] - bz0) / bcell)
+                        if 0 <= i_ < bnx and 0 <= j_ < bnz and covered[i_, j_] and cov_way[i_, j_] != r[10]:
+                            mid_hits += 1
+                if mid_hits >= 2:
+                    dropped["short slab across another street"] += 1
+                    counts["roadway"] -= 1
+                    continue
+                mine = [(r[1] + sg * math.cos(r[4]) * r[6] / 2, r[3] + sg * math.sin(r[4]) * r[6] / 2) for sg in (-1, 1)]
+                if sum(end_joined(r, m) for m in mine) < 2 and not all(end_joined(r, m) for m in mine):
+                    if not any(end_joined(r, m) for m in mine) or r[6] < STUB_L:
+                        dropped["stub with a loose end"] += 1
+                        counts["roadway"] -= 1
+                        continue
+            keep.append(r)
+        tiles[key] = keep
+
+    # ---- a whole street under STREET_MIN_L long in total (all its slabs) whose two
+    # outer ends both hang loose is a fragment: dropped
+    by_way = defaultdict(list)
+    for key in tiles:
+        for r in tiles[key]:
+            if r[0] == "roadway" and r[10] != 0:
+                by_way[r[10]].append((key, r))
+    gone = set()
+    for wid_, lst in by_way.items():
+        tot_ = sum(r[6] for _, r in lst)
+        if tot_ >= STREET_MIN_L:
+            continue
+        E_ = [(r[1] + sg * math.cos(r[4]) * r[6] / 2, r[3] + sg * math.sin(r[4]) * r[6] / 2, id(r))
+              for _, r in lst for sg in (-1, 1)]
+        outer = [e for e in E_ if not any(o[2] != e[2] and math.hypot(o[0] - e[0], o[1] - e[1]) < 8 for o in E_)]
+        loose = [e for e in outer if not any(math.hypot(c_[0] - e[0], c_[1] - e[1]) < R_ + 6 for c_, R_ in cl_info.values())]
+        if len(loose) >= 2 or (len(loose) >= 1 and tot_ < STREET_MIN_L / 2):
+            gone.add(wid_)
+    for key in list(tiles):
+        n0 = len(tiles[key])
+        tiles[key] = [r for r in tiles[key] if not (r[0] == "roadway" and r[10] in gone)]
+        counts["roadway"] -= n0 - len(tiles[key])
+    dropped["short street fragment"] += len(gone)
 
     # ---- a lone slab not much longer than it is wide (what is left of a street between
     # a junction circle and a blocked stretch) reads as a stray rectangle in the
