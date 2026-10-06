@@ -78,6 +78,11 @@ ALLEY_M = 4.0        # metres: an alley's nominal width
 ALLEY_MAX = 48.0     # studs: an alley's corridor (wall to wall) is at most this
 ALLEY_SHARE = 0.6    # ... over this share of its readings
 ALLEY_MIN_L = 30.0   # studs: shorter alley stretches are left out
+INF_HALF = (5.0, 24.0)  # studs from a building face an inferred alley's centre lies
+INF_CLEAR = 12.0     # studs an inferred alley keeps from the streets
+INF_MIN_L = 40.0     # studs: shorter ridge runs are left out
+INF_ASPECT = 3.0     # an inferred alley is at least this many times longer than wide
+INF_STRAIGHT = 2.0   # studs: a run wobbling more than this is not one straight alley
 SPLIT_DEV = 1.0      # studs a slab may ride over its street's capped profile before it is split
 BLEND = 20.0         # studs over which a street's height eases into its junction pad      # a turn sharper than this inside an edge gets a round joint
 DROP_KINDS = {"service"}
@@ -991,6 +996,74 @@ def main():
         if emit("pad", cx_, top - 0.02, cz_, math.atan2(uz, ux), 0.0, L_, RP.THICKNESS, W_, "junction", 0):
             plates += 1
     print(f"{plates} junction plates")
+
+    # ---- INFERRED ALLEYS (Oct 6): straight gaps between buildings with no OSM way at
+    # all. The open ground's ridge (cells at least as far from a building face as
+    # their neighbours across it), 10..48 studs wide, away from the streets; each
+    # straight ridge run >= INF_MIN_L becomes one alley slab
+    dface = ndimage.distance_transform_edt(~face_mask) * bcell
+    # ridge = 3x3 local maxima of the distance to a face (the per-axis test made
+    # ticks across axis-aligned corridors)
+    ridge = dface >= ndimage.maximum_filter(dface, size=3) - 0.6 * bcell
+    near_road = ndimage.binary_dilation(covered, iterations=int(INF_CLEAR / bcell))
+    ridge &= (dface >= INF_HALF[0]) & (dface <= INF_HALF[1]) & ~face_mask & ~near_road & live_city
+    nb_ = ndimage.convolve(ridge.astype(np.int16), np.ones((3, 3), np.int16), mode="constant") - ridge
+    ridge &= nb_ <= 4                                   # branch cells split the ridge
+    lab, nlab = ndimage.label(ridge, structure=np.ones((3, 3)))
+    n_inf = 0
+
+    def pieces(XY, depth=0):
+        """Recursively split points (ordered along their main axis) into straight runs."""
+        if len(XY) * bcell < INF_MIN_L * 0.8:
+            return []
+        m_ = XY.mean(0)
+        _, _, Vt = np.linalg.svd(XY - m_, full_matrices=False)
+        ax_ = Vt[0]
+        proj = (XY - m_) @ ax_
+        perp = (XY - m_) @ np.array([-ax_[1], ax_[0]])
+        if np.abs(perp).max() <= INF_STRAIGHT * 1.5 or depth >= 4:
+            return [(m_, ax_, proj, perp)]
+        cut = proj[np.argmax(np.abs(perp))]
+        lo, hi = XY[proj < cut], XY[proj >= cut]
+        if len(lo) < 3 or len(hi) < 3:
+            return [(m_, ax_, proj, perp)]
+        return pieces(lo, depth + 1) + pieces(hi, depth + 1)
+
+    for li, sl in enumerate(ndimage.find_objects(lab), start=1):
+        if sl is None:
+            continue
+        cells = np.argwhere(lab[sl] == li) + np.array([sl[0].start, sl[1].start])
+        if len(cells) * bcell < INF_MIN_L * 0.8:
+            continue
+        XYall = np.stack([bx0 + (cells[:, 0] + 0.5) * bcell, bz0 + (cells[:, 1] + 0.5) * bcell], 1)
+        for m_, ax_, proj, perp in pieces(XYall):
+            L_ = float(proj.max() - proj.min())
+            if L_ < INF_MIN_L or float(np.std(perp)) > INF_STRAIGHT:
+                continue
+            cx_ = m_ + ax_ * (proj.max() + proj.min()) / 2 + np.array([-ax_[1], ax_[0]]) * float(np.median(perp))
+            ii = np.clip(((m_[0] + ax_[0] * proj - bx0) / bcell).astype(int), 0, bnx - 1)
+            kk = np.clip(((m_[1] + ax_[1] * proj - bz0) / bcell).astype(int), 0, bnz - 1)
+            hw = float(np.median(dface[ii, kk]))
+            W_ = math.floor(min(2 * hw - 2 * MARGIN, (2 * LANE_SMALL_M + SHOULDER_M) * s) / 2) * 2
+            if W_ < MIN_W or L_ < INF_ASPECT * W_:
+                continue                          # a plaza corner, not an alley
+            ux_, uz_ = float(ax_[0]), float(ax_[1])
+            while W_ >= MIN_W and not rect_clear(cx_[0], cx_[1], ux_, uz_, L_, W_):
+                W_ -= 2.0
+            if W_ < MIN_W:
+                continue
+            ends_ = [cx_ - ax_ * L_ / 2, cx_ + ax_ * L_ / 2]
+            hs_ = [min(ground(*e_), road_cap(*e_)) for e_ in ends_]
+            y0_, y1_ = (math.floor(h_ / SNAP) * SNAP for h_ in hs_)
+            if abs(y1_ - y0_) / max(L_, 1.0) > MAX_SLAB_GRADE:
+                continue
+            if emit("roadway", cx_[0], (y0_ + y1_) / 2 + ROAD_LIFT, cx_[1], math.atan2(uz_, ux_),
+                    math.atan2(y1_ - y0_, L_), L_, RP.THICKNESS, W_, "inferred", 0, True, "alley"):
+                for c_ in footprint_cells(cx_[0], cx_[1], ux_, uz_, L_, W_):
+                    covered[c_] = True
+                n_inf += 1
+                total += L_
+    print(f"{n_inf} inferred alley slabs (gaps between buildings with no OSM way)")
 
     # ---- SIDEWALKS (owner, Oct 6: "if we can set the roads properly, then we can make
     # the sidewalks properly"): beside every small street slab, flat slabs from the
