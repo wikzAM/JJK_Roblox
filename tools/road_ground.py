@@ -37,7 +37,9 @@ MEET = -0.4       # open ground aimed this far relative to the road surface it c
                   # BELOW it (owner: terrain sat above the roads -- 51% of samples)
 EDGE = 4.0        # under a slab within this of its edge, the ground stays just below it
 DEEP = 2.2        # ... and this far below it deeper in (isolated voxels render as peaks)
-FAR = 40.0        # beyond this from any road the ground is the floor surface (tools/ground_clamp.py)
+FAR = 40.0        # (unused since Oct 6: see JOIN)
+SIDE_SINK = 3.0   # studs the ground stays under a sidewalk slab's top
+JOIN = 8.0        # studs from a road over which the ground goes from the road's level to the floor surface
 SMOOTH_PASSES = 12
 BAND = 8.0        # studs beside a building where the ground comes up under its ground floor
 FLUSH_GAP = 0.5   # ... to this far under the visible cap (cap = slab top - 1)
@@ -53,8 +55,8 @@ FLAT_BLEND = 14.0 # ... and over which it comes in fully
 JDROP_MAX = 24.0  # as tools/road_fit.py: street ends further off a junction's height are cliffs
 UNDER_FLOOR = 4.6 # studs under the cap (slab top - 1) the ground stays beneath a building:
                   # just under the slab BOTTOM (top - 5.36); 6 left a dark void under floors
-BANK_FLAT = 8.0   # beside a slab the ground stays at most at its top for this far out,
-BANK_SLOPE = 0.5  # ... then rises no steeper than this: a hillside wall right at the
+BANK_FLAT = 4.0   # beside a slab the ground stays at most at its top for this far out,
+BANK_SLOPE = 1.0  # ... then rises no steeper than this: a hillside wall right at the
                   # edge of a road cut rendered leaning over the slab (pokes up to 12)
 
 
@@ -85,9 +87,13 @@ def main():
     road_top = np.full((NX, NZ), np.nan)
     road_depth = np.full((NX, NZ), -np.inf)
     roads = D / "roads"
+    side_rows = []
     for name, _ in json.loads((roads / "index.json").read_text()):
         for r in json.loads((roads / f"{name}.json").read_text())["slabs"]:
-            if r[0] not in ("roadway", "pad", "sidewalk"):    # pads: the junction plates
+            if r[0] == "sidewalk":
+                side_rows.append(r)
+                continue
+            if r[0] not in ("roadway", "pad"):    # pads: the junction plates
                 continue
             _, cx, ytop, cz, yaw, pitch, L, _, W = r[:9]
             ux, uz = math.cos(yaw), math.sin(yaw)
@@ -143,7 +149,9 @@ def main():
         F = ndimage.gaussian_filter(F, 2.0, mode="nearest")
         F[K] = known[K]
     # blend back to the natural ground far from roads
-    wnat = np.clip((dist - FAR / 2) / FAR, 0, 1)
+    # the floor surface everywhere but the last JOIN studs at a road's edge
+    # (Oct 6: blending over 40 studs held the ground a median 3.2, p90 13 under the floors)
+    wnat = np.clip((dist - 2.0) / (JOIN - 2.0), 0, 1)
     # (capping this at the road surface F was tried: it cut the slopes hillside
     # buildings stand on, leaving ground floors up to 21 studs in the air)
     vis = (1 - wnat) * F + wnat * natural_vis
@@ -206,6 +214,29 @@ def main():
     _, oidx = ndimage.distance_transform_edt(bld, return_indices=True)
     outside_vis = vis[tuple(oidx)]
     vis = np.where(bld, np.minimum(np.minimum(natural_vis, cap_vis - UNDER_FLOOR), outside_vis), vis)
+    # under a SIDEWALK slab (8 studs deep): the ground sunk SIDE_SINK under its top
+    # and, within a cell or two of a road, under the road too -- held just under the
+    # raised sidewalk it rounded out over the road's edge
+    side_top = np.full((NX, NZ), np.inf)
+    for r in side_rows:
+        _, cx, ytop, cz, yaw, pitch, L, _, W = r[:9]
+        ux, uz = math.cos(yaw), math.sin(yaw)
+        ext = math.hypot(L, W) / 2 + CELL
+        i0 = max(int((cx - ext - gx0) / CELL), 0); i1 = min(int((cx + ext - gx0) / CELL) + 1, NX)
+        k0 = max(int((cz - ext - gz0) / CELL), 0); k1 = min(int((cz + ext - gz0) / CELL) + 1, NZ)
+        if i1 <= i0 or k1 <= k0:
+            continue
+        X, Z = np.meshgrid(XC[i0:i1], ZC[k0:k1], indexing="ij")
+        a = (X - cx) * ux + (Z - cz) * uz
+        b = -(X - cx) * uz + (Z - cz) * ux
+        inside = (np.abs(a) <= L / 2 + 1) & (np.abs(b) <= W / 2 + 1)
+        top = ytop + a * math.tan(pitch)
+        sub = side_top[i0:i1, k0:k1]
+        sub[inside] = np.minimum(sub[inside], top[inside])
+    onside = np.isfinite(side_top) & ~under & ~bld
+    vis = np.where(onside, np.minimum(vis, side_top - SIDE_SINK), vis)
+    near_road = (dr <= 2 * CELL) & onside
+    vis = np.where(near_road, np.minimum(vis, road_top[tuple(ridx)] - 0.4), vis)
     vis = np.where(np.isnan(H), np.nan, vis)
 
     # 6. encode: on open ground use the typical render offset, under roads the worst

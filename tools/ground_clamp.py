@@ -43,6 +43,7 @@ DELTA_MAX = 4.0    # visible - encoded, upper end (measured)
 DELTA_MED = 2.8    # ... median, for the expected visible surface
 FILE_TO_STUDIO = 2.5
 CELL = 4.0
+VORONOI_R = 60.0   # studs: within this the ground is capped by its nearest building's floor
 FS_BELOW = 1.5     # studs under the nearest ground-floor top the ground is pinned (slab is 5.36)
 FS_PIN = 8.0       # ... in a ring this wide around every building
 FS_PASSES = 16     # membrane smoothing passes between the pins
@@ -149,8 +150,13 @@ def main():
         sub[m] = np.minimum(sub[m], top)
     # 2. the visible cap: top - GAP on and within BAND of the footprint, then a cone
     cap = np.where(np.isfinite(T), T - GAP, np.inf)
-    band = int(round(BAND / CELL))
-    cap = ndimage.minimum_filter(cap, size=2 * band + 1, mode="nearest")   # flat band
+    # (Oct 6) each open cell is capped by its NEAREST building (Voronoi), not by every
+    # building within BAND: with neighbours on different floors the band + cone held
+    # the ground beside the higher one down at the lower one's level (median 8.7 under
+    # its floor). The cone below still rises from there.
+    _, nidx = ndimage.distance_transform_edt(~np.isfinite(T), return_indices=True)
+    nd_ = ndimage.distance_transform_edt(~np.isfinite(T)) * CELL
+    cap = np.where(nd_ <= VORONOI_R, T[tuple(nidx)] - GAP, np.inf)
     step, diag = SLOPE * CELL, SLOPE * CELL * 2 ** 0.5
     for _ in range(200):
         p = np.pad(cap, 1, mode="edge")
@@ -216,6 +222,7 @@ def main():
     # easing off at ROAD_SLOPE per stud (owner, Oct 4: the roads sat above the
     # ground floors -- median +0.4 studs, p90 +4.7). road_fit takes min(G, RC).
     rc = np.where(np.isfinite(T), T - ROAD_CURB, np.inf)
+    band = int(round(BAND / CELL))
     rc = ndimage.minimum_filter(rc, size=2 * band + 1, mode="nearest")   # flat band
     step, diag = ROAD_SLOPE * CELL, ROAD_SLOPE * CELL * 2 ** 0.5
     for _ in range(400):

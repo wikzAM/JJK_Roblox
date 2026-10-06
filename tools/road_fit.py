@@ -64,10 +64,12 @@ SHOULDER_M = 1.0     # ... plus this (2 lanes = 7.5 m, one-way 1 lane = 4.25 m)
 SIDE_TARGET_M = 3.0  # metres of sidewalk kept off a building face when only one side has buildings
 SCAN_C = 120.0       # studs: how far across a small street the building faces are looked for
 SIDE_MIN_M = 1.0     # metres: narrower than lanes + two of these, a small street is wall to wall
-SIDE_MAX = 24.0      # studs: the widest sidewalk slab
+SIDE_MAX = 40.0      # studs: the widest sidewalk slab (~9.5 m)
 SIDE_MIN_W = 3.0     # ... and the narrowest
 SIDE_OPEN_M = 3.0    # metres of sidewalk where no building face is within SIDE_MAX
-CURB = 0.5           # studs a sidewalk stands above its street
+CURB = 0.5           # studs a sidewalk stands above its street (at least)
+SIDE_RISE = 4.0      # ... and at most
+SIDE_BELOW = 1.0     # studs a sidewalk stays under the floor it runs along
 SPLIT_DEV = 1.0      # studs a slab may ride over its street's capped profile before it is split
 BLEND = 20.0         # studs over which a street's height eases into its junction pad      # a turn sharper than this inside an edge gets a round joint
 DROP_KINDS = {"service"}
@@ -947,6 +949,17 @@ def main():
         for r in rows:
             if r[0] in ("roadway", "pad"):
                 raster(r[1], r[3], math.cos(r[4]), math.sin(r[4]), r[6], r[8], occ)
+    # the floor of the nearest building at any point (tools/floor_cap.py grid):
+    # a sidewalk rises toward the floor of the buildings it runs along
+    fcz = np.load(DATA / "floor_cap.npz")
+    FLz, BMz, fx0, fz0 = fcz["FL"].astype(float), fcz["BM"], float(fcz["x0"]), float(fcz["z0"])
+    _, fidx = ndimage.distance_transform_edt(~BMz, return_indices=True)
+    FLn = FLz[tuple(fidx)]
+
+    def floor_near(x, z):
+        i = min(max(int((x - fx0) / 4.0), 0), FLn.shape[0] - 1)
+        k = min(max(int((z - fz0) / 4.0), 0), FLn.shape[1] - 1)
+        return float(FLn[i, k])
     n_side = 0
     side_rows = [r for rows in tiles.values() for r in rows if r[0] == "roadway" and len(r) > 12 and r[12]]
     for r in side_rows:
@@ -985,7 +998,14 @@ def main():
                 am = (a0 + a1) / 2
                 off = sg * (W / 2 + sw / 2)
                 sx, sz = rx + ux * am + nx_ * off, rz + uz * am + nz_ * off
-                if emit("sidewalk", sx, top + am * math.tan(pitch) + CURB, sz, yaw, pitch, a1 - a0,
+                # height: just under the LOWEST floor along its outer edge, between a
+                # CURB and SIDE_RISE above the road (owner: terrain within the floor slab;
+                # the road itself stays under every floor around it)
+                fl_ = min(floor_near(rx + ux * a + nx_ * sg * (W / 2 + sw + 2.0), rz + uz * a + nz_ * sg * (W / 2 + sw + 2.0))
+                          for a, _ in run)
+                road_at = top + am * math.tan(pitch)
+                y_side = min(max(fl_ - SIDE_BELOW - abs(math.tan(pitch)) * (a1 - a0) / 2, road_at + CURB), road_at + SIDE_RISE)
+                if emit("sidewalk", sx, y_side, sz, yaw, pitch, a1 - a0,
                         RP.THICKNESS, sw, r[9], r[10], True):
                     raster(sx, sz, ux, uz, a1 - a0, sw, occ)
                     n_side += 1
