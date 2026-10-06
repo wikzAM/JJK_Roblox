@@ -66,6 +66,7 @@ SCAN_C = 120.0       # studs: how far across a small street the building faces a
 SIDE_MIN_M = 1.0     # metres: narrower than lanes + two of these, a small street is wall to wall
 SIDE_MAX = 24.0      # studs: the widest sidewalk slab
 SIDE_MIN_W = 3.0     # ... and the narrowest
+SIDE_OPEN_M = 3.0    # metres of sidewalk where no building face is within SIDE_MAX
 CURB = 0.5           # studs a sidewalk stands above its street
 SPLIT_DEV = 1.0      # studs a slab may ride over its street's capped profile before it is split
 BLEND = 20.0         # studs over which a street's height eases into its junction pad      # a turn sharper than this inside an edge gets a round joint
@@ -947,10 +948,11 @@ def main():
                 while d_ < SIDE_MAX:
                     qx, qz = ex + nx_ * sg * (d_ + 1.0), ez + nz_ * sg * (d_ + 1.0)
                     i, j = int((qx - bx0) / bcell), int((qz - bz0) / bcell)
-                    if not (0 <= i < bnx and 0 <= j < bnz) or blocked[i, j] or occ[i, j]:
+                    if not (0 <= i < bnx and 0 <= j < bnz) or face_mask[i, j] or occ[i, j]:
                         break
                     d_ += 1.0
-                st_.append(a); rc_.append(d_)
+                # no building face within reach: a standard sidewalk, not the whole lot
+                st_.append(a); rc_.append(SIDE_OPEN_M * s if d_ >= SIDE_MAX else d_)
             # runs of stations with room for a sidewalk
             runs, cur = [], []
             for a, d_ in zip(st_, rc_):
