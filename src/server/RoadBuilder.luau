@@ -827,6 +827,30 @@ function RoadBuilder.ClearOfBuildings(minWidth)
 	return string.format("clear of buildings: %d narrowed, %d removed", narrowed, removed)
 end
 
+-- Check colours on/off for parts already built (and the Pavement terrain colour):
+--   RoadBuilder.SetCheckColors(false)  -- final look: asphalt roads, concrete sidewalks
+--   RoadBuilder.SetCheckColors(true)   -- yellow small roads, orange alleys, blue sidewalks
+-- (BuildTile always builds with the check colours; set SMALL_CHECK_COLOR etc. above to
+-- change that permanently.)
+function RoadBuilder.SetCheckColors(on)
+	local n = 0
+	for _, p in workspace.Roads:GetDescendants() do
+		if p:IsA("BasePart") then
+			if p.Name == "Road" then
+				p.Color = (on and p:GetAttribute("RoadAlley") and ALLEY_CHECK_COLOR)
+					or (on and p:GetAttribute("RoadSmall") and SMALL_CHECK_COLOR) or LOOK.roadway.color
+				n += 1
+			elseif p.Name == "Sidewalk" then
+				p.Color = on and LOOK.sidewalk.color or Color3.fromRGB(150, 148, 144)
+				n += 1
+			end
+		end
+	end
+	workspace.Terrain:SetMaterialColor(Enum.Material.Pavement,
+		on and Color3.fromRGB(20, 70, 255) or Color3.fromRGB(112, 111, 110))
+	return string.format("%d parts recoloured, check colours %s", n, on and "ON" or "OFF")
+end
+
 function RoadBuilder.BuildAll(first, last)
 	local index = fetch("index")
 	local built = 0
