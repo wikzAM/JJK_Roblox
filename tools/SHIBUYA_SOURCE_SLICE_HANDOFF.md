@@ -2589,3 +2589,21 @@ above a floor top 0.04% (all under half a stud). 936 road slabs (25.3 km), ~2900
 
 Check colours: `RoadBuilder` SMALL_CHECK_COLOR (yellow) + LOOK.sidewalk (blue);
 `GroundTerrain.PaintAll` Pavement 20,70,255. Put back 88,88,92 / concrete / 112,111,110.
+
+### Oct 6 (later) — alleys, per-piece floors, curbs, paint
+
+* ALLEYS (orange, row field 14 = "alley", `RoadAlley` attribute): OSM service/footway ways that
+  run between buildings (>= 60% of readings in corridors <= 48 studs), plus INFERRED ones
+  (class "inferred") from the open ground's ridge where OSM has nothing (straight runs >= 40
+  studs, >= 3x their width). ~160 slabs. No sidewalks on alleys.
+* Sidewalk slabs beside every street (main ones too), each piece 1 under the floor of the
+  building it runs along, a curb of 0.5..2 studs; none narrower than 6 studs.
+* Ground: the nearest-building cap now uses each ground-floor PIECE's height; the cone only
+  outside that zone; never above any floor within 6 studs. Plazas ramp from the road level to
+  the building's floor surface in proportion to the distances.
+* Paint: asphalt only under road parts, junction circles and every drivable OSM street at its
+  OSM width (a guide for the hand-laid main roads); everything else open is Pavement (blue).
+
+Measured (Studio): every visible surface 3 studs outside every ground-floor piece within the
+5.36-stud slab 79%; above a floor 12 of 149k samples. Small streets off-centre (live + FBX faces)
+median 1.5, p90 6.2. Known leftover: the hill cliff at (2350, -250) spills terrain over a street.
