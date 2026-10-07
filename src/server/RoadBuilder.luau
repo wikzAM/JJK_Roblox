@@ -38,6 +38,7 @@ local LOOK = {
 -- Roads and sidewalks are TERRAIN (tools/terrain_streets.py, Oct 6): only the curb
 -- parts are built; set false to build the old road/sidewalk/pad slabs again
 RoadBuilder.TERRAIN_ROADS = true
+RoadBuilder.BUILD_SIDEWALKS = false
 local PART_KINDS = {roadway = true, sidewalk = true, pad = true}
 
 local SMALL_CHECK_COLOR = Color3.fromRGB(235, 200, 40)
@@ -71,7 +72,10 @@ function RoadBuilder.BuildTile(name)
 		local kind, x, y, z, yaw, pitch, length, thickness, width, class, wayId, slopeZ = table.unpack(s)
 		if RoadBuilder.TERRAIN_ROADS and PART_KINDS[kind] then continue end
 		if not RoadBuilder.TERRAIN_ROADS and (kind == "curb" or kind == "skin" or kind == "walk") then continue end
-		if kind == "walk" then kind = "sidewalk" end     -- sidewalk slabs on the levelled terrain
+		-- road-attached sidewalk slabs are off (owner, Oct 6): sidewalks will run along the
+		-- building sides, after the ground-floor facades
+		if kind == "walk" and not RoadBuilder.BUILD_SIDEWALKS then continue end
+		if kind == "walk" then kind = "sidewalk" end
 		local look = LOOK[kind]
 		local part = Instance.new("Part")
 		part.Name = kind == "roadway" and "Road" or kind == "apron" and "Apron" or kind == "joint" and "Joint"

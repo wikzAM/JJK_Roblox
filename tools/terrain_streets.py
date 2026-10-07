@@ -30,11 +30,13 @@ D = ROOT / "source_slices" / "ground"
 CELL = 4.0
 FILE_TO_STUDIO = 2.5
 DELTA_MED, DELTA_MAX = 2.8, 4.0
+GROUND_TOL = 8.0      # studs a floor may sit above the surface and still count as a ground floor
 RING = 8.0            # studs round a building where the ground is held to its floor
 RING_LO = 4.5         # ... at most this under the floor top (the slab is 5.36 deep)
 RING_HI = 2.0         # ... at least this (typical render +0, worst +1.2)
 REGEN_PASSES = 25
-FAR_CITY = 200.0      # studs from any building before the natural ground comes back
+GRADE_MAX = 0.12      # the steepest the open ground may change, per stud
+FAR_CITY = 1e9        # studs from any building before the natural ground comes back
 UNDER_FLOOR = 4.6     # studs under the cap the ground stays beneath a building
 ALONG = 10            # stations (4 studs) a street's centreline heights are averaged over
 SIDE_GRADE = 0.15     # rise per stud of the ground beside a street, from its edge
@@ -82,6 +84,11 @@ def main():
     assert S.shape == (NX, NZ), "flat_surface.npz is on another grid"
     fc0 = np.load(D / "floor_cap.npz")
     BM0 = fc0["BM"]; FL0 = np.where(BM0, fc0["FL"].astype(float), np.nan)
+    # only GROUND floors shape the ground: a tower body standing on a podium has its
+    # own Floor1 high up, and where it overhangs the podium it pulled the ground up
+    # to 434 (cliffs of 280 studs within a block)
+    high = np.isfinite(FL0) & (FL0 > S + 2.0 + GROUND_TOL)
+    FL0 = np.where(high, np.nan, FL0); BM0 = BM0 & ~high
     dB, iB = ndimage.distance_transform_edt(~BM0, return_indices=True)
     dB *= CELL
     FLn = FL0[tuple(iB)]
@@ -91,6 +98,30 @@ def main():
     G = np.clip(S, lo_, hi_)
     for _ in range(REGEN_PASSES):
         G = np.clip(ndimage.gaussian_filter(G, 1.5, mode="nearest"), lo_, hi_)
+    # GRADUAL: the ground changes at most GRADE_MAX per stud anywhere, so where a
+    # building's floor sits far off the surface the dip / rise round it is spread
+    # wide instead of a 30-stud cliff within a block. Lower and upper envelopes
+    # from the ring constraints, then the surface clamped between them.
+    step, diag = GRADE_MAX * CELL, GRADE_MAX * CELL * 2 ** 0.5
+
+    def envelope(A, lower):
+        for _ in range(400):
+            p = np.pad(A, 1, mode="edge")
+            nb = [p[:-2, 1:-1], p[2:, 1:-1], p[1:-1, :-2], p[1:-1, 2:], p[:-2, :-2], p[:-2, 2:], p[2:, :-2], p[2:, 2:]]
+            ds = [step] * 4 + [diag] * 4
+            if lower:
+                new = np.minimum.reduce([A] + [n_ + d_ for n_, d_ in zip(nb, ds)])
+            else:
+                new = np.maximum.reduce([A] + [n_ - d_ for n_, d_ in zip(nb, ds)])
+            if np.allclose(new, A, atol=1e-3):
+                break
+            A = new
+        return A
+    up_lim = envelope(np.where(ring, hi_, np.inf), True)      # never above what a ring allows, eased
+    lo_lim = envelope(np.where(ring, lo_, -np.inf), False)    # never below what a ring needs, eased
+    G = np.minimum(np.maximum(G, lo_lim), up_lim)
+    for _ in range(8):
+        G = np.minimum(np.maximum(ndimage.gaussian_filter(G, 1.0, mode="nearest"), lo_lim), up_lim)
     # far outside the city: back to the natural ground
     wn = np.clip((dB - FAR_CITY) / FAR_CITY, 0, 1)
     FS = np.where(np.isnan(natural), G, (1 - wn) * G + wn * natural)
@@ -155,7 +186,7 @@ def main():
         i0, i1 = max(i - 1, 0), min(i + 2, NX); k0, k1 = max(k - 1, 0), min(k + 2, NZ)
         return float(VG[i0:i1, k0:k1].max()) if i1 > i0 and k1 > k0 else float(np.nanmedian(VG))
 
-    def top_over(cx, cz, ux, uz, L, W):
+    def top_over(cx, cz, ux, uz, L, W, cap_road=False):
         # the straight line (ya at -L/2, yb at +L/2) above all ground under the rect
         st = np.arange(-L / 2, L / 2 + 0.01, 2.0)
         nx_, nz_ = -uz, ux
@@ -164,12 +195,18 @@ def main():
         A = np.vstack([st, np.ones_like(st)]).T
         k_, c_ = np.linalg.lstsq(A, gmax, rcond=None)[0]
         c_ += max(0.0, float((gmax - (k_ * st + c_)).max()))
-        return st, k_ * st + c_ + PART_LIFT, k_
+        y = k_ * st + c_ + PART_LIFT
+        if cap_road:
+            # never above the floor of a building beside it (360 floor cap at both edges)
+            cmin = np.array([min(cap360(cx + ux * a + nx_ * o, cz + uz * a + nz_ * o) for o in (-W / 2 - 2, W / 2 + 2))
+                             for a in st]) - ROAD_UNDER
+            y = y - max(0.0, float((y - cmin).max()))
+        return st, y, k_
     profiles = {}
     for r in rows:
         if r[0] == "roadway":
             _, cx, _, cz, yaw, _, L, _, W = r[:9]
-            profiles[id(r)] = top_over(cx, cz, math.cos(yaw), math.sin(yaw), L, W)[:2]
+            profiles[id(r)] = top_over(cx, cz, math.cos(yaw), math.sin(yaw), L, W, cap_road=False)[:2]
     on_road = np.zeros((NX, NZ), bool)
 
     # 4b. curbs / sidewalk slabs along each sidewalk's road edge

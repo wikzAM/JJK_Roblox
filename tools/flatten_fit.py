@@ -90,6 +90,7 @@ def main():
     print(f"{len(names)} buildings in {len(groups)} stacked groups")
     names_all = names
     names = [base[g] for g in groups]                                        # the fit uses the bases only
+    own_cells = {n: set(bcells[n]) for n in names_all}
     for g, ms in groups.items():
         bcells[base[g]] = set().union(*(bcells[m] for m in ms))
     use = set(names)
@@ -112,7 +113,9 @@ def main():
     skip = []
     for g, ms in groups.items():
         n = base[g]
-        tgt = float(np.mean([S[c] for c in bcells[n]])) + FLOOR_UP
+        # placed by the BASE building's own footprint: a group spanning a slope placed
+        # by its whole footprint left its low end 20 under the surface (a pit round it)
+        tgt = float(np.mean([S[c] for c in own_cells[n]])) + FLOOR_UP
         dy = tgt - bfloor[n]
         if abs(dy) > MAX_MOVE:
             out.append((round(dy, 1), n))
