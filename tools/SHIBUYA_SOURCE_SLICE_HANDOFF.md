@@ -2628,3 +2628,36 @@ ground-floor piece within the slab 79%; road widths small 7.2 m, main 9.1 m, all
 Open: on hillsides one side of a street can be > 5.36 studs under its building's floor (35% of
 sidewalks) because a flat street cannot meet both sides; the options are raised "terrace"
 sidewalks (a retaining wall at the curb) or plinths/facades. Owner to choose.
+
+## TERRAIN WRAP-UP — Oct 6 (option B: flattened city, road-agnostic ground)
+
+Owner chose option B: buildings moved onto one smooth gentle surface, the ground regenerated
+from it, roads/sidewalks never shaping the terrain. Terrain work is considered DONE; next is
+ground-floor facades, then sidewalks along the building sides.
+
+Pipeline (rerunnable):
+1. Studio: `tools/studio_snippets/export_floor1_parts.luau` (floor pieces) and export each
+   building's `FlattenDY` attribute -> `source_slices/flatten_applied.json`; copy it to
+   `ground/flatten.json` before refitting (the fit subtracts the applied moves to get the
+   ORIGINAL floors).
+2. `python tools/flatten_fit.py` -> `ground/flatten.json` (total move per building) +
+   `ground/flat_surface.npz`. 400-stud-scale robust fit of the original ground floors, grade
+   p95 ~5%; stacked buildings (overlapping footprints) and `ground/flatten_links.txt` pairs
+   (they collided when moved apart) move together, placed by the base building's own footprint.
+   Moves from original: median 6.8, p90 18 studs.
+3. Studio: for each building move by (total - FlattenDY), shift CFrame attributes too, set
+   FlattenDY = total; then the collision check (pairs that overlap only because of the moves ->
+   append to flatten_links.txt, refit). 596 pairs overlap in the ORIGINAL data; 0 new.
+4. `floor_cap.py`, `ground_clamp.py`, `road_fit.py`, `terrain_streets.py`, `ground_paint.py`.
+   terrain_streets: ground = flat_surface, nudged in an 8-stud ring round each GROUND floor into
+   [floor - 4.5, floor - 2], at most 12% grade anywhere, flat under buildings (inside the slab);
+   NO road input. Then road skins (one straight thin asphalt part per road section, above the
+   highest ground under it) and sidewalk ("walk") rows -- sidewalk slabs are OFF
+   (`RoadBuilder.BUILD_SIDEWALKS = false`). Paint: all asphalt.
+5. Studio: `RoadBuilder.Clear()` FIRST (no parts while the terrain is written), then
+   `GroundTerrain.WriteAll(1,91,2.5)`, `WriteAll(92,400,2.5)`, `PaintAll(1,400)`, then
+   `RoadBuilder.BuildAll(1,400)`. WriteChunk clears 60 studs of air above the new ground.
+
+Measured: open ground height range within any 32x32-stud patch median 0.8, p99 5.5, max 9.1
+studs; ground next to buildings within the floor slab 93%; ground above a floor top 26 points of
+~170k (terrain, all < 4 studs); ground through road skins 143 of 51k samples.
