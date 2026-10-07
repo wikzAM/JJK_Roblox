@@ -44,7 +44,8 @@ SIDEWALK_PARTS = True # sidewalks as thin slabs (their edge is the curb) instead
 WALK_SINK = 2.0       # studs the ground under a sidewalk slab stays below its top
 WALK_T = 1.5          # their thickness
 SKINS = True          # a thin asphalt part over each street: crisp edges (terrain paints in 4-stud blocks)
-SKIN_UP = 0.1         # its top above the street level
+PART_LIFT = 1.0       # studs a part's underside-top margin over the highest ground under it
+SKIN_UP = 0.0         # its top above the street level
 SKIN_T = 1.5          # its thickness
 SKIN_SINK = 2.0       # the terrain under it this far below the street level
 CURB_H = 0.8          # studs a curb's top stands above the road
@@ -110,72 +111,10 @@ def main():
     tiles = {name: json.loads((roads / f"{name}.json").read_text()) for name, _ in json.loads((roads / "index.json").read_text())}
     rows = [r for t in tiles.values() for r in t["slabs"]]
 
-    # 1. streets level across: each roadway row's cells take its centreline profile
-    road_y = np.full((NX, NZ), np.nan)
-    road_d = np.full((NX, NZ), -np.inf)
-    profiles = {}
-    for r in rows:
-        if r[0] != "roadway":
-            continue
-        _, cx, _, cz, yaw, _, L, _, W = r[:9]
-        ux, uz = math.cos(yaw), math.sin(yaw)
-        st = np.arange(-L / 2 - 4 * ALONG, L / 2 + 4 * ALONG + 0.1, 4.0)
-        ys = np.array([surf(cx + ux * a, cz + uz * a) for a in st])
-        ys = np.convolve(np.pad(ys, ALONG // 2, mode="edge"), np.ones(ALONG + 1) / (ALONG + 1), mode="valid")[:len(st)]
-        # never above a floor beside it: the 360 floor cap at the centreline and both edges
-        nx_, nz_ = -uz, ux
-        cy = np.array([min(cap360(cx + ux * a + nx_ * o, cz + uz * a + nz_ * o) for o in (-W / 2 - 2, 0.0, W / 2 + 2))
-                       for a in st]) - ROAD_UNDER
-        ys = np.minimum(ys, cy)
-        # the skin is ONE straight part end to end: the street level is never above
-        # that line (a bowed profile put ground up to 12 studs over the skin)
-        ya, yb = float(np.interp(-L / 2, st, ys)), float(np.interp(L / 2, st, ys))
-        line = ya + (st + L / 2) / L * (yb - ya)
-        ys = np.minimum(ys, line)
-        profiles[id(r)] = (st, ys)
-        ext = math.hypot(L, W) / 2 + CELL
-        i0 = max(int((cx - ext - gx0) / CELL), 0); i1 = min(int((cx + ext - gx0) / CELL) + 1, NX)
-        k0 = max(int((cz - ext - gz0) / CELL), 0); k1 = min(int((cz + ext - gz0) / CELL) + 1, NZ)
-        if i1 <= i0 or k1 <= k0:
-            continue
-        X, Z = np.meshgrid(XC[i0:i1], ZC[k0:k1], indexing="ij")
-        a = (X - cx) * ux + (Z - cz) * uz
-        b = -(X - cx) * uz + (Z - cz) * ux
-        depth = np.minimum(L / 2 + 1 - np.abs(a), W / 2 + 1 - np.abs(b))
-        sub_y, sub_d = road_y[i0:i1, k0:k1], road_d[i0:i1, k0:k1]
-        take = (depth > 0) & (depth > sub_d)
-        sub_y[take] = np.interp(a[take], st, ys)
-        sub_d[take] = depth[take]
-    on_road = np.isfinite(road_y)
-    vis = np.where(on_road, road_y - (SKIN_SINK if SKINS else 0.0), FS)
-    # sidewalks never below the road beside them (+ SIDEWALK_UP)
-    _, ridx = ndimage.distance_transform_edt(~on_road, return_indices=True)
-    near_road_y = road_y[tuple(ridx)]
-    dr = ndimage.distance_transform_edt(~on_road) * CELL
-    side_zone = (dr > 0) & (dr <= 24)
-    vis = np.where(side_zone, np.maximum(vis, near_road_y + SIDEWALK_UP * (dr <= 24)), vis)
-    # ...and no higher than the road at its edge, rising SIDE_GRADE per stud away from it
-    # (a road lowered under a floor beside it left the sidewalk ground over its edge)
-    vis = np.where(side_zone, np.minimum(vis, near_road_y + 0.2 + SIDE_GRADE * np.maximum(dr - CELL, 0)), vis)
-    # under the sidewalk slabs: sunk well under their top (road + CURB_H)
-    if SIDEWALK_PARTS:
-        on_walk = np.zeros_like(on_road)
-        for r in rows:
-            if r[0] != "sidewalk":
-                continue
-            _, sx, _, sz, yaw, _, L, _, W = r[:9]
-            ux, uz = math.cos(yaw), math.sin(yaw)
-            ext = math.hypot(L, W) / 2 + CELL
-            i0 = max(int((sx - ext - gx0) / CELL), 0); i1 = min(int((sx + ext - gx0) / CELL) + 1, NX)
-            k0 = max(int((sz - ext - gz0) / CELL), 0); k1 = min(int((sz + ext - gz0) / CELL) + 1, NZ)
-            if i1 <= i0 or k1 <= k0:
-                continue
-            X, Z = np.meshgrid(XC[i0:i1], ZC[k0:k1], indexing="ij")
-            a = (X - sx) * ux + (Z - sz) * uz
-            b = -(X - sx) * uz + (Z - sz) * ux
-            on_walk[i0:i1, k0:k1] |= (np.abs(a) <= L / 2 + 1) & (np.abs(b) <= W / 2 + 1)
-        on_walk &= ~on_road
-        vis = np.where(on_walk, np.minimum(vis, near_road_y + CURB_H - WALK_SINK), vis)
+    # 1. THE GROUND IS ROAD-AGNOSTIC (owner, Oct 6: "the parts of the roads and
+    # sidewalks are affecting the terrain"): nothing here looks at a road or a
+    # sidewalk. The parts are fitted onto this finished ground afterwards (step 4).
+    vis = FS.copy()
     # and never above the floor of any building around it (tools/floor_cap.py, 360 deg)
     fc = np.load(D / "floor_cap.npz")
     C360 = np.where(fc["CAP"] >= 1e5, np.inf, fc["CAP"].astype(float))
@@ -205,7 +144,35 @@ def main():
         (out / f"{name}.json").write_text(json.dumps(c2))
     (out / "index.json").write_text(json.dumps(index))
 
-    # 4. curbs along each sidewalk's road edge
+    # 4. PARTS ON TOP of the finished ground: a road skin is one straight part lying
+    # above the highest ground anywhere under it (+ PART_LIFT, the terrain renders up
+    # to ~1.2 over what it encodes); a sidewalk slab a curb's height over its road
+    # and above the ground under it
+    VG = np.where(np.isfinite(vis), vis, np.nanmedian(vis))
+
+    def ground_at(x, z):
+        i, k = int((x - gx0) / CELL), int((z - gz0) / CELL)
+        i0, i1 = max(i - 1, 0), min(i + 2, NX); k0, k1 = max(k - 1, 0), min(k + 2, NZ)
+        return float(VG[i0:i1, k0:k1].max()) if i1 > i0 and k1 > k0 else float(np.nanmedian(VG))
+
+    def top_over(cx, cz, ux, uz, L, W):
+        # the straight line (ya at -L/2, yb at +L/2) above all ground under the rect
+        st = np.arange(-L / 2, L / 2 + 0.01, 2.0)
+        nx_, nz_ = -uz, ux
+        gmax = np.array([max(ground_at(cx + ux * a + nx_ * o, cz + uz * a + nz_ * o)
+                             for o in np.linspace(-W / 2, W / 2, max(2, int(W / 4) + 1))) for a in st])
+        A = np.vstack([st, np.ones_like(st)]).T
+        k_, c_ = np.linalg.lstsq(A, gmax, rcond=None)[0]
+        c_ += max(0.0, float((gmax - (k_ * st + c_)).max()))
+        return st, k_ * st + c_ + PART_LIFT, k_
+    profiles = {}
+    for r in rows:
+        if r[0] == "roadway":
+            _, cx, _, cz, yaw, _, L, _, W = r[:9]
+            profiles[id(r)] = top_over(cx, cz, math.cos(yaw), math.sin(yaw), L, W)[:2]
+    on_road = np.zeros((NX, NZ), bool)
+
+    # 4b. curbs / sidewalk slabs along each sidewalk's road edge
     by_way = {}
     for r in rows:
         if r[0] == "roadway":
@@ -244,6 +211,9 @@ def main():
             s0 = (sx - ux * L / 2, sz - uz * L / 2); s1 = (sx + ux * L / 2, sz + uz * L / 2)
             w0 = float(np.interp(qa(*s0), st, ys)) + CURB_H
             w1 = float(np.interp(qa(*s1), st, ys)) + CURB_H
+            _, gl, _ = top_over(sx, sz, ux, uz, L, W)     # the ground under the slab
+            up_ = max(0.0, float(gl[0] - w0), float(gl[-1] - w1))
+            w0 += up_; w1 += up_
             keyw = f"tile_{int(math.floor(sx / 512)):+d}_{int(math.floor(sz / 512)):+d}".replace("+", "p").replace("-", "m")
             new_rows.setdefault(keyw, []).append(["walk", round(sx, 2), round((w0 + w1) / 2, 2), round(sz, 2), round(yaw, 5),
                                                   round(math.atan2(w1 - w0, L), 5), round(L, 2), WALK_T, round(W, 2), r[9], r[10]])
