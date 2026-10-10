@@ -1,3 +1,5 @@
+> Historical v7 checkpoint. Current outside-mounted 200-building trial: [FACADE_CLIP_HANDOFF.md](FACADE_CLIP_HANDOFF.md).
+
 # Ground facade feedback — October 10, 2026 (v7)
 
 Read `src/client/ProjectFiles.luau` first. This pass addresses the owner's photograph of signed shops covered by beige walls, excess blank elevations, and repetitive exterior colors. It retains the same 32 ordinary buildings near the lime locator; no further expansion or landmark work was authorized.

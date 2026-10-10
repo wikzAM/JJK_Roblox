@@ -2,6 +2,7 @@
 -- Native-part interpretations of the owner's October 8 Shibuya photographs.
 -- Pure layout data. No terrain, building discovery, runtime hooks, or external assets.
 local Catalog=require(script.Parent.GroundFacadeCatalog)
+local Mount=require(script.Parent.FacadeMount)
 local E={}
 local M=Enum.Material
 local GLASS=Color3.fromRGB(111,139,143)
@@ -52,6 +53,7 @@ function E.Layout(spec,options)
 		table.insert(out.portals,{x=x,width=width,y=y0,height=height,recess=depth,name=name or "entry"})
 	end
 	local function door(x,width,y0,height,z,opaque)
+		if options.mount~="recessed" then z=Mount.PaneZ end
 		local leaves=width>5.5 and 2 or 1
 		for i=1,leaves do
 			local lw=width/leaves;local cx=x-width/2+(i-.5)*lw
@@ -68,6 +70,7 @@ function E.Layout(spec,options)
 		out.door=out.door or {x=x,width=width,y=y0,height=height,recess=z,interactive=false}
 	end
 	local function glass(x0,x1,y0,y1,z,frost)
+		if options.mount~="recessed" then z=Mount.PaneZ end
 		if x1-x0<.6 or y1-y0<.6 then return end
 		local n=math.max(1,math.ceil((x1-x0)/7));local span=(x1-x0)/n
 		for i=1,n do
@@ -108,6 +111,7 @@ function E.Layout(spec,options)
 	assert(finite(adSeed),"Invalid ad seed")
 	local ar=Random.new(adSeed)
 	local function posters(x0,x1,y0,y1,z,dense)
+		if options.mount~="recessed" then z=Mount.PaneZ-.15 end
 		if ads=="none" or x1-x0<2 then return end
 		local busy=ads=="dense" or dense
 		local n,rows=busy and 3 or 2,busy and 2 or 1
@@ -329,7 +333,7 @@ function E.Layout(spec,options)
 		wall("ShopFascia",-w/2+.9,w/2-.9,head,h,0,.8,f=="localShop" and M.Brick or M.Concrete)
 		local x0,x1=-w/2+.9,w/2-.9
 		if f=="produce" then
-			portal(0,w*.38-.4,0,head,5,"openShop")
+			portal(0,w-1.8,0,head,5,"openShop")
 			canopy(0,w-.8,head,3.5,Color3.fromRGB(76,112,65))
 			for _,x in {-w*.30,w*.30} do
 				p("ProduceCounter",x,1.25,1.5,w*.22,2.5,2.3,WOOD,M.Wood,"prop")
@@ -393,7 +397,7 @@ function E.Layout(spec,options)
 				p("RestaurantRedBand",0,head-.15,-.5,w-1.8,.28,.24,accent,M.Metal)
 			elseif f=="posterShop" then
 				for i,c in {Color3.fromRGB(47,143,71),WHITE,Color3.fromRGB(44,110,177)} do p("ConvenienceStripe",0,head+.2+(i-1)*.18,-.5,w-1.8,.13,.1,c,M.SmoothPlastic,"sign") end
-				p("AutomaticDoorSensor",dx,dh-.1,.7,1.3,.24,.22,pal.trim,M.Metal)
+				p("AutomaticDoorSensor",dx,dh-.1,options.mount=="recessed" and .7 or -.15,1.3,.24,.22,pal.trim,M.Metal)
 			elseif f=="localShop" then
 				canopy(0,w-1,head,1.8,WOOD)
 				if entry then for i=1,3 do p("SmallShopNoren",dx-dw/2+(i-.5)*dw/3,dh-.8,.6,dw/3-.08,1.5,.12,accent,M.Fabric) end end

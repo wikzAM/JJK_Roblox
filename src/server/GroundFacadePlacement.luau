@@ -39,7 +39,13 @@ end
 function P.NeighborBlocked(model,scene,cf,bay,options)
 	local candidates={}
 	for _,b in scene.buildings do
-		for _,p in b.model:GetDescendants() do
+		local dx=b.lo and math.max(b.lo.X-cf.X,0,cf.X-b.hi.X) or 0
+		local dz=b.lo and math.max(b.lo.Z-cf.Z,0,cf.Z-b.hi.Z) or 0
+		if dx*dx+dz*dz>(bay.width/2+24)^2 then continue end
+		if not b.opaque then
+			b.opaque={};for _,p in b.model:GetDescendants() do if p:IsA("BasePart") and p.CanQuery and p.Transparency<.05 and p.Material~=Enum.Material.Glass then table.insert(b.opaque,p) end end
+		end
+		for _,p in b.opaque do
 			local include=b.model~=model
 			if not include then
 				local run=p:FindFirstAncestorOfClass("Model")

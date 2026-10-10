@@ -1,6 +1,10 @@
 # Upper-floor facade approach — planning after the ground trial
 
-No upper-floor facade rollout is part of the current edit. First review the three-building ground trial documented in `FACADE_FLAT_TRIAL_HANDOFF.md`.
+No upper-floor facade rollout is part of the current edit. The current ground-only trial has 200 ordinary buildings; see `FACADE_CLIP_HANDOFF.md`.
+
+## Mount between successive floor outlines
+
+Use Shared/FacadeMount's outside coordinate contract: local -Z faces outward, the frame is .75 studs outside the actual floor outline and exterior rear vertices stay <= Z .45. Construct the surface between consecutive level curves. Ground floors now use this contract; deeper interior/parallax dressing is a separate layer and cannot move the exterior back into the core. Preserve stepped and curved outlines and seam closure. Verify against actual original volumes and installed neighboring facades before expansion.
 
 ## Building identity before random floor details
 
@@ -20,6 +24,6 @@ Build client visuals within existing budgets, prioritizing camera distance and v
 
 ## Small next trial
 
-After the ground trial is approved, add upper facades to these same three buildings first. Compare family appearance in Edit/Play and near/medium/far camera distances. Measure client part count, glass state consistency, creation time and burst cost before raising the eligible-building limit. Include plain neighboring walls, a narrow alley, a stepped building and mixed ground tenants in the comparison.
+After the ground trial is approved, choose three representative ordinary buildings from the current section and add upper facades there first. Compare family appearance in Edit/Play and near/medium/far camera distances. Measure client part count, glass state consistency, creation time and burst cost before raising the eligible-building limit. Include plain neighboring walls, a narrow alley, a stepped building and mixed ground tenants in the comparison.
 
 Mass deployment needs an explicit ordinary-building allow-list, repeatable placement manifest, archived previous owned facade children and a rollback path. Landmarks stay authored separately. Terrain/road/interior generators remain independent.

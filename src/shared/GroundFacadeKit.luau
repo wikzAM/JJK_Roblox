@@ -4,6 +4,7 @@
 -- Layout returns reusable data; Build materialises it for edit previews or a future client renderer.
 local Catalog = require(script.Parent.GroundFacadeCatalog)
 local Expansion = require(script.Parent.GroundFacadeExpansion)
+local Mount = require(script.Parent.FacadeMount)
 local GlassVisual = require(script.Parent.GlassVisual)
 local HttpService = game:GetService("HttpService")
 local Kit = {}
@@ -14,7 +15,7 @@ local M = Enum.Material
 
 local function finite(v) return type(v)=="number" and v==v and math.abs(v)<1e12 end
 
-function Kit.Layout(id, options)
+local function rawLayout(id, options)
 	options=options or {}
 	local spec=Catalog.Get(id)
 	if options.allowEntrance==false and (options.role==nil or options.role=="entrance") then options=table.clone(options);options.role="window" end
@@ -72,7 +73,7 @@ function Kit.Layout(id, options)
 	local pier=(feature=="stoneLobby" or feature=="hotel") and 1.4 or 0.65
 	local opening=w-2*pier
 	local head=h-2.7
-	local recess=spec.depth
+	local recess=options.mount=="recessed" and spec.depth or Mount.PaneZ
 	local sill=(feature=="glassLobby" or feature=="showroom") and 0.35 or 1.2
 	if feature=="noren" or feature=="lattice" then sill=2 end
 	local entry=role=="entrance" and spec.door~="none"
@@ -99,7 +100,7 @@ function Kit.Layout(id, options)
 		p("Kickplate",(x0+x1)/2,sill/2,0,span,sill,0.7,pal.wall,feature=="bakery" and M.Brick or M.Concrete,"wall")
 		for i=1,count do
 			local x=x0+(i-0.5)*pw
-			p("ShopGlazing",x,(head+sill)/2,0.35,pw-0.14,head-sill,0.18,GLASS,M.Glass,"glass",0.36)
+			p("ShopGlazing",x,(head+sill)/2,options.mount=="recessed" and .35 or Mount.PaneZ,pw-0.14,head-sill,0.18,GLASS,M.Glass,"glass",0.36)
 			if i<count then p("Mullion",x0+i*pw,(head+sill)/2,0.17,0.20,head-sill,0.26,pal.trim,M.Metal) end
 		end
 		for _,x in {x0,x1} do p("WindowEndStile",x,(head+sill)/2,0.17,.20,head-sill,.26,pal.trim,M.Metal) end
@@ -244,6 +245,10 @@ function Kit.Layout(id, options)
 	return out
 end
 
+function Kit.Layout(id,options)
+	return Mount.Layout(rawLayout(id,options),options)
+end
+
 local function addText(part,row)
 	local gui=Instance.new("SurfaceGui")
 	gui.Name="FacadeTypography";gui.Face=row.face;gui.SizingMode=Enum.SurfaceGuiSizingMode.PixelsPerStud
@@ -291,6 +296,7 @@ function Kit.Build(parent,id,frame,options)
 			part.CastShadow=row.kind~="light" and row.kind~="glass"
 			part.TopSurface=Enum.SurfaceType.Smooth;part.BottomSurface=Enum.SurfaceType.Smooth
 			part:SetAttribute("FacadePieceKind",row.kind)
+			part:SetAttribute("FacadeLayer",row.layer or "exterior")
 			if row.supportGroup then
 				part:SetAttribute("FacadeSupportGroup",row.supportGroup)
 				part:SetAttribute("FacadeSupportBase",row.supportBase or false)
@@ -309,12 +315,15 @@ function Kit.Build(parent,id,frame,options)
 		end
 		-- A privacy overlay belongs to its physical pane so it disappears with
 		-- shattered/removed glass instead of floating across the broken opening.
-		for _,film in model:GetChildren() do if film:IsA("BasePart") and film.Name=="PrivacyFilm" then
+		for _,film in model:GetChildren() do if film:IsA("BasePart") and (film.Name=="PrivacyFilm" or film.Name=="InteriorWindowBacking") then
 			local best,dist=nil,math.huge
 			for _,pane in model:GetChildren() do if pane:IsA("BasePart") and pane:HasTag("GlassPane") then
 				local d=(pane.Position-film.Position).Magnitude;if d<dist then best,dist=pane,d end
 			end end
-			if best then film.Parent=best;film.CanCollide=false;film.CanQuery=false end
+			if best then
+				if film.Name=="PrivacyFilm" then local q=best.CFrame:PointToObjectSpace(film.Position);film.CFrame=best.CFrame*CFrame.new(q.X,q.Y,-best.Size.Z/2-film.Size.Z/2-.01) end
+				film.Parent=best;film.CanCollide=false;film.CanQuery=false;film:SetAttribute("GlassAttachedOverlay",true)
+			end
 		end end
 		-- Window stickers belong to their pane, so paper ads cannot float across
 		-- a shattered opening. Fascia signs and wall-mounted boards stay separate.
@@ -325,7 +334,12 @@ function Kit.Build(parent,id,frame,options)
 					local q=pane.CFrame:PointToObjectSpace(overlay.Position)
 					if math.abs(q.X)<=pane.Size.X/2+.15 and math.abs(q.Y)<=pane.Size.Y/2+.15 and math.abs(q.Z)<.8 and q.Magnitude<best then nearest,best=pane,q.Magnitude end
 				end end
-				if nearest then overlay:SetAttribute("GlassAttachedOverlay",true);overlay.Parent=nearest;overlay.CanCollide=false;overlay.CanQuery=false end
+				if nearest then
+					local q=nearest.CFrame:PointToObjectSpace(overlay.Position)
+					local layer=overlay.Name=="AdOfferStrip" and .12 or .01
+					overlay.CFrame=nearest.CFrame*CFrame.new(q.X,q.Y,-nearest.Size.Z/2-overlay.Size.Z/2-layer)
+					overlay:SetAttribute("GlassAttachedOverlay",true);overlay.Parent=nearest;overlay.CanCollide=false;overlay.CanQuery=false
+				end
 			end
 		end
 		model.WorldPivot=frame

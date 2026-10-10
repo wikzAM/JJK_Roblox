@@ -1,6 +1,33 @@
 --!nonstrict
 --[[
-October 10, 2026 — GROUND FACADE FEEDBACK v7 (LATEST).
+October 10, 2026 — OUTSIDE CLIP-ON GROUND SECTION v8 (LATEST).
+  Read tools/FACADE_CLIP_HANDOFF.md for current scope, evidence and replay.
+  Owner authorized outside mounting, review of all old trial locations, then
+  a large regional expansion and Roblox save / GitHub push.
+  200 ordinary buildings, 1,911 complete ground runs, 94,472 owned BaseParts,
+  6,431 glass panes, 659 portals, 3,146 supported stairs, 51 supported planters.
+  Shared/FacadeMount: frame .75 outside source floor outline; exterior rear
+  vertices <= local Z .45; panes/metal doors at Z .15. Interior dressing is
+  separately classified and may extend inward. No deep exterior shop inset.
+  Nonqueryable dark pane backing hides flush-core beige bleed; it and attached
+  film/ads hide in state 3 and disappear with state 4. It is draft dressing.
+  Final exact pane/source overlaps=0; 57,879 visibility rays have no unintended
+  opaque occluders; 176,685 coverage rays find no unintended wall holes.
+  All 273,345 original source BaseParts retain exact CF/size/color. Terrain,
+  roads, cores, generators and hit mechanics unchanged. Upper generation/far
+  proxies stay disabled. Seven coherent palettes; independent tenant seeds.
+  Final manifest/report v8 lives in ServerStorage.GroundFacadePilotManifest;
+  current isolated helper ServerStorage.FacadeClipRuntime. Replay that manifest
+  with a FRESH frontage index; it preserves 44 final regional bay vetoes.
+  Open shops/garages require verified 22-stud interior clearance. Large-height
+  faces receive complete plain infill. No source cutting to make portal space.
+  Quiet rear overlaps with neighboring source/footings and conspicuous road
+  pieces remain map issues. Added ground geometry is still replicated, not
+  full geometry LOD; reduce cost and benchmark target devices before full city.
+  Gallery/glass loop/spawn retained. Other device: open saved TestJJK, then
+  sync scripts from shibuya-level-curves; root rbxl/fresh build are older maps.
+
+October 10, 2026 — GROUND FACADE FEEDBACK v7 (HISTORICAL).
   Read tools/FACADE_FEEDBACK_HANDOFF.md and tools/FACADE_SECTION_HANDOFF.md.
   Same 32 ordinary buildings / 228 ground runs; no city-wide expansion.
   8,663 owned parts, 570 glass panes, 33 portals, 165 solid stair parts,

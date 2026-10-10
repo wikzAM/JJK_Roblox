@@ -14,13 +14,19 @@ local function inside(p,ring)
 end
 function Frontage.Index(center,radius)
 	local scene={buildings={},roads={}}
+	local scanned=0
 	for _,m in workspace.Buildings:GetChildren() do
+		scanned+=1;if scanned%25==0 then task.wait() end
 		local encoded=m:GetAttribute("SourceSlicePlan")
 		if encoded then
 			local frame=Layout.FrameOf(m)
-			if frame and (Vector3.new(frame.X,0,frame.Z)-Vector3.new(center.X,0,center.Z)).Magnitude<radius then
+			-- Include footprints reaching into the index even when their origin is outside.
+			if frame and (Vector3.new(frame.X,0,frame.Z)-Vector3.new(center.X,0,center.Z)).Magnitude<radius+m:GetExtentsSize().Magnitude/2 then
 				local plan=Http:JSONDecode(encoded)
-				table.insert(scene.buildings,{model=m,frame=frame,plan=plan,id=m:GetAttribute("SourceSliceId")})
+				local lo,hi=Vector3.one*math.huge,-Vector3.one*math.huge
+				for _,ring in plan.levels[1].pieces do for _,p in ring do local q=frame:PointToWorldSpace(Vector3.new(p[1],0,p[2]));lo=lo:Min(q);hi=hi:Max(q) end end
+				local dx=math.max(lo.X-center.X,0,center.X-hi.X);local dz=math.max(lo.Z-center.Z,0,center.Z-hi.Z)
+				if dx*dx+dz*dz<=radius*radius then table.insert(scene.buildings,{model=m,frame=frame,plan=plan,id=m:GetAttribute("SourceSliceId"),lo=lo,hi=hi}) end
 			end
 		end
 	end
@@ -31,7 +37,7 @@ function Frontage.Index(center,radius)
 	return scene
 end
 function Frontage.Occupied(scene,point,exclude)
-	for _,b in scene.buildings do if b.model~=exclude then
+	for _,b in scene.buildings do if b.model~=exclude and (not b.lo or (point.X>=b.lo.X and point.X<=b.hi.X and point.Z>=b.lo.Z and point.Z<=b.hi.Z)) then
 		local q=b.frame:PointToObjectSpace(point)
 		for _,ring in b.plan.levels[1].pieces do if inside(q,ring) then return b.id end end
 	end end

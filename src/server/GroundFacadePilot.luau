@@ -59,7 +59,7 @@ local function safePortal(scene,m,cf,p,gap)
 	end
 	local allowedRange=car and 3 or Frontage.MAX_FRONT_GROUND_RANGE
 	if cf.Y-low>Frontage.MAX_ENTRY_RISE or high-low>allowedRange or high>cf.Y+.2 then return false,"Approach exceeds elevation limits" end
-	if car then
+	if car or p.name=="openShop" then
 		return Frontage.OpenDepth(m,cf*CFrame.new(p.x,0,0),p.width+.5,22)
 	end
 	return true,"Clear approach"
@@ -86,7 +86,7 @@ end
 local function build(row,scene)
 	local m=find(row.id);assert(not m:GetAttribute("CrownInteresting") and not m:HasTag("Landmark") and not m:GetAttribute("Landmark"),"Landmark excluded")
 	assert(m:GetAttribute("StructuralOnly")==true,"Trial requires an ordinary generated building")
-	local root=Instance.new("Folder");root.Name="GroundFacadePilot";root:SetAttribute("Owner",OWNER);root:SetAttribute("PerimeterRevision",7);root:SetAttribute("Palette",row.palette)
+	local root=Instance.new("Folder");root.Name="GroundFacadePilot";root:SetAttribute("Owner",OWNER);root:SetAttribute("PerimeterRevision",8);root:SetAttribute("Palette",row.palette)
 	local owned={};local r={id=row.id,palette=row.palette,faces={},parts=0,panes=0,supportedPlanters=0};local maxGap=0
 	local okay,err=pcall(function()
 	for _,f in row.faces do
@@ -98,7 +98,7 @@ local function build(row,scene)
 		local opts={height=h,targetWidth=28,palette=row.palette,facadeType=f.type,nameSeed=row.nameSeed,ads="normal",allowEntrance=f.class=="front",sitePiece=f.piece,siteRun=f.run}
 		local holder,bays;local vetoes={};local portals=0
 		local sourceCF=cf;local outset=0;local fitReason="Opaque/narrow infill"
-		if h>=10.5 and width>=2 then
+		if h>=10.5 and h<=24 and width>=2 and width<=1000 then
 			local fit,why=Placement.Fit(m,scene,cf,width,key,profile,opts)
 			if not fit then
 				profile="blind";opts.facadeType=nil;opts.allowEntrance=false;fitReason=why
@@ -107,11 +107,11 @@ local function build(row,scene)
 				local ground=Frontage.Ground(cf,0,-2);gap=ground and math.max(0,cf.Y-ground) or gap
 			end
 		end
-		if h<10.5 or width<2 then
+		if h<10.5 or h>24 or width<2 or width>1000 then
 			holder=Instance.new("Model");holder.Name="GroundFacadeRun_blind";holder.WorldPivot=cf;holder.Parent=root
 			concrete(holder,"NarrowPerimeterInfill",cf*CFrame.new(0,h/2,0),Vector3.new(width,h,.7),row.palette);bays={{infill=true,width=width,role="blind"}};profile="blind"
 		else
-			opts.bayRoles={}
+			opts.bayRoles=table.clone(f.bayRoles or {})
 			validateBays(scene,m,cf,width,key,profile,opts,gap,vetoes)
 			if #vetoes>0 then
 				local fit,why=Placement.Fit(m,scene,sourceCF,width,key,profile,opts)
@@ -206,7 +206,7 @@ function Pilot.Clear()
 end
 function Pilot.Apply(rows,scene)
 	assert(not game:GetService("RunService"):IsRunning(),"Edit-time only");assert(scene,"Supply frontage index")
-	local staged={};local report={buildings=#rows,parts=0,panes=0,supportedPlanters=0,rows={},revision=7}
+	local staged={};local report={buildings=#rows,parts=0,panes=0,supportedPlanters=0,rows={},revision=8}
 	local ok,err=pcall(function() for _,row in rows do local m,f,owned,r=build(row,scene)
 		table.insert(staged,{model=m,root=f,owned=owned});table.insert(report.rows,r)
 		report.parts+=r.parts;report.panes+=r.panes;report.supportedPlanters+=r.supportedPlanters
