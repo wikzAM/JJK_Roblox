@@ -1,5 +1,9 @@
 # Shibuya live state — snapshot, September 20 2026
 
+> **October 10 v6:** [FACADE_SECTION_HANDOFF.md](FACADE_SECTION_HANDOFF.md) is current for facades: 32 ordinary buildings / 228 ground runs / 175 physical panes, original city count 2,227 unchanged. Core visibility corrected; generated upper glass disabled; no further terrain changes.
+
+> **October 10 ground-facade v5:** three ordinary buildings near the selected `orph_-318_-751` now have 42 complete ground facade runs. Lime marker base (-388.99,86.43,-707.63). Only two local approach terrain pads adjusted with voxel backups; no city-wide terrain/road changes. See `FACADE_FLAT_TRIAL_HANDOFF.md` for current manifest and verification.
+
 **Read this before opening Studio.** It is a full census of the live place taken at the end of the
 crown work, so a fresh session can plan without spending MCP calls re-deriving it. Numbers here are
 measured, not estimated.

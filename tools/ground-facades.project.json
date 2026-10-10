@@ -1,0 +1,26 @@
+{
+  "name": "GroundFacadeDrafts",
+  "tree": {
+    "$className": "DataModel",
+    "ReplicatedStorage": {
+      "Shared": {
+        "$className": "Folder",
+        "GlassConfig": { "$path": "../src/shared/GlassConfig.luau" },
+        "GlassVisual": { "$path": "../src/shared/GlassVisual.luau" },
+        "GroundFacadeCatalog": { "$path": "../src/shared/GroundFacadeCatalog.luau" },
+        "GroundFacadeNames": { "$path": "../src/shared/GroundFacadeNames.luau" },
+        "GroundFacadeExpansion": { "$path": "../src/shared/GroundFacadeExpansion.luau" },
+        "GroundFacadeKit": { "$path": "../src/shared/GroundFacadeKit.luau" }
+      }
+    },
+    "ServerScriptService": {
+      "Server": {
+        "$className": "Folder",
+        "GroundFacadeDrafts": { "$path": "../src/server/GroundFacadeDrafts.luau" }
+      }
+    },
+    "ServerStorage": {
+      "GroundFacadeDraftLibrary": { "$path": "../assets/GroundFacadeDraftLibrary.rbxmx" }
+    }
+  }
+}

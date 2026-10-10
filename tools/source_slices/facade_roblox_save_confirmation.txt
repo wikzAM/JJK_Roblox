@@ -1,0 +1,10 @@
+13:37:41.353  [HitHandler] Ready.  -  Server - HitHandler:1291
+  13:37:41.375  [WorldSetup] Spawned Building3 from TestBuilding at 54.199188232421875, 222.23475646972656, -30.62591552734375  -  Server - WorldSetup:159
+  13:37:41.379  [WorldSetup] World built. Click the red dummy while facing the buildings.  -  Server - WorldSetup:208
+  13:37:41.379  [Server] All modules initialized.  -  Server - Server:7
+  13:37:52.865  [ClickInput] Active. Click the red dummy to test.  -  Client - ClickInput:84
+  13:37:52.908  [Client] All modules initialized.  -  Client - Client:8
+  13:39:48.310   ▶ Disconnect from 127.0.0.1|62220 (x2)  -  Studio
+
+  13:51:10.322  Saving to Roblox...  -  Studio
+  13:51:18.196  Saved new changes in "TestJJK" to Roblox.  -  Studio

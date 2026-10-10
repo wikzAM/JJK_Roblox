@@ -1,5 +1,39 @@
 # Facades and glass — roadmap
 
+> **Current v6:** [FACADE_SECTION_HANDOFF.md](FACADE_SECTION_HANDOFF.md). Owner-approved 32-building ground section now applied and verified. Core-safe bounded outset, quiet own-wing courts, connected wall ends. Temporary generated upper glass disabled. Full-city rollout remains a later decision.
+
+> **Latest v5 trial:** `FACADE_FLAT_TRIAL_HANDOFF.md` supersedes the western v4 location and coverage. Three nearer buildings have 42 full-height runs, supported wedges/steps, blank large-drop sides, and two small reversible terrain repairs. Mass application awaits review. Upper-floor families and LOD are planning only in `UPPER_FACADE_APPROACH.md`.
+
+**Latest October 10 perimeter trial (v4):** see `FACADE_PERIMETER_HANDOFF.md`.
+53 physical designs and 79 Japanese business labels ×32 stems. Three adjacent
+buildings replace the archived scattered 14 pilots: 38 complete exterior ground
+runs, road-facing entrances, quiet enclosed sides, ground-supported planting,
+and one interior-verified parking bay. Glass opt-in now covers those three only.
+Terrain, roads, original structures and generators are unchanged.
+
+**Earlier October 10 scope correction:** generated glass was opt-in on the 14 owned
+ground-pilot buildings only. Opaque far proxies are disabled. The previous
+city-wide curtain wall was a test mechanism, not the intended facade for every
+building/floor. Destruction removes glass through the cutter radius plus 12
+studs; the next 12-stud band cracks. Lime/magenta locator Parts mark the city
+pilot and raised gallery. Current commands and checks: `GLASS_SYSTEM_HANDOFF.md`.
+Future floor facades need family-specific opaque/glass layouts and consistent
+materials/silhouettes across LOD before any wider rollout.
+
+**October 8 update (v3):** current implementation and verification are in
+`GLASS_SYSTEM_HANDOFF.md`; the 38 physical designs and research are in
+`GROUND_FACADE_HANDOFF.md`. Fourteen small random buildings have a ground-front
+pilot outside crossing/landmarks. Four-state glass, sparse persistent server
+damage, camera-budgeted reconstruction and local shard bursts are integrated.
+The old 256-hit history and all-city far-shell allocation are superseded.
+`GroundFacadeDraftGallery/04_GlassDemo` automatically cycles in Play. Terrain,
+roads, generators and original building structure remain unchanged. The Oct 6
+flattened-ground handoff remains authoritative.
+
+**Historical September architecture below:** useful rationale, but event names,
+damage persistence and measured budgets below are superseded by the October
+glass handoff. Do not restore the old runtime from this section.
+
 Sept 24. Builds on the facade subagent's design (client-side facades, capsule damage log,
 LOD, streaming). What is **built and tested**, what is **next**, and the **decisions that are
 yours**. Every number here was measured on this map, not assumed.

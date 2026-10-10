@@ -1,0 +1,376 @@
+<roblox version="4">
+  <Item class="Lighting" referent="0">
+    <Properties>
+      <string name="Name">Lighting</string>
+      <Color3 name="Ambient">
+        <R>0.3</R>
+        <G>0.3</G>
+        <B>0.3</B>
+      </Color3>
+      <float name="Brightness">2</float>
+      <float name="ClockTime">14</float>
+    </Properties>
+  </Item>
+  <Item class="ReplicatedStorage" referent="1">
+    <Properties>
+      <string name="Name">ReplicatedStorage</string>
+    </Properties>
+    <Item class="Folder" referent="2">
+      <Properties>
+        <string name="Name">Shared</string>
+      </Properties>
+      <Item class="ModuleScript" referent="3">
+        <Properties>
+          <string name="Name">GlassConfig</string>
+          <string name="Source"><![CDATA[-- Shared asset IDs and performance/art tuning. No runtime actions.
+local C={}
+C.VERSION=1
+C.State={Intact=1,Cracked=2,Shattered=3,Removed=4}
+C.CrackImage="rbxassetid://91345378258372"
+C.ShatteredImage="rbxassetid://118715470275244"
+C.BackupCrackDecal="rbxassetid://111911787795227" -- owner-supplied store asset; not needed by current uploads
+C.CrackTileStuds=12
+C.EdgeThicknessStuds=1.0
+C.PaneStuds=12
+-- Temporary opt-in trial. This is not the final per-floor facade art policy.
+C.GeneratedFacadeScope="groundPilot" -- "city" must be an explicit later rollout
+C.GeneratedUpperEnabled=false -- Larger trial is ground-only; future upper families opt in.
+C.FarProxyEnabled=false -- opaque coloured stand-ins are unsuitable for this trial
+C.NearRadius=700
+C.DropRadius=850
+C.DetailRadius=220
+C.FarRadius=1700
+C.FarDropRadius=1900
+C.FrameBudget=0.002
+C.MaxBuildSpeed=400
+C.MaxPooledParts=1800
+C.MaxShardsPerEvent=48
+C.MaxVFXRowsPerEvent=16 -- Transient shard geometry; full damage still lives in state pages.
+C.MaxLiveShardParticles=192
+C.ShardImage="rbxassetid://95153642216404"
+C.ShardsPerPane=3
+C.ShardLifetime=3
+C.DefaultCrackBand=6
+C.DestructionClearance=12 -- remove a full pane-width beyond the structural cutter
+C.DestructionCrackBand=12 -- cracked glass starts outside that cleared margin
+C.ShatterSpeed=65 -- illustrative impact speed threshold, studs/s; attacks may supply explicit states
+return C
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="4">
+        <Properties>
+          <string name="Name">GlassVisual</string>
+          <string name="Source"><![CDATA[-- Four glass states on an ordinary Part. Textures are presentation, not physics.
+local Config=require(script.Parent.GlassConfig)
+local V={}
+local S=Config.State
+local PREFIX="GlassDamage_"
+local function textureContent(texture,uri)
+	-- Current content API; compatibility for older Studio builds.
+	local ok=pcall(function()texture.ColorMapContent=Content.fromUri(uri)end)
+	if not ok then texture.Texture=uri end
+end
+function V.ClearTextures(part)
+	for _,o in part:GetChildren() do if o:IsA("Decal") and o.Name:sub(1,#PREFIX)==PREFIX then o:Destroy() end end
+end
+function V.Capture(part,id,collision)
+	if part:GetAttribute("GlassBaseTransparency")==nil then
+		part:SetAttribute("GlassBaseTransparency",part.Transparency)
+		part:SetAttribute("GlassBaseReflectance",part.Reflectance)
+		part:SetAttribute("GlassBaseR",part.Color.R);part:SetAttribute("GlassBaseG",part.Color.G);part:SetAttribute("GlassBaseB",part.Color.B)
+		local intact=collision;if intact==nil then intact=part.CanCollide end
+		part:SetAttribute("GlassIntactCollision",intact)
+	end
+	if id then part:SetAttribute("GlassPaneId",id) end
+	if part:GetAttribute("GlassState")==nil then part:SetAttribute("GlassState",S.Intact) end
+	part:AddTag("GlassPane")
+end
+local function baseline(part)
+	return Color3.new(part:GetAttribute("GlassBaseR") or part.Color.R,part:GetAttribute("GlassBaseG") or part.Color.G,part:GetAttribute("GlassBaseB") or part.Color.B)
+end
+local function cracks(part)
+	for _,face in {Enum.NormalId.Front,Enum.NormalId.Back} do
+		local t=Instance.new("Texture");t.Name=PREFIX.."Cracks";t.Face=face
+		textureContent(t,Config.CrackImage)
+		t.StudsPerTileU=Config.CrackTileStuds;t.StudsPerTileV=Config.CrackTileStuds
+		-- Offsets vary per physical pane, stable across rebuilds.
+		local h=0;for c in (part:GetAttribute("GlassPaneId") or part.Name):gmatch(".") do h=(h*33+string.byte(c))%997 end
+		t.OffsetStudsU=(h%12)*.5;t.OffsetStudsV=(math.floor(h/12)%12)*.5
+		t.Transparency=.08;t.Parent=part
+	end
+end
+local function brokenEdges(part)
+ -- Cropped, fixed-scale strips. Explicit short ImageLabels avoid the engine's
+ -- Tile + ImageRect interaction (which sampled the wrong border in Studio).
+ for _,face in {Enum.NormalId.Front,Enum.NormalId.Back} do
+  local gui=Instance.new("SurfaceGui");gui.Name=PREFIX.."Edges";gui.Face=face
+  gui.SizingMode=Enum.SurfaceGuiSizingMode.PixelsPerStud;gui.PixelsPerStud=36
+  gui.LightInfluence=.15;gui.MaxDistance=350;gui.Parent=part
+  local w,h=part.Size.X,part.Size.Y
+  local t=math.min(Config.EdgeThicknessStuds,w*.20,h*.20)
+  -- Roblox transcoded this upload to 1024px; crop in uploaded pixels.
+  local n,band=1024,155
+  local function image(name,x,y,sx,sy,ox,oy,rx,ry)
+   local im=Instance.new("ImageLabel");im.Name=name;im.BackgroundTransparency=1
+   im.Size=UDim2.fromScale(sx/w,sy/h);im.Position=UDim2.fromScale(x/w,y/h)
+   im.Image=Config.ShatteredImage;im.ImageTransparency=.12
+   im.ImageRectOffset=Vector2.new(ox,oy);im.ImageRectSize=Vector2.new(rx,ry)
+   im.ScaleType=Enum.ScaleType.Stretch;im.Parent=gui
+  end
+  for _,corner in {{0,0,0,0},{w-t,0,n-band,0},{0,h-t,0,n-band},{w-t,h-t,n-band,n-band}} do
+   image("Corner",corner[1],corner[2],t,t,corner[3],corner[4],band,band)
+  end
+  local span=(n-2*band)/band*t
+  local nx=math.max(1,math.ceil((w-2*t)/span));local dx=(w-2*t)/nx
+  for i=1,nx do
+   image("Top",t+(i-1)*dx,0,dx,t,band,0,n-2*band,band)
+   image("Bottom",t+(i-1)*dx,h-t,dx,t,band,n-band,n-2*band,band)
+  end
+  local ny=math.max(1,math.ceil((h-2*t)/span));local dy=(h-2*t)/ny
+  for i=1,ny do
+   image("Left",0,t+(i-1)*dy,t,dy,0,band,band,n-2*band)
+   image("Right",w-t,t+(i-1)*dy,t,dy,n-band,band,band,n-2*band)
+  end
+ end
+end
+local function clearEdges(part)
+	for _,o in part:GetChildren() do if o.Name==PREFIX.."Edges" then o:Destroy() end end
+end
+function V.Apply(part,state,options)
+	options=options or {}
+	assert(type(state)=="number" and state%1==0 and state>=1 and state<=4,"Invalid glass state")
+	V.Capture(part)
+	V.ClearTextures(part);clearEdges(part)
+	part:SetAttribute("GlassState",state)
+	if state==S.Removed then part:Destroy();return end
+	part.Material=Enum.Material.Glass
+	part.Color=baseline(part)
+	part.CanCollide=state<=S.Cracked and part:GetAttribute("GlassIntactCollision")==true
+	part.CanTouch=false
+	part.Transparency=state==S.Shattered and 1 or part:GetAttribute("GlassBaseTransparency")
+	part.Reflectance=state==S.Shattered and 0 or part:GetAttribute("GlassBaseReflectance")
+	if options.serverPhysics then part.CanQuery=state<=S.Cracked end
+	for _,o in part:GetChildren() do
+		if o:IsA("BasePart") and (o.Name=="PrivacyFilm" or o:GetAttribute("GlassAttachedOverlay")) then
+			if o:GetAttribute("GlassFilmTransparency")==nil then o:SetAttribute("GlassFilmTransparency",o.Transparency) end
+			o.Transparency=state==S.Shattered and 1 or o:GetAttribute("GlassFilmTransparency")
+			o.CanCollide=false;o.CanQuery=false
+			for _,g in o:GetChildren() do if g:IsA("SurfaceGui") then g.Enabled=state~=S.Shattered end end
+		end
+	end
+	if options.textures~=false then
+		if state==S.Cracked then cracks(part)
+		elseif state==S.Shattered then brokenEdges(part) end
+	end
+end
+function V.ResetPooled(part)
+	V.ClearTextures(part);clearEdges(part)
+	part:RemoveTag("GlassPane")
+	for key in part:GetAttributes() do if key:sub(1,5)=="Glass" then part:SetAttribute(key,nil) end end
+end
+return V
+]]></string>
+        </Properties>
+      </Item>
+    </Item>
+  </Item>
+  <Item class="ServerScriptService" referent="5">
+    <Properties>
+      <string name="Name">ServerScriptService</string>
+    </Properties>
+    <Item class="Folder" referent="6">
+      <Properties>
+        <string name="Name">Server</string>
+      </Properties>
+      <Item class="Script" referent="7">
+        <Properties>
+          <string name="Name">Boot</string>
+          <token name="RunContext">0</token>
+          <string name="Source"><![CDATA[-- Standalone demonstration place. No combat, city, terrain or generator modules.
+local gallery=Instance.new("Folder");gallery.Name="GroundFacadeDraftGallery"
+gallery:SetAttribute("Origin",CFrame.new(0,0,100));gallery.Parent=workspace
+require(script.Parent.GlassDemoDrafts).Generate()
+local spawn=Instance.new("SpawnLocation");spawn.Name="DemoSpawn";spawn.Anchored=true
+spawn.Position=Vector3.new(156,2,-18);spawn.Size=Vector3.new(6,1,6);spawn.Parent=workspace
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="ModuleScript" referent="8">
+        <Properties>
+          <string name="Name">GlassDemoDrafts</string>
+          <string name="Source"><![CDATA[-- Edit-time display only, appended to the existing facade review platform.
+local Shared=game:GetService("ReplicatedStorage"):WaitForChild("Shared")
+local Visual=require(Shared.GlassVisual)
+local Demo={}
+local OWNER="2026-10-08-glass"
+local function part(parent,name,cf,size,color)
+	local p=Instance.new("Part");p.Name=name;p.Anchored=true;p.CanTouch=false;p.Size=size;p.CFrame=cf;p.Color=color;p.Parent=parent;return p
+end
+local function label(parent,name,cf,text,width)
+	local p=part(parent,name,cf,Vector3.new(width,2,.2),Color3.fromRGB(28,34,40));p.CanCollide=false
+	local g=Instance.new("SurfaceGui");g.Face=Enum.NormalId.Front;g.SizingMode=Enum.SurfaceGuiSizingMode.PixelsPerStud;g.PixelsPerStud=35;g.Parent=p
+	local t=Instance.new("TextLabel");t.Name="Text";t.Size=UDim2.fromScale(1,1);t.BackgroundTransparency=1;t.TextScaled=true;t.Text=text;t.Font=Enum.Font.SourceSansSemibold;t.TextColor3=Color3.fromRGB(229,237,240);t.Parent=g
+end
+function Demo.Generate()
+	local gallery=assert(workspace:FindFirstChild("GroundFacadeDraftGallery"),"Generate facade gallery first")
+	local old=gallery:FindFirstChild("04_GlassDemo")
+	if old then assert(old:GetAttribute("Owner")==OWNER,"Unowned demo");return old end
+	-- First mutation is the ownership/replay lock.
+	local root=Instance.new("Folder");root.Name="04_GlassDemo";root:SetAttribute("Owner",OWNER);root:SetAttribute("State","building");root.Parent=gallery
+	local origin=gallery:GetAttribute("Origin") or CFrame.new(0,1600,0)
+	part(root,"DemoDeck",origin*CFrame.new(110,-.55,-100),Vector3.new(244,1,58),Color3.fromRGB(94,99,102))
+	part(root,"DemoWalkway",origin*CFrame.new(12,-.55,-56),Vector3.new(14,1,30),Color3.fromRGB(94,99,102))
+	label(root,"Title",origin*CFrame.new(110,17,-100),"GLASS / 4 STATES + AUTOMATIC PLAY DEMO",228)
+	for i=1,6 do
+		local x=(i-1)*39;local width=i==6 and 28 or 24
+		local cf=origin*CFrame.new(x,0,-100)
+		local m=Instance.new("Model");m.Name=i==5 and "AutomaticLoop" or i==6 and "WideShattered" or "State"..i;m.Parent=root
+		for _,dx in {-width/2,width/2} do part(m,"Frame",cf*CFrame.new(dx,5,0),Vector3.new(.3,10,.5),Color3.fromRGB(67,75,81)) end
+		for _,y in {0,10} do part(m,"Frame",cf*CFrame.new(0,y,0),Vector3.new(width,.3,.5),Color3.fromRGB(67,75,81)) end
+		-- A bright backing accent makes an unobstructed hole easy to judge.
+		part(m,"Backdrop",cf*CFrame.new(0,5,6),Vector3.new(width+1,11,.3),Color3.fromRGB(57,69,76))
+		part(m,"BackdropAccent",cf*CFrame.new(0,4,5.7),Vector3.new(width-3,.25,.2),Color3.fromRGB(230,184,80))
+		local p=part(m,"Glass",cf*CFrame.new(0,5,0),Vector3.new(width-.3,9.7,.2),Color3.fromRGB(45,107,131))
+		p.Material=Enum.Material.Glass;p.Transparency=.32;p.Reflectance=.18;p:SetAttribute("GlassDemoPane",true);Visual.Capture(p,"demo/"..i,true)
+		local state=i<=4 and i or i==6 and 3 or 1;Visual.Apply(p,state)
+		local text=({"1 / INTACT","2 / CRACKED","3 / SHATTERED","4 / REMOVED","AUTO LOOP / PRESS PLAY","WIDE / SAME EDGE SCALE"})[i]
+		label(m,"Caption",cf*CFrame.new(0,12,0),text,width+7)
+		m.WorldPivot=cf
+	end
+	root:SetAttribute("State","ready")
+	root:SetAttribute("AutoPlaceViewer",true)
+	return root
+end
+function Demo.Focus()
+	local root=Demo.Generate();local g=root.Parent;local cf=g:GetAttribute("Origin")
+	workspace.CurrentCamera.CameraType=Enum.CameraType.Scriptable
+	local target=(cf*CFrame.new(110,7,-100)).Position
+	workspace.CurrentCamera.Focus=CFrame.new(target)
+	workspace.CurrentCamera.CFrame=CFrame.lookAt((cf*CFrame.new(110,12,-168)).Position,target)
+	game:GetService("Selection"):Set({root})
+end
+return Demo
+]]></string>
+        </Properties>
+      </Item>
+    </Item>
+  </Item>
+  <Item class="StarterPlayer" referent="9">
+    <Properties>
+      <string name="Name">StarterPlayer</string>
+    </Properties>
+    <Item class="StarterPlayerScripts" referent="10">
+      <Properties>
+        <string name="Name">StarterPlayerScripts</string>
+      </Properties>
+      <Item class="LocalScript" referent="11">
+        <Properties>
+          <string name="Name">Client</string>
+          <string name="Source"><![CDATA[task.spawn(require(script.GlassDemo).Init)
+]]></string>
+        </Properties>
+        <Item class="ModuleScript" referent="12">
+          <Properties>
+            <string name="Name">GlassDemo</string>
+            <string name="Source"><![CDATA[-- Demonstration independent of attacks, hits, server damage or user input.
+local Shared=game:GetService("ReplicatedStorage"):WaitForChild("Shared")
+local Visual=require(Shared.GlassVisual)
+local Config=require(Shared.GlassConfig)
+local Shards=require(script.Parent.GlassShards)
+local Demo={}
+local started=false
+function Demo.Init()
+	if started then return end;started=true
+	-- This large map can take >10 seconds to replicate the review gallery.
+	-- Init runs in its own task, so waiting here never blocks normal input.
+	local gallery=workspace:WaitForChild("GroundFacadeDraftGallery")
+	local root=gallery:WaitForChild("04_GlassDemo")
+	local model=root:WaitForChild("AutomaticLoop")
+	if model:GetAttribute("DemoLoopRunning") then return end
+	model:SetAttribute("DemoLoopRunning",true)
+	local original=model:WaitForChild("Glass"):Clone();original.Parent=nil
+	if game:GetService("RunService"):IsStudio() and root:GetAttribute("AutoPlaceViewer")~=false then
+		local player=game.Players.LocalPlayer;local character=player.Character or player.CharacterAdded:Wait()
+		character:WaitForChild("HumanoidRootPart")
+		if (character:GetPivot().Position-model:GetPivot().Position).Magnitude>500 then
+			local pos=(model:GetPivot()*CFrame.new(0,5,-18)).Position
+			character:PivotTo(CFrame.lookAt(pos,model:GetPivot().Position+Vector3.new(0,5,0)))
+		end
+	end
+	-- Asset loading must never hold up the state demonstration.
+	task.spawn(function()
+		pcall(function()game:GetService("ContentProvider"):PreloadAsync({Config.CrackImage,Config.ShatteredImage,Config.ShardImage},function(id,status)
+			if model.Parent then model:SetAttribute("AssetFetch_"..id:match("%d+"),status.Name) end
+		end)end)
+	end)
+	local labels={"1 / INTACT — COLLISION ON","2 / CRACKED — COLLISION ON","3 / SHATTERED — CLEAR OPENING","4 / REMOVED — NO PANE"}
+	while root.Parent do
+		for state=1,4 do
+			if not root.Parent then break end
+			local p=model:FindFirstChild("Glass")
+			if not p then p=original:Clone();p.Parent=model end
+			local cf,size=p.CFrame,p.Size
+			Visual.Apply(p,state)
+			model:SetAttribute("DemoState",state)
+			model.Caption.SurfaceGui.Text.Text=labels[state]
+			if state==3 then model:SetAttribute("DemoBurstParticles",Shards.Emit(cf,size,cf.Position-cf.LookVector*8,36,{force=true})) end
+			task.wait(4)
+		end
+	end
+	original:Destroy()
+end
+return Demo
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="ModuleScript" referent="13">
+          <Properties>
+            <string name="Name">GlassShards</string>
+            <string name="Source"><![CDATA[-- Client-only short particle bursts. No replicated debris or physics shards.
+local Config=require(game:GetService("ReplicatedStorage"):WaitForChild("Shared").GlassConfig)
+local Debris=game:GetService("Debris")
+local Shards={}
+local live=0
+function Shards.Emit(cf,size,from,count,options)
+	local cam=workspace.CurrentCamera
+	if not (options and options.force) and (not cam or (cam.CFrame.Position-cf.Position).Magnitude>Config.DetailRadius) then return 0 end
+	count=math.min(count or Config.ShardsPerPane,Config.MaxLiveShardParticles-live)
+	if count<=0 then return 0 end
+	local p=Instance.new("Part");p.Name="LocalGlassBurst"
+	p.Anchored=true;p.CanCollide=false;p.CanQuery=false;p.CanTouch=false;p.Transparency=1
+	p.Size=Vector3.new(math.min(size.X,12),math.min(size.Y,12),.1)
+	local away=from and cf.Position-from or cf.LookVector
+	if away.Magnitude<.01 then away=cf.LookVector end
+	p.CFrame=CFrame.lookAt(cf.Position,cf.Position+away.Unit)
+	p.Parent=workspace
+	local e=Instance.new("ParticleEmitter");e.Name="FallingGlass"
+	e.Enabled=false;e.Rate=0;e.Texture=Config.ShardImage
+	e.Speed=NumberRange.new(12,30);e.SpreadAngle=Vector2.new(75,75)
+	e.Acceleration=Vector3.new(0,-workspace.Gravity*.6,0);e.Drag=.5
+	e.Rotation=NumberRange.new(0,360);e.RotSpeed=NumberRange.new(-180,180)
+	e.Size=NumberSequence.new({NumberSequenceKeypoint.new(0,.65,.35),NumberSequenceKeypoint.new(1,.25,.1)})
+	e.Transparency=NumberSequence.new({NumberSequenceKeypoint.new(0,.12),NumberSequenceKeypoint.new(.65,.2),NumberSequenceKeypoint.new(1,1)})
+	e.Color=ColorSequence.new(Color3.fromRGB(203,221,231));e.LightInfluence=.45;e.LightEmission=.15
+	-- One downward ray per emitter, never per particle. Fade before most shards
+	-- would cross the pavement; this approximates landing, not particle collision.
+	local params=RaycastParams.new();params.FilterType=Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances={p,workspace:FindFirstChild("LocalFacades"),workspace:FindFirstChild("LocalFacadesFar")}
+	local hit=workspace:Raycast(cf.Position,Vector3.new(0,-400,0),params)
+	local fall=hit and math.sqrt(math.max(.5,cf.Position.Y-hit.Position.Y)*2/(workspace.Gravity*.6)) or Config.ShardLifetime
+	local lifetime=math.clamp(fall,.35,Config.ShardLifetime)
+	e.Lifetime=NumberRange.new(lifetime*.7,lifetime);e.Parent=p;e:Emit(count)
+	live+=count
+	task.delay(lifetime+.1,function()live=math.max(0,live-count)end)
+	Debris:AddItem(p,lifetime+.2)
+	return count
+end
+function Shards.Stats()return live end
+return Shards
+]]></string>
+          </Properties>
+        </Item>
+      </Item>
+    </Item>
+  </Item>
+</roblox>

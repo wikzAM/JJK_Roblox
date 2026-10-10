@@ -1,5 +1,114 @@
 --!nonstrict
 --[[
+October 10, 2026 — LARGER GROUND SECTION v6 (LATEST).
+  Read tools/FACADE_SECTION_HANDOFF.md first for the current 32-building trial.
+  Owner approved expansion near the reviewed ordinary building toward 109.
+  228 complete ground wall runs, 6,328 added parts, 175 tagged panes, 23 portals,
+  118 solid stairs, six supported planter groups and one open parking bay.
+  Ground-only inset=0 corrects the inherited upper inset that hid glass in cores.
+  GroundFacadePlacement checks actual pane/door rear surfaces against structure;
+  whole-run extra offset is capped at 1.25 studs (three faces use .70/.75/.80).
+  Own opposed building wings count as neighbors; cramped courts stay blind.
+  Every wall end returns to the true footprint, including base .75 stand-off.
+  Verified 20,062 face rays, 308 glass-frame joints, 456 connected wall ends,
+  no unintended holes/structure-hidden pane samples, 8,858 unchanged ORIGINAL
+  STRUCTURAL parts (NoCSG decorations excluded). Original building count 2,227.
+  Catalog/gallery/library v6: 53 styles, 2,600 portable stock parts.
+  GeneratedUpperEnabled=false; generated near/far parts=0 at old and new views.
+  Ground owner gate remains enabled: all four glass states persist correctly.
+  Ground overlays now have 220/260-stud hysteresis; transient shard rows capped
+  at 16 per building event, complete damage retained in pages. No server shards.
+  Native Play verified state 2 collision, state 3 invisible/noncolliding base,
+  LOD drop/restore, state 4 deletion+tombstone, 174-pane mass break/16 events.
+  Short local pre-final-corner samples ~6.96-7.11 ms mean, not city FPS promises.
+  Terrain/roads/cores/generators unchanged by v6. The TWO v5 terrain pads remain.
+  Current helper ServerStorage.FacadeSectionRuntime; source/manifest/evidence in
+  handoff. Lime ~(-389,86,-708), magenta gallery/demo and owner spawn retained.
+  Overnight authorization ends 2026-10-10 15:33:12 UTC OR ordinary usage exhaustion.
+  No credit/reset spending, full-city rollout or implicit further terrain edits.
+
+October 10, 2026 — FLAT-REGION GROUND TRIAL v5 (HISTORICAL).
+  Read tools/FACADE_FLAT_TRIAL_HANDOFF.md. The owner-selected ordinary building
+  orph_-318_-751 and two nearby buildings replace the western v4 pilot.
+  42 FULL-HEIGHT exterior ground runs, six entries, one supported WedgePart
+  driveway, 27 solid stair parts, three grounded planters; 1,106 owned parts
+  including 62 tagged panes. Large drops become blank walls; door approaches
+  independently sample their actual positions. Ground-only layout config fixes
+  the previous low parapet/incomplete wall. Real bay/glazing joints now overlap.
+  Lime beacon base (-388.99,86.43,-707.63); magenta gallery unchanged.
+  Only TWO explicitly authorized local approach terrain pads were modified,
+  82 occupied voxels, requested shifts bounded to 1.5 studs with before/after
+  backups. No global reflatten. Roads, cores, generator code and original
+  source parts unchanged; 6,441 nearby original parts verified exact.
+  Catalog/gallery/library revision 5: same 53 physical styles, 2,544 stock parts.
+  2,712 enclosure rays: no unintended gaps. 954 layouts, 318 portal cases,
+  112 compositions; XML + Rojo preview verified. Native Play: outside 0 near/0
+  far, inside 3 near/0 far, 3 eligible buildings, 442 generated client parts.
+  Generated upper glass remains temporary on those same three only; all 42
+  ground runs suppress generic curtain glazing. Glass/hit behavior unchanged.
+  GroundFacadeSiteGround is edit-only, not a startup module. Current helper:
+  ServerStorage.FacadeFlatTrialRuntime. See handoff for terrain restore keys.
+  tools/UPPER_FACADE_APPROACH.md is planning only. Review this trial before mass
+  applying ground facades or implementing upper families. Save the Studio place.
+
+October 10, 2026 — COMPLETE GROUND PERIMETERS v4 (HISTORICAL).
+  Read tools/FACADE_PERIMETER_HANDOFF.md for the owner's photo feedback and
+  current placement rules. 53 physical styles, 79 Japanese business labels,
+  32 fictional name stems; name seeds do not change architecture. Gallery
+  expanded without moving the owner's Workspace.SpawnLocation or glass demo.
+  The old scattered 14 one-front pilots were archived and replaced by THREE
+  neighboring western buildings: 38 complete exterior ground runs, six entries,
+  one parking opening verified against 22 studs of actual interior/core depth.
+  Near-neighbor gaps receive blind walls; other secondary faces quiet windows.
+  Existing RoadClass/RoadWay parts establish outward public approaches.
+  Planter groups move together onto terrain/road support; raised doors get steps.
+  Lime marker remains near (-1627,98,388), magenta at (250,1600,-100).
+  Generated glass now admits those three owned pilot buildings only; old 14
+  counts below are historical. Far proxies remain disabled. Terrain, roads,
+  generators, cores, original source structure and HitHandler were not edited
+  for this perimeter task. Live building count 2,227; road parts 1,037.
+  Fresh edit helper modules: ServerStorage.FacadePerimeterRuntime.
+  Semantic checks: 954 layouts, 318 portal cases, 112 span compositions,
+  106 quiet-role cases, 500 naming cases, 1,566 unchanged original source parts.
+
+October 10, 2026 — GLASS TRIAL RESTRICTED TO THE 14 GROUND PILOT BUILDINGS.
+  The old city-wide generated curtain wall was too broad for the current ground
+  facade task. GlassConfig.GeneratedFacadeScope="groundPilot" now requires an
+  owned GroundFacadePilot child plus GroundFacadeOwnedRuns. Other buildings
+  receive no generated near glass or far proxy. FarProxyEnabled=false removes
+  the opaque coloured distance stand-ins; upper glass inside the pilot remains
+  a temporary damage/LOD test, not the final facade art for every floor.
+  HitHandler uses GlassDamageService.DestroyPath: state 4 through hole radius
+  +12 studs, state 2 over the following 12 studs. Structural cutter unchanged.
+  Workspace.FacadeTestMarkers: lime city marker base ~(-1627,98,388), 900 tall;
+  magenta raised gallery marker base (250,1600,-100), 500 tall. No collision.
+  FacadeTestMarkers.Generate/FocusCity are edit-only helpers. Fresh cached-safe
+  test modules: ServerStorage.FacadeScopeRuntime. See GLASS_SYSTEM_HANDOFF.md.
+  Live building count was 2,227 before/after this task (owner changes since Oct 8).
+  Terrain, roads, generators and original building geometry remain unchanged.
+
+October 8, 2026 — GROUND FACADES v3 + FOUR-STATE GLASS.
+  Read tools/GLASS_SYSTEM_HANDOFF.md first for current runtime, demo, pilot,
+  damage APIs, assets, LOD budgets and verification. Ground design/research:
+  tools/GROUND_FACADE_HANDOFF.md. Older facade roadmap sections are history.
+  TestJJK: GroundFacadeDraftGallery at Y=1600; reusable library has 38 physical
+  designs, including McDooDoo's, Smash King and Starboys. Fourteen small western
+  city buildings have explicitly owned GroundFacadePilot children. No terrain,
+  roads, original structure, interiors or building generators were rebuilt;
+  Workspace.Buildings remains 2,229 children. Crossing/landmarks excluded.
+  Gallery/04_GlassDemo runs automatically in Play, independently of HitHandler.
+  Glass states: intact/collidable, cracked/collidable, hidden/noncollidable with
+  broken-edge overlay, removed. GlassDamageService owns sparse versioned state;
+  FacadeRenderer reconstructs it through near/detail/far LOD. Shards are local
+  bounded one-shot particles. Glass damage precedes existing CSG in HitHandler;
+  teleport, terrain and ragdoll logic remain unchanged. Draft doors stay static
+  noncollidable portals. Attack/contact callers must explicitly use damage APIs.
+  Facade-owned runs suppress generic ground glass. Native Play and geometry
+  checks are recorded in tools/source_slices/glass_live_verification.json and
+  glass_facade_contract_results.json. This is a draft, not a device FPS benchmark.
+  Assets and standalone previews are saved in assets/. Studio city save pending.
+  Latest ground state remains Oct 6 TERRAIN WRAP-UP (flattened city, terrain DONE).
+
 START HERE: tools/SHIBUYA_LIVE_STATE.md — measured census of the live place,
   the rebuild commands, and the Studio gotchas. Written so a fresh session needs
   no MCP calls to know where things stand. Then tools/SHIBUYA_SOURCE_SLICE_HANDOFF.md

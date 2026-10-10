@@ -1125,31 +1125,9 @@ function HitHandler.Init()
 		HitEvent.Parent = ReplicatedStorage
 	end
 
-	-- server -> all clients: (start, finish, radius), the same capsule the CSG
-	-- carves. Facades live only on clients (FacadeRenderer), so each client
-	-- breaks its own glass from this; the server stores no facade parts.
-	local FacadeHitEvent = ReplicatedStorage:FindFirstChild("FacadeHitEvent")
-	if not FacadeHitEvent then
-		FacadeHitEvent = Instance.new("RemoteEvent")
-		FacadeHitEvent.Name = "FacadeHitEvent"
-		FacadeHitEvent.Parent = ReplicatedStorage
-	end
-	-- ...and a capped log of the same capsules, so a player who joins later sees
-	-- the glass already broken. One replicated attribute; clients replay it.
-	local FacadeState = ReplicatedStorage:FindFirstChild("FacadeState")
-	if not FacadeState then
-		FacadeState = Instance.new("Folder")
-		FacadeState.Name = "FacadeState"
-		FacadeState.Parent = ReplicatedStorage
-	end
-	local facadeLog = {}
-	local FACADE_LOG_MAX = 256
-	local function logFacadeHit(a, b, r)
-		table.insert(facadeLog, {math.round(a.X * 10) / 10, math.round(a.Y * 10) / 10, math.round(a.Z * 10) / 10,
-			math.round(b.X * 10) / 10, math.round(b.Y * 10) / 10, math.round(b.Z * 10) / 10, r})
-		if #facadeLog > FACADE_LOG_MAX then table.remove(facadeLog, 1) end
-		FacadeState:SetAttribute("Hits", HttpService:JSONEncode(facadeLog))
-	end
+	-- Persist logical glass damage independently of client LOD and late joins.
+	local GlassDamage=require(script.Parent.GlassDamageService)
+	GlassDamage.Init()
 
 	HitEvent.OnServerEvent:Connect(function(player, targetModel, hitDirection)
 		if typeof(targetModel) ~= "Instance" or not targetModel:IsA("Model") then return end
@@ -1204,9 +1182,8 @@ function HitHandler.Init()
 			DustEvent:FireAllClients(point, 1.0)
 		end
 
-		logFacadeHit(startPos, endPos, HOLE_RADIUS)
-		FacadeHitEvent:FireAllClients(startPos, endPos, HOLE_RADIUS)
 		task.spawn(function()
+			GlassDamage.DestroyPath(startPos,endPos,HOLE_RADIUS)
 			destroyAlongCylinder(startPos, endPos, HOLE_RADIUS)
 		end)
 

@@ -1,0 +1,22 @@
+{
+  "name": "GlassDemoPreview",
+  "tree": {
+    "$className": "DataModel",
+    "ReplicatedStorage": { "Shared": {
+      "$className": "Folder",
+      "GlassConfig": { "$path": "../src/shared/GlassConfig.luau" },
+      "GlassVisual": { "$path": "../src/shared/GlassVisual.luau" }
+    } },
+    "ServerScriptService": { "Server": {
+      "$className": "Folder",
+      "GlassDemoDrafts": { "$path": "../src/server/GlassDemoDrafts.luau" },
+      "Boot": { "$path": "preview/glass_demo.server.luau" }
+    } },
+    "StarterPlayer": { "StarterPlayerScripts": { "Client": {
+      "$path": "preview/glass_demo.client.luau",
+      "GlassDemo": { "$path": "../src/client/GlassDemo.luau" },
+      "GlassShards": { "$path": "../src/client/GlassShards.luau" }
+    } } },
+    "Lighting": { "$properties": { "Brightness": 2, "ClockTime": 14, "Ambient": [0.3,0.3,0.3] } }
+  }
+}
