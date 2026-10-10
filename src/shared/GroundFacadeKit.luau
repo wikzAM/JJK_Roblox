@@ -368,6 +368,9 @@ function Kit.PlanRun(width,key,profile,options)
 	end
 	if profile=="blind" or options.role=="blind" then for _,b in bays do b.role="blind" end
 	elseif profile=="window" or options.role=="window" or options.allowEntrance==false then for _,b in bays do b.role="window" end end
+	-- Approach safety is evaluated per bay; one unsafe doorway must not erase
+	-- every otherwise usable shop in a long elevation.
+	for i,b in bays do if options.bayRoles and options.bayRoles[i] then b.role=options.bayRoles[i] end end
 	return bays
 end
 

@@ -1,4 +1,6 @@
-# Larger ground facade section — October 10, 2026 (v6, current)
+# Larger ground facade section — October 10, 2026 (v6, historical)
+
+**Current feedback pass is v7:** read `FACADE_FEEDBACK_HANDOFF.md`. The same 32-building area now has 33 usable portals, seven building palettes and stronger neighboring-geometry checks. The counts and JSON evidence below describe the previous v6 checkpoint.
 
 **Cross-device checkpoint:** Studio confirmed `Saved new changes in "TestJJK" to Roblox` on October 10 at **13:51:18 America/Indianapolis (17:51:18 UTC)**. Open TestJJK place 99539622209675 from Roblox Studio on the other device for the live city, terrain, section and raised gallery/demo. Confirmation image: `tools/preview/facade_saved_roblox_native.png`; output log: `tools/source_slices/facade_roblox_save_confirmation.txt`. GitHub branch `shibuya-level-curves` carries the matching scripts, reusable assets, manifests, documentation and test evidence. The older tracked root `JJK_Roblox.rbxl` and a fresh default Rojo build are not this live-city checkpoint.
 

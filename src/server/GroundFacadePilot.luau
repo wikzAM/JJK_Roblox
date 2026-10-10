@@ -64,10 +64,29 @@ local function safePortal(scene,m,cf,p,gap)
 	end
 	return true,"Clear approach"
 end
+local function validateBays(scene,m,cf,width,key,profile,opts,gap,vetoes)
+	local cursor=-width/2
+	for i,b in Kit.PlanRun(width,key,profile,opts) do
+		local bcf=cf*CFrame.new(cursor+b.width/2,0,0)
+		local blocked,blocker=false,nil
+		if not b.infill and b.role~="blind" then blocked,blocker=Placement.NeighborBlocked(m,scene,bcf,b,opts) end
+		if blocked then
+			opts.bayRoles[i]="blind";table.insert(vetoes,{bay=i,type=b.id,reason="Neighbor geometry covers opening",blocker=blocker})
+		elseif not b.infill and b.role=="entrance" then
+			local o=table.clone(opts);o.width=b.width;o.seed=b.seed;o.role=b.role;o.mirror=b.seed%2==0
+			local l=Kit.Layout(b.id,o)
+			for _,p in l.portals or (l.door and {l.door} or {}) do
+				local clear,why=safePortal(scene,m,bcf,p,gap)
+				if not clear then opts.bayRoles[i]="window";table.insert(vetoes,{bay=i,type=b.id,reason=why}) end
+			end
+		end
+		cursor+=b.width
+	end
+end
 local function build(row,scene)
 	local m=find(row.id);assert(not m:GetAttribute("CrownInteresting") and not m:HasTag("Landmark") and not m:GetAttribute("Landmark"),"Landmark excluded")
 	assert(m:GetAttribute("StructuralOnly")==true,"Trial requires an ordinary generated building")
-	local root=Instance.new("Folder");root.Name="GroundFacadePilot";root:SetAttribute("Owner",OWNER);root:SetAttribute("PerimeterRevision",6);root:SetAttribute("Palette",row.palette)
+	local root=Instance.new("Folder");root.Name="GroundFacadePilot";root:SetAttribute("Owner",OWNER);root:SetAttribute("PerimeterRevision",7);root:SetAttribute("Palette",row.palette)
 	local owned={};local r={id=row.id,palette=row.palette,faces={},parts=0,panes=0,supportedPlanters=0};local maxGap=0
 	local okay,err=pcall(function()
 	for _,f in row.faces do
@@ -76,7 +95,7 @@ local function build(row,scene)
 		-- metadata/structure checks replace the old blanket 1,200-stud exclusion.
 		local key=row.id.."/"..f.piece.."/"..f.run;local gap=f.groundGap or 0;maxGap=math.max(maxGap,gap)
 		local profile=f.class=="front" and (f.profile or "tokyo") or f.class
-		local opts={height=h,targetWidth=28,palette=row.palette,facadeType=f.type,nameSeed=row.nameSeed,ads="normal",allowEntrance=f.class=="front"}
+		local opts={height=h,targetWidth=28,palette=row.palette,facadeType=f.type,nameSeed=row.nameSeed,ads="normal",allowEntrance=f.class=="front",sitePiece=f.piece,siteRun=f.run}
 		local holder,bays;local vetoes={};local portals=0
 		local sourceCF=cf;local outset=0;local fitReason="Opaque/narrow infill"
 		if h>=10.5 and width>=2 then
@@ -92,23 +111,18 @@ local function build(row,scene)
 			holder=Instance.new("Model");holder.Name="GroundFacadeRun_blind";holder.WorldPivot=cf;holder.Parent=root
 			concrete(holder,"NarrowPerimeterInfill",cf*CFrame.new(0,h/2,0),Vector3.new(width,h,.7),row.palette);bays={{infill=true,width=width,role="blind"}};profile="blind"
 		else
-			local cursor=-width/2
-			for i,b in Kit.PlanRun(width,key,profile,opts) do
-				if not b.infill and b.role=="entrance" then
-					local o=table.clone(opts);o.width=b.width;o.seed=b.seed;o.role=b.role;o.mirror=b.seed%2==0
-					local l=Kit.Layout(b.id,o)
-					for _,p in l.portals or (l.door and {l.door} or {}) do
-						local clear,why=safePortal(scene,m,cf*CFrame.new(cursor+b.width/2,0,0),p,gap)
-						if not clear then table.insert(vetoes,{bay=i,type=b.id,reason=why}) end
-					end
-				end
-				cursor+=b.width
-			end
+			opts.bayRoles={}
+			validateBays(scene,m,cf,width,key,profile,opts,gap,vetoes)
 			if #vetoes>0 then
-				profile="window";opts.facadeType=nil;opts.allowEntrance=false
 				local fit,why=Placement.Fit(m,scene,sourceCF,width,key,profile,opts)
-				if not fit then profile="blind";outset=0 else outset=fit end
+				if not fit then
+					profile="blind";outset=0;opts.bayRoles=nil;opts.facadeType=nil;opts.allowEntrance=false
+				else outset=math.max(outset,fit) end -- Never pull an approved frontage inward.
 				fitReason=why;cf=sourceCF*CFrame.new(0,0,-outset)
+				if fit then
+					local ground=Frontage.Ground(cf,0,-2);gap=ground and math.max(0,cf.Y-ground) or gap
+					validateBays(scene,m,cf,width,key,profile,opts,gap,vetoes)
+				end
 			end
 			holder,bays=Kit.BuildRun(root,width,key,profile,cf,opts)
 		end
@@ -192,10 +206,11 @@ function Pilot.Clear()
 end
 function Pilot.Apply(rows,scene)
 	assert(not game:GetService("RunService"):IsRunning(),"Edit-time only");assert(scene,"Supply frontage index")
-	local staged={};local report={buildings=#rows,parts=0,panes=0,supportedPlanters=0,rows={},revision=6}
+	local staged={};local report={buildings=#rows,parts=0,panes=0,supportedPlanters=0,rows={},revision=7}
 	local ok,err=pcall(function() for _,row in rows do local m,f,owned,r=build(row,scene)
 		table.insert(staged,{model=m,root=f,owned=owned});table.insert(report.rows,r)
 		report.parts+=r.parts;report.panes+=r.panes;report.supportedPlanters+=r.supportedPlanters
+		task.wait() -- Bound main-thread work to one building.
 	end end)
 	if not ok then for _,s in staged do s.root:Destroy() end;error(err) end
 	local old=game.ServerStorage:FindFirstChild("GroundFacadePilotManifest")
@@ -203,10 +218,10 @@ function Pilot.Apply(rows,scene)
 		assert(old:GetAttribute("Owner")==OWNER,"Unowned pilot")
 		local archive=game.ServerStorage:FindFirstChild("GroundFacadePilotArchive") or Instance.new("Folder");archive.Name="GroundFacadePilotArchive";archive.Parent=game.ServerStorage
 		local snapshot=Instance.new("Folder");snapshot.Name="BeforePerimeter_"..os.time();snapshot.Parent=archive;old:Clone().Parent=snapshot
-		for _,row in Http:JSONDecode(old:GetAttribute("Manifest")) do local f=find(row.id):FindFirstChild("GroundFacadePilot");if f then local clone=f:Clone();clone.Name=row.id;clone:SetAttribute("SourceSliceId",row.id);clone.Parent=snapshot end end
+		for _,row in Http:JSONDecode(old:GetAttribute("Manifest")) do local f=find(row.id):FindFirstChild("GroundFacadePilot");if f then local clone=f:Clone();clone.Name=row.id;clone:SetAttribute("SourceSliceId",row.id);clone.Parent=snapshot end;task.wait() end
 		Pilot.Clear()
 	end
-	for _,s in staged do s.root.Parent=s.model;s.model:SetAttribute("GroundFacadeOwnedRuns",Http:JSONEncode(s.owned));s.model:SetAttribute("GroundFacadeMaxOutset",s.root:GetAttribute("MaxOutset") or 0) end
+	for _,s in staged do s.root.Parent=s.model;s.model:SetAttribute("GroundFacadeOwnedRuns",Http:JSONEncode(s.owned));s.model:SetAttribute("GroundFacadeMaxOutset",s.root:GetAttribute("MaxOutset") or 0);task.wait() end
 	local reg=Instance.new("Folder");reg.Name="GroundFacadePilotManifest";reg:SetAttribute("Owner",OWNER);reg:SetAttribute("Manifest",Http:JSONEncode(rows));reg:SetAttribute("Report",Http:JSONEncode(report));reg:SetAttribute("State","ready");reg.Parent=game.ServerStorage
 	game:GetService("ChangeHistoryService"):SetWaypoint("Compact ground facade perimeters");return report
 end

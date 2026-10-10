@@ -1,6 +1,31 @@
 --!nonstrict
 --[[
-October 10, 2026 — LARGER GROUND SECTION v6 (LATEST).
+October 10, 2026 — GROUND FACADE FEEDBACK v7 (LATEST).
+  Read tools/FACADE_FEEDBACK_HANDOFF.md and tools/FACADE_SECTION_HANDOFF.md.
+  Same 32 ordinary buildings / 228 ground runs; no city-wide expansion.
+  8,663 owned parts, 570 glass panes, 33 portals, 165 solid stair parts,
+  seven grounded planter groups, one verified open parking / supported wedge.
+  Seven building palettes: beige, white, off-white, grey, dark grey, dark brown,
+  stone. Geometry/name/advertisement seeds remain separate.
+  Photo defect was another building's tall owned footing/plinth covering shops,
+  not a new inward offset. Base plane remains .75 outside the source footprint;
+  extra outset stays <=1.25 (current maximum .8). Veto refits never reduce it.
+  Neighbor checks include other wings' bay walls and projected thin obstructions.
+  Unsafe entries are vetoed per bay; usable shops survive elsewhere on the run.
+  Only <=4-stud proximity / unusable elevation / actual blocked geometry need
+  blank treatments; open high-ground faces can have high, signless windows.
+  Public pedestrian approaches can host entries after local ground/clearance checks.
+  Final Edit audit: 5,130 visibility rays, zero unintended opaque occluders,
+  2,017 original parts in the SAME 32 models retain exact CF/size/color.
+  Roads, terrain, cores, generator code unchanged. Glass runtime unchanged;
+  generated upper glass remains disabled. This denser draft adds 37% more parts
+  than v6; do not infer a city performance budget from an Edit audit.
+  Current helper ServerStorage.FacadeFeedbackRuntime; live manifest/report v7
+  in ServerStorage.GroundFacadePilotManifest. Disk section JSONs / portable stock
+  assets remain historical v6; use saved TestJJK for current live city.
+  tools/verify_facade_feedback.luau is the repeatable read-only regression audit.
+
+October 10, 2026 — LARGER GROUND SECTION v6 (HISTORICAL).
   Read tools/FACADE_SECTION_HANDOFF.md first for the current 32-building trial.
   Owner approved expansion near the reviewed ordinary building toward 109.
   228 complete ground wall runs, 6,328 added parts, 175 tagged panes, 23 portals,

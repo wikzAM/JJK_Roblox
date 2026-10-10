@@ -3,13 +3,16 @@
 -- Single-storey types fit existing tuning; tall types explicitly occupy two storeys.
 local Names = require(script.Parent.GroundFacadeNames)
 local Catalog = {}
-Catalog.VERSION = 6
+Catalog.VERSION = 7
 Catalog.PALETTES = {
 	stone = {wall=Color3.fromRGB(179,175,165), trim=Color3.fromRGB(43,47,48), accent=Color3.fromRGB(178,146,86)},
 	cream = {wall=Color3.fromRGB(219,210,187), trim=Color3.fromRGB(62,54,45), accent=Color3.fromRGB(101,121,98)},
 	charcoal = {wall=Color3.fromRGB(63,66,69), trim=Color3.fromRGB(26,29,32), accent=Color3.fromRGB(191,162,110)},
 	brick = {wall=Color3.fromRGB(129,87,70), trim=Color3.fromRGB(40,43,45), accent=Color3.fromRGB(220,207,177)},
 	grey = {wall=Color3.fromRGB(163,162,165), trim=Color3.fromRGB(74,78,80), accent=Color3.fromRGB(123,133,133)},
+	white = {wall=Color3.fromRGB(237,238,234), trim=Color3.fromRGB(57,63,65), accent=Color3.fromRGB(85,112,119)},
+	offwhite = {wall=Color3.fromRGB(224,222,212), trim=Color3.fromRGB(67,64,59), accent=Color3.fromRGB(133,116,87)},
+	darkBrown = {wall=Color3.fromRGB(83,65,54), trim=Color3.fromRGB(35,29,26), accent=Color3.fromRGB(208,185,145)},
 }
 -- Widths vary within a type's fit range; doors, handles and trim stay human-scale.
 Catalog.TYPES = {
@@ -108,7 +111,7 @@ table.insert(Catalog.PROFILES.mixed,{"36_McDooDoos",1})
 table.insert(Catalog.PROFILES.mixed,{"37_SmashKing",1})
 table.insert(Catalog.PROFILES.retail,{"38_Starboys",1})
 Catalog.PROFILES.blind = {{"39_PlainConcrete",5},{"40_PanelSeams",3},{"43_UtilityWall",1},{"45_TiledBoundary",1}}
-Catalog.PROFILES.window = {{"41_HighSlit",3},{"42_PairedFrost",3},{"45_TiledBoundary",2},{"40_PanelSeams",1}}
+Catalog.PROFILES.window = {{"41_HighSlit",3},{"42_PairedFrost",3},{"45_TiledBoundary",2}}
 Catalog.PROFILES.backStreet = {{"39_PlainConcrete",2},{"40_PanelSeams",2},{"41_HighSlit",2},{"42_PairedFrost",2},{"43_UtilityWall",2},{"44_RearSteelDoor",1},{"45_TiledBoundary",1}}
 Catalog.PROFILES.tokyo = {{"46_Laundry",2},{"47_BicycleRepair",1},{"48_Florist",2},{"49_Clinic",1},{"50_Bookshop",2},{"51_SobaShop",3},{"52_Bathhouse",1},{"53_TimberHouse",2}}
 for _,id in {"46_Laundry","48_Florist","50_Bookshop"} do table.insert(Catalog.PROFILES.retail,{id,1});table.insert(Catalog.PROFILES.mixed,{id,1}) end

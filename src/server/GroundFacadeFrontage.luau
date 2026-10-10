@@ -99,9 +99,10 @@ function Frontage.Survey(scene,b)
 		-- Other wings of this same building also block an approach in a narrow court.
 		local clearance=Frontage.Clearance(scene,cf,width,nil);local road=Frontage.Road(scene,cf,width,nil)
 		local class,reason="window","Open secondary elevation; no road proof"
-		if clearance<=6 then class="blind";reason="Neighbor too close for an entrance"
-		elseif road and clearance>=8 and s.kind~="parapet" and width>=18 then class="front";reason="Visible approach to existing "..road.class.." road"
-		elseif clearance<12 then class="blind";reason="Restricted gap: quiet wall"
+		if clearance<=4 then class="blind";reason="Neighbor too close for an entrance"
+		elseif clearance>=8 and width>=14 and (road or clearance>=12) then
+			class="front";reason=road and ("Visible approach to existing "..road.class.." road") or "Open pedestrian approach; doorway ground checked per bay"
+		elseif clearance<12 then class="window";reason="Restricted gap: quiet windows without entrances"
 		end
 		local ground=Frontage.Ground(cf,0,-2);local gap=ground and math.max(0,bottom.Y-ground) or 0
 		local samples={};local lo,hi=math.huge,-math.huge
@@ -111,11 +112,16 @@ function Frontage.Survey(scene,b)
 		end end
 		local range=hi> -math.huge and hi-lo or 100
 		local maxRise=lo<math.huge and math.max(0,bottom.Y-lo) or 100
-		if maxRise>Frontage.MAX_ENTRY_RISE or range>Frontage.MAX_FRONT_GROUND_RANGE or (hi>bottom.Y+.3) then
-			class="blind";reason="Elevation mismatch: full blank wall, no oversized approach"
+		local highOnly=false
+		-- A slope across a long face does not disqualify a locally level doorway.
+		-- safePortal still enforces the bounded rise/range at each actual entrance.
+		if class~="blind" and (hi>bottom.Y+.3 or maxRise>Frontage.MAX_ENTRY_RISE) then
+			if hi<bottom.Y+(s.size.Y-.3)*.65-.5 then
+				class="window";highOnly=true;reason="Raised ground: high windows, no oversized approach"
+			else class="blind";reason="Ground covers usable window height" end
 		end
 		if not ground and class=="front" then class="window";reason="No verified approach ground" end
-		table.insert(result.faces,{piece=s.piece,run=s.run,kind=s.kind,width=width,height=s.size.Y-.3,frame={cf:GetComponents()},clearance=clearance,road=road,class=class,reason=reason,groundGap=gap,groundRange=range,maxRise=maxRise,groundSamples=samples})
+		table.insert(result.faces,{piece=s.piece,run=s.run,kind=s.kind,width=width,height=s.size.Y-.3,frame={cf:GetComponents()},clearance=clearance,road=road,class=class,reason=reason,type=highOnly and "41_HighSlit" or nil,groundGap=gap,groundRange=range,maxRise=maxRise,groundSamples=samples})
 	end end
 	return result
 end
