@@ -1,5 +1,14 @@
 --!nonstrict
 --[[
+October 17, 2026 — OWNER IS ACTIVELY REMOVING INCORRECT BUILDINGS.
+  Preserve all current and subsequent owner deletions, including identities not
+  yet listed in historical exclusion arrays. Enumerate only live Workspace
+  buildings; recheck ancestry before each target mutation. Never restore a
+  missing building from recipes, archives or the recovery place automatically.
+  A moved target requires a fresh neighborhood survey. Studio readiness was
+  confirmed by owner; tiny Edit probe on42d9ebd9-f025-4c6b-a801-a09c6741f772
+  returned connected=true. Cleanup/rollout resuming; no new completion claim.
+
 October 17, 2026 — TWO HUMAN APPROVALS RECEIVED / RECOVERY UPLOADED.
   Studio67496504-0f67-4191-8d48-7329d526c462reappearedasTestJJK/1272roots.
   CleanuphelperuploadedandreadonlyPreparelaunched;subsequentreadonlybaseline
