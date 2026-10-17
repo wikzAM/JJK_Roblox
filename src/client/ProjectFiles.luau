@@ -1,5 +1,24 @@
 --!nonstrict
 --[[
+October 17, 2026 — PRIORITY: FINISH MISSING COVERAGE; STILL INCOMPLETE.
+  Latestfullqueueattempt130newlocal;disconnectbeforeStep14. Reopenedcloud1272
+  roots/pending0:only50of130persistedthere. OFFLINErecovery1352facaderoots/2219
+  buildingmodelsverifiedbybinaryhierarchycensus. ExactexistingStudioAutoRecovery
+  copiedwithautomaticapprovaltoassets/TestJJK_StudioRecovery_2026-10-17_160533.rbxl.
+  70205942bytes,SHA256544c278fb7bb1ecb8ce5e9dfeaa64b011f3e916ccb4c1948d8479438c16a6496.
+  Releasebackupuploadpending;doNOTcommitthe70MBbinary.Repositoryusesreleaseassets.
+  Cloudqueue814safemissing;offlinebackupqueue734. FreshPrepareonactualopenplace.
+  Reopenedcensus2219livebuildings/1222facaderoots/pendingglass0. Last90newroots
+  DID NOT PERSIST.976atmost15floorbuildingsbare beforeexclusions;864safemissing
+  targets remain byfreshscope2087eligible/132held. DoNOTreportinstalledsubset
+  checksascompletedcityrollout. ExpansionDriverV2 mustpreparebaysineachbatch.
+  Investigatingpersistence: nativeServerStorage.GroundFacadePilotArchive holds
+  322411BaseParts;NOnewcleanupapproved/performed. TwoverifiedBeforePerimeter
+  snapshots1791668032/1791668306 contain400obsoletegeneratedrootcopies/193759parts
+  withembedded200Manifest+Reportrowseach. NewapprovalQUESTION PENDING.
+  Read tools/FACADE_ARCHIVE_CLEANUP_REVIEW.md;helperdoesnothingonrequire.
+  Prior101copy/35527partdeletionapprovalwasalreadyconsumed,notblanketpermission.
+
 October 17, 2026 — REOPEN / EXISTING GLASS AND BAYS CAUGHT UP.
   Subsequent guarded expansion added90LOCAL roots with immediatev2preparation:
   313newrecipes/1323clear panes/35flatfallbacks. NextbatchstoppedPRE-BUILD on

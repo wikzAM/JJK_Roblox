@@ -17,6 +17,8 @@ sourcemap.json
 /tools/python_deps_py*/
 __pycache__/
 *.pyc
+/.tools/backup_reader/
+/assets/TestJJK_StudioRecovery_*.rbxl
 
 # Regenerable pipeline geometry dumps
 /tools/source_slices/*.npz

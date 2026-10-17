@@ -1,0 +1,11 @@
+{
+  "file": "assets\\TestJJK_StudioRecovery_2026-10-17_160533.rbxl",
+  "bytes": 70205942,
+  "sha256": "544c278fb7bb1ecb8ce5e9dfeaa64b011f3e916ccb4c1948d8479438c16a6496",
+  "instances": 1824384,
+  "classes": 122,
+  "chunks": 2466,
+  "workspaceBuildingModels": 2219,
+  "liveGroundFacadeRoots": 1352,
+  "scope": "Hierarchy census only; no Studio reopening, geometry or script validation"
+}
