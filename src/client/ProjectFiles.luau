@@ -1,5 +1,16 @@
 --!nonstrict
 --[[
+October 17, 2026 — APPROVED SNAPSHOT CLEANUP COMPLETED IN CONNECTED EDIT.
+  Removed exactly400obsolete facade copies/193759BaseParts ONLY from approved
+  BeforePerimeter_1791668032 and1791668306. Each now has zero BaseParts and
+  only its embedded registry; Manifest/Report byte-identical to preflight.
+  Station12884/Core9942/LegacyCore330parts remain. Receipt stored through
+  GroundFacadePilotManifest.ApprovedSnapshotCleanupReceipt chunk store.
+  Owner-edited live census2212buildings/1268facaderoots/pending-v2=0;
+  connected=true. Cloud save/reopen of cleanup NOT yet confirmed. Older
+  entries below describe historical pre-cleanup states, not current status.
+  Source guards pushed735d022; fresh aliases/survey required before rollout.
+
 October 17, 2026 — OWNER IS ACTIVELY REMOVING INCORRECT BUILDINGS.
   Preserve all current and subsequent owner deletions, including identities not
   yet listed in historical exclusion arrays. Enumerate only live Workspace
