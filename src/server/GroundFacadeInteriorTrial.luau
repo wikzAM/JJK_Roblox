@@ -2,6 +2,7 @@
 -- Explicit Edit preview only. Never required by the server entry point.
 local Shared=game:GetService("ReplicatedStorage").Shared
 local Geometry=require(Shared.GroundFacadeInteriorGeometry)
+local GlassVisual=require(Shared.GlassVisual)
 local Layout=require(Shared.FacadeLayout)
 local Http=game:GetService("HttpService")
 local T={}
@@ -51,7 +52,7 @@ function T.Apply(models,options)
 		local modelInlets=0
 		for _,pane in root:GetDescendants() do
 			if report.inlets>=limit or modelInlets>=math.ceil(limit/#models) then break end
-			if pane:IsA("BasePart") and pane:HasTag("GlassPane") and not pane:GetAttribute("GlassInteriorStaticVersion") then
+			if pane:IsA("BasePart") and pane:HasTag("GlassPane") and not pane:GetAttribute("GlassInteriorStaticVersion") and (not options.panes or options.panes[pane]) then
 				local cell=Geometry.Plan(pane,root)
 				if cell then
 					local rows=Geometry.Rows(cell,report.inlets*337+19);local stage={};local clear=true
@@ -65,6 +66,7 @@ function T.Apply(models,options)
 							back:SetAttribute("InteriorBeforeTransparency",back.Transparency);back:SetAttribute("InteriorBeforeFilmTransparency",back:GetAttribute("GlassFilmTransparency"))
 							back.Transparency=1;back:SetAttribute("GlassFilmTransparency",1)
 						end end
+						GlassVisual.SetInteriorView(pane,true)
 						pane:SetAttribute("GlassInteriorStaticVersion",1);report.inlets+=1;modelInlets+=1;report.parts+=#stage
 					else for _,p in stage do p:Destroy() end;report.blocked+=1 end
 				end

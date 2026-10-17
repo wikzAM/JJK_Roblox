@@ -1,5 +1,19 @@
 --!nonstrict
 --[[
+October 17, 2026 — SHARED SURFACE FLICKER / CLEARER INLET GLASS.
+  Read tools/FACADE_SHARED_SURFACE_HANDOFF.md for latest truth.
+  Overlapping source slices generated coplanar facade walls.285 shared boundary
+  pairs across91 buildings resolved by trimming275 lower-priority owned runs.
+  Exact3542 original facade parts retained in FacadeSharedSurfaceBackup_
+  656f3476-2f2f-4bf9-953b-09ebebe771be;2825 replacement fragments. KEEP backup.
+  11121 source parts unchanged;zero remaining masked parts/blocked panes.
+  Glass reveals shallow inlets at.65 transparency/.02 reflectance, restores
+  exterior baseline when dynamic inlet removed;states2/3/1/4 verified on clone.
+  Bookshop by screenshot has visible tapered inlets.57 static inlets total.
+  Current1066 roots:289082 parts/17029 panes;1066 committed journal entries.
+  Run SurfaceResolver after rebuilding facades,then reconcile records tool.
+  Manual Roblox save/reopen of this correction and full Play remain pending.
+
 October 17, 2026 — REOPEN VERIFIED / APPROVED ARCHIVE CLEANUP COMPLETE.
   TestJJK reconnected:all1066 installed roots retained frontageRevision10,
   1063 committed journal entries and the final audit summary persisted.

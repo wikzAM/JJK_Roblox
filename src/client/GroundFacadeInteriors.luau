@@ -3,11 +3,13 @@
 local I={}
 local RS=game:GetService("ReplicatedStorage")
 local G=require(RS.Shared.GroundFacadeInteriorGeometry)
+local GlassVisual=require(RS.Shared.GlassVisual)
 local active,tracked,retryAfter={},{ },{}
 local folder,started
 local function remove(p)
 	local room=active[p];if not room then return end
 	for _,back in room.backings do if back.Parent then back.LocalTransparencyModifier=0 end end
+	if p.Parent then GlassVisual.SetInteriorView(p,false) end
 	room.model:Destroy();active[p]=nil
 end
 local function eligible(p)
@@ -39,6 +41,7 @@ local function build(p,root)
 		back.LocalTransparencyModifier=1;table.insert(backings,back)
 	end end
 	model:SetAttribute("PaneId",id);model:SetAttribute("Depth",cell.depth);model.Parent=folder
+	GlassVisual.SetInteriorView(p,true)
 	active[p]={model=model,backings=backings}
 end
 function I.Init()

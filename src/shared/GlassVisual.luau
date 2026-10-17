@@ -3,6 +3,26 @@ local Config=require(script.Parent.GlassConfig)
 local V={}
 local S=Config.State
 local PREFIX="GlassDamage_"
+-- Reveal a bounded 3D inlet only while its geometry exists. Keep the exterior
+-- baseline so client distance removal and glass resets restore the same style.
+function V.SetInteriorView(part,enabled)
+	V.Capture(part)
+	if enabled then
+		if part:GetAttribute("GlassExteriorBaseTransparency")==nil then
+			part:SetAttribute("GlassExteriorBaseTransparency",part:GetAttribute("GlassBaseTransparency"))
+			part:SetAttribute("GlassExteriorBaseReflectance",part:GetAttribute("GlassBaseReflectance"))
+		end
+		part:SetAttribute("GlassBaseTransparency",math.max(.65,part:GetAttribute("GlassExteriorBaseTransparency")))
+		part:SetAttribute("GlassBaseReflectance",math.min(.02,part:GetAttribute("GlassExteriorBaseReflectance")))
+	elseif part:GetAttribute("GlassExteriorBaseTransparency")~=nil then
+		part:SetAttribute("GlassBaseTransparency",part:GetAttribute("GlassExteriorBaseTransparency"))
+		part:SetAttribute("GlassBaseReflectance",part:GetAttribute("GlassExteriorBaseReflectance"))
+		part:SetAttribute("GlassExteriorBaseTransparency",nil);part:SetAttribute("GlassExteriorBaseReflectance",nil)
+	end
+	if (part:GetAttribute("GlassState") or 1)<=2 then
+		part.Transparency=part:GetAttribute("GlassBaseTransparency");part.Reflectance=part:GetAttribute("GlassBaseReflectance")
+	end
+end
 local function textureContent(texture,uri)
 	-- Current content API; compatibility for older Studio builds.
 	local ok=pcall(function()texture.ColorMapContent=Content.fromUri(uri)end)
