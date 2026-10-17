@@ -1,5 +1,29 @@
 --!nonstrict
 --[[
+October 17, 2026 — OWNER NOW AUTHORIZES COMPUTER CONTROL / MANUAL SAVE.
+  Previous no-computer-control restriction revoked explicitly by owner.
+  Expansion paused before any new reconnect batch. Used computer-use skill
+  to click Studio File->Save to Roblox on actual TestJJK window. Output
+  19:51:15.577 Saving to Roblox... followed19:51:38.805 explicit
+  Saved new changes in TestJJK to Roblox. Successful manualcloudsave at1513roots.
+  Do not equate command invocation with completed cloudsave. Resume bounded
+  rollout after inspected save outcome;checkpoint roughlyevery100new.
+
+October 17, 2026 — POST-CLEANUP RECOVERY BANKED / CLOUD REOPEN CHECKED.
+  445newroots locally built+v2prepared before another server disconnect;
+  nextStep stopped PRE-BUILD. Recoverypostcleanup.rbxl preserves ALL445:
+  2212buildings/1713facaderoots,approvedarchiveparts0,73039975bytes.
+  SHA25670c90e865165ba29fe317cdd11f9defa012a442d1c57fd42dbf4138ca8a082b3.
+  Owner explicitly approved newer PUBLIC checkpoint; uploaded+hashverified
+  to existing place-files-2026-10-17 Release. Read PLACE_RECOVERY_2026_10_17.md.
+  Reconnected cloud ab6746a0-864f-42e8-bf3d-7ebeb0e10c3b:2212buildings/
+  1513facaderoots;both cleaned snapshots1registrychild,so cleanup persisted.
+  Only245of445additions persisted cloud;200extra remain safe in recovery.
+  Owner requests frequent saves; preserve fresh existing recovery checkpoints,
+  verify census. No supported MCP FileSave action; no computer control.
+  Cause unknown: historical logsserver288 shutdown,not proven memory/autosave.
+  Freshsurvey required; about568missingcloud/368missingrecovery before edits.
+
 October 17, 2026 — APPROVED SNAPSHOT CLEANUP COMPLETED IN CONNECTED EDIT.
   Removed exactly400obsolete facade copies/193759BaseParts ONLY from approved
   BeforePerimeter_1791668032 and1791668306. Each now has zero BaseParts and
