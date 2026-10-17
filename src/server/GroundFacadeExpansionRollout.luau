@@ -5,7 +5,7 @@ local Storage=game:GetService("ServerStorage")
 local Section=require(script.Parent.GroundFacadeSection)
 local Pilot=require(script.Parent.GroundFacadePilot)
 local Registry=require(script.Parent.GroundFacadeRegistry)
-local Driver={VERSION=1,BATCH_SIZE=10,MIN_STEP_GAP=10}
+local Driver={VERSION=1,BATCH_SIZE=10,MIN_STEP_GAP=30}
 local OWNER="2026-10-08-ground-pilot"
 local busy=false
 local lastCompletedStep=-math.huge

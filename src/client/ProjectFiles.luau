@@ -10,10 +10,13 @@ October 17, 2026 — BROADER EXPANSION AUTHORIZED / IN PROGRESS.
   batches;at least350 completed locally before ANOTHER editing-server shutdown.
   Reopened TestJJK:1125 resident roots,only60 second-pass additions persisted.
   Fresh scope964 missing safe targets; paced10-building expansion now resumed
-  with live connection checks and10-second minimum cooldown between batches.
+  with live connection checks;source cooldown now30s for next fresh helper trial.
   Third pass260 local additions/26 guarded calls;Step27 stopped BEFORE build on
   another disconnect. Reopened again:1225resident roots,only100of260persisted.
   Fresh missing-target survey required; never resume704queue from old session.
+  Fourth pass fresh864missing targets:only10added locally beforeanotherdisconnect.
+  Latest1225native roots islastreopenproof;fourth10notconfirmed. No mutation
+  while placeunreachable. Scripts/recovery helpers pushed as7e2d6b6.
   No final surface/interior/box repair pass yet. Read latest expansion handoff.
   Owner confirmed removed fbx_12_24502_3155_-12717 intentional:inside another
   building,ground facade full-height. KEEP REMOVED;recovery archive referenceonly.
