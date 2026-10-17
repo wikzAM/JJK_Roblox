@@ -26,7 +26,12 @@ for _,m in workspace.Buildings:GetChildren() do
 	if next(masks) or manifest.surfaceOwnershipRevision then
 		changed=changed or (next(masks) and manifest.surfaceOwnershipRevision~=1) or not next(masks)
 		manifest.surfaceOwnershipRevision=next(masks) and 1 or nil
-		for _,row in {manifest,record} do for _,f in row.faces do f.sharedSurfaceMasks=masks[f.piece.."/"..f.run] end end
+		for _,row in {manifest,record} do for _,f in row.faces do
+			local current=masks[f.piece.."/"..f.run]
+			-- Equal part counts do not imply equal clipping recipes.
+			changed=changed or H:JSONEncode(f.sharedSurfaceMasks or {})~=H:JSONEncode(current or {})
+			f.sharedSurfaceMasks=current
+		end end
 	end
 	if changed then
 		record.parts=parts;record.panes=panes;record.staticInlets=inlets;record.bayInteriors=bayInteriors;record.previewRooms=previewRooms

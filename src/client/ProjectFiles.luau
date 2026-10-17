@@ -1,5 +1,28 @@
 --!nonstrict
 --[[
+October 17, 2026 — BROADER EXPANSION AUTHORIZED / IN PROGRESS.
+  Owner requests majority/all eligible ground-facade rollout BEFORE repairing
+  selected malformed buildings as rectangular boxes. Read expansion/box handoffs.
+  Policy freshcensus2090 eligible/132 held;1065 alreadyinstalled;1024 new safe
+  missing roots;orph_-134_2379 held for oversized first-storey gap (>24studs).
+  First200 local additions were LOST on reopen. Whole-bay v2 DID persist:
+  1065 roots/4147 bay recipes read back connected. Retried with guarded10-root
+  batches;at least350 completed locally before ANOTHER editing-server shutdown.
+  Reopened TestJJK:1125 resident roots,only60 second-pass additions persisted.
+  Fresh scope964 missing safe targets; paced10-building expansion now resumed
+  with live connection checks and10-second minimum cooldown between batches.
+  Third pass260 local additions/26 guarded calls;Step27 stopped BEFORE build on
+  another disconnect. Reopened again:1225resident roots,only100of260persisted.
+  Fresh missing-target survey required; never resume704queue from old session.
+  No final surface/interior/box repair pass yet. Read latest expansion handoff.
+  Owner confirmed removed fbx_12_24502_3155_-12717 intentional:inside another
+  building,ground facade full-height. KEEP REMOVED;recovery archive referenceonly.
+  Deferred selected box repairs:fbx_6_16012_2445_-12199 (10floors),
+  fbx_11_13048_1764_5668 (5floors). IDs also stored via native ObjectValues in
+  ServerStorage.FacadeDeferredBoxRepairTargets. Prepare/audit/exactbackup before
+  Apply;roof rims only AFTER bare-structure audit;fresh facades/interiorsafter.
+  No computer control. Prior a101326 pushed whole-bay work;new rollout pending.
+
 October 17, 2026 — WHOLE-BAY TRAPEZOIDS v2 / MAP-WIDE / PLAY VERIFIED.
   Read tools/FACADE_BAY_INTERIORS_HANDOFF.md FIRST. Owner clarified ONE room per
   facade/tenant bay, NOT one tapered recess per window. Windows share the rear.
@@ -10,7 +33,8 @@ October 17, 2026 — WHOLE-BAY TRAPEZOIDS v2 / MAP-WIDE / PLAY VERIFIED.
   Old57 pane cells/513 parts archived intact;live oldcells=0. Seven reviewmodels
   have78 whole-bay Edit previews/702parts. Final resident1065 roots contain
   289209 ownedparts/17029panes. One98-part/no-glass source model was found
-  unparented after Play,cause unknown;preserved EXACTLY in ServerStorage.
+  unparented after Play;owner later confirmed deliberate removal (see above).
+  Preserved EXACTLY in ServerStorage.
   FacadeDetachedBuildingRecovery_2026_10_17. Not reinserted into scene.
   Other rooms build only on CLIENT:48 max,2 attempts/.3s,110/135stud hysteresis.
   Actual Play:13/13 nearby bays rendered117 parts;far0 visible/dynamic rooms,

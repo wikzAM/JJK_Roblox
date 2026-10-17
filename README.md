@@ -1,4 +1,6 @@
-> Current ground interiors:one trapezoidal recess per entire facade bay, shared by its windows. All1066 installed facade buildings prepared;4147 safe bay recipes and clearer glass. Nearby client detail and far cleanup passed in Studio Play. Read [current bay handoff](tools/FACADE_BAY_INTERIORS_HANDOFF.md), then [road frontage](tools/FACADE_ROAD_FRONTAGE_HANDOFF.md). Manual final Roblox save remains unconfirmed.
+> Ground interior baseline:one trapezoidal recess per entire facade bay, shared by its windows. The original1066-building pass prepared4147 safe bay recipes and clearer glass;one building was subsequently removed by the owner. Nearby client detail and far cleanup passed in Studio Play. Read [current bay handoff](tools/FACADE_BAY_INTERIORS_HANDOFF.md), then [road frontage](tools/FACADE_ROAD_FRONTAGE_HANDOFF.md). New expansion still needs its interior and acceptance passes.
+
+> Current work:broader rollout targets2090 eligible buildings,then the two selected malformed buildings receive rectangular replacements. Editing-server shutdowns interrupted expansion;do not mistake locally created additions for saved map data. Read [expansion recovery](tools/FACADE_EXPANSION_HANDOFF.md) and [selected box repairs](tools/FACADE_BOX_REPAIR_HANDOFF.md). The owner intentionally removed one malformed building;it must stay removed.
 
 > Historical notes:the [per-window interior trial](tools/FACADE_INTERIOR_TRIAL.md) and [v9 rollout recovery](tools/FACADE_V9_ROLLOUT_NOTES.md) are superseded by the current bay handoff above. Open TestJJK for the live city;a fresh Rojo build does not contain its complete map.
 
@@ -6,7 +8,7 @@
 
 ## Continue on another device
 
-Use GitHub branch `shibuya-level-curves` for the latest ground facade and glass work. Open **TestJJK** (place `99539622209675`) from Roblox Studio for the live city, terrain, raised gallery and glass demo. The1066-building road correction survived reopening;the latest whole-bay interior rollout has functional Play verification but its final manual Roblox save remains unconfirmed.
+Use GitHub branch `shibuya-level-curves` for the latest ground facade and glass work. Open **TestJJK** (place `99539622209675`) from Roblox Studio for the live city, terrain, raised gallery and glass demo. The original road correction and whole-bay interior work survived reopening. Broader expansion is in progress;its latest persistence status is in the expansion handoff. Manual Roblox save remains unconfirmed.
 
 Read [ProjectFiles.luau](src/client/ProjectFiles.luau) first, then the current bay handoff above. The [clip-on facade handoff](tools/FACADE_CLIP_HANDOFF.md) records the earlier mounting method. Run `rojo serve` and connect TestJJK when editing scripts. A fresh default Rojo build and the older root `JJK_Roblox.rbxl` do not contain the complete live city.
 

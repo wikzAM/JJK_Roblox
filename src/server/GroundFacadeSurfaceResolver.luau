@@ -4,6 +4,59 @@
 local S={VERSION=1}
 local OWNER="2026-10-08-ground-pilot"
 local EPS=.025
+local function isBayPreview(p)
+	return p:GetAttribute("FacadeBayInteriorPart")==true
+		and p:GetAttribute("FacadeLayer")=="interior" and p:GetAttribute("FacadePieceKind")=="preview"
+end
+local function flatPane(p)
+	local V=require(game.ReplicatedStorage.Shared.GlassVisual)
+	V.SetInteriorView(p,false)
+	local intact=(p:GetAttribute("GlassState") or 1)<=2
+	for _,back in p:GetChildren() do if back:IsA("BasePart") and back.Name=="InteriorWindowBacking" then
+		local baseline=back:GetAttribute("InteriorBeforeTransparency") or 0
+		back.Transparency=intact and baseline or 1
+		back:SetAttribute("GlassFilmTransparency",back:GetAttribute("InteriorBeforeFilmTransparency") or baseline)
+	end end
+end
+-- Trimming a run can remove glazing or change its width. Replan ALL bays in
+-- that root, rather than keeping stale recipes on the untouched neighboring run.
+-- Exact old previews and recipe attributes remain recoverable in this archive.
+local function invalidateBayRecipes(root,archive,stagedOriginals)
+	local needs=root:GetAttribute("FacadeBayInteriorsVersion")~=nil or root.Parent:GetAttribute("FacadeBayInteriorsVersion")~=nil
+	if not needs then for _,bay in root:GetDescendants() do
+		if bay:IsA("Model") and bay:GetAttribute("FacadeType") and (bay:GetAttribute("FacadeBayInteriorPlan") or bay:HasTag("FacadeInteriorBay") or bay:FindFirstChild("BayInterior")) then needs=true break end
+	end end
+	if not needs then return 0,0 end
+	local saved=Instance.new("Folder");saved.Name="BayInteriorInvalidation"
+	saved:SetAttribute("Kind","BayInteriorInvalidation")
+	saved:SetAttribute("RootCompletionVersion",root:GetAttribute("FacadeBayInteriorsVersion"))
+	saved:SetAttribute("ModelCompletionVersion",root.Parent:GetAttribute("FacadeBayInteriorsVersion"))
+	local ref=Instance.new("ObjectValue");ref.Name="Root";ref.Value=root;ref.Parent=saved
+	saved.Parent=archive
+	local count,previews=0,0
+	for _,bay in root:GetDescendants() do if bay:IsA("Model") and bay:GetAttribute("FacadeType") then
+		local snapshot=Instance.new("Folder");snapshot.Name="BayRecipe"
+		local target=Instance.new("ObjectValue");target.Name="Bay";target.Value=bay;target.Parent=snapshot
+		snapshot:SetAttribute("WasTagged",bay:HasTag("FacadeInteriorBay"))
+		for key,value in bay:GetAttributes() do if key:sub(1,17)=="FacadeBayInterior" then
+			snapshot:SetAttribute(key,value);bay:SetAttribute(key,nil)
+		end end
+		snapshot.Parent=saved
+		local preview=bay:FindFirstChild("BayInterior")
+		if preview then
+			assert(preview:IsA("Folder") and preview:GetAttribute("EditPreview")==true
+				and preview:GetAttribute("FacadeBayInteriorVersion")==2,"Unexpected bay preview; preserve archive")
+			preview.Parent=snapshot;previews+=1
+		end
+		bay:RemoveTag("FacadeInteriorBay")
+		for _,pane in bay:GetChildren() do
+			if pane:IsA("BasePart") and pane:HasTag("GlassPane") and not stagedOriginals[pane] then flatPane(pane) end
+		end
+		count+=1
+	end end
+	root:SetAttribute("FacadeBayInteriorsVersion",nil);root.Parent:SetAttribute("FacadeBayInteriorsVersion",nil)
+	return count,previews
+end
 local function bounds(p,cf)
 	local q=cf:ToObjectSpace(p.CFrame);local s=p.Size
 	local half=(Vector3.new(math.abs(q.XVector.X),math.abs(q.XVector.Y),math.abs(q.XVector.Z))*s.X
@@ -38,7 +91,7 @@ function S.Plan(buildings)
 			if not cf or not w or not h then continue end
 			local row={run=r,cf=cf,w=w,h=h,id=#runs+1,panes=0,portals=0,low=0,masks={},key=m.Name.."/"..r:GetAttribute("RunPiece").."/"..r:GetAttribute("RunIndex")}
 			for _,p in r:GetDescendants() do
-				if p:IsA("BasePart") then local b=bounds(p,cf);row.low=math.min(row.low,b[3]);if p:HasTag("GlassPane") then row.panes+=1 end
+				if p:IsA("BasePart") and not isBayPreview(p) then local b=bounds(p,cf);row.low=math.min(row.low,b[3]);if p:HasTag("GlassPane") then row.panes+=1 end
 				elseif p:IsA("Model") then row.portals+=#H:JSONDecode(p:GetAttribute("FacadePortals") or "[]") end
 			end
 			table.insert(runs,row)
@@ -100,18 +153,31 @@ function S.ApplyRun(row,archive)
 	assert(row.run:IsDescendantOf(workspace.Buildings) and row.run.Parent:GetAttribute("Owner")==OWNER,"Unowned run")
 	assert(archive:IsDescendantOf(game.ServerStorage) and archive:GetAttribute("Owner")=="facade-surface-repair-v1","Unowned archive")
 	local staged={};local ok,err=pcall(function()
-		for _,p in row.run:GetDescendants() do if p:IsA("BasePart") and not p.Parent:IsA("BasePart") then
+		for _,p in row.run:GetDescendants() do if p:IsA("BasePart") and not isBayPreview(p) and not p.Parent:IsA("BasePart") then
 			local b=bounds(p,row.cf);local touched=false
 			for _,mask in row.masks do if intersect(b,mask) then touched=true break end end
 			if touched then table.insert(staged,{original=p,parent=p.Parent,parts=fragments(p,row)}) end
 		end end
+		-- Validate previews before clearing recipes or moving live geometry.
+		if #staged>0 then for _,p in row.run.Parent:GetDescendants() do
+			if p.Name=="BayInterior" and p.Parent:IsA("Model") and p.Parent:GetAttribute("FacadeType") then
+				assert(p:IsA("Folder") and p:GetAttribute("EditPreview")==true and p:GetAttribute("FacadeBayInteriorVersion")==2,"Unexpected bay preview")
+			end
+		end end
 	end)
 	if not ok then for _,s in staged do for _,p in s.parts do p:Destroy() end end;error(err) end
+	if #staged==0 then return {originals=0,fragments=0,invalidatedBays=0,archivedPreviews=0} end
+	local root=row.run.Parent
+	local stagedOriginals={};for _,s in staged do stagedOriginals[s.original]=true end
+	local invalidated,previews=invalidateBayRecipes(root,archive,stagedOriginals)
 	local removed,added=0,0
 	for _,s in staged do
 		local holder=Instance.new("Folder");holder.Name="OriginalPart";holder.Parent=archive
 		local target=Instance.new("ObjectValue");target.Name="OriginalParent";target.Value=s.parent;target.Parent=holder
 		for _,p in s.parts do
+			-- Clones were staged before invalidation; normalize only replacements,
+			-- preserving the exact pre-trim original pane inside its backup holder.
+			if p:HasTag("GlassPane") then flatPane(p) end
 			p.Parent=s.parent;added+=1
 			local reference=Instance.new("ObjectValue");reference.Name="Replacement";reference.Value=p;reference.Parent=holder
 		end
@@ -119,7 +185,7 @@ function S.ApplyRun(row,archive)
 	end
 	row.run:SetAttribute("FacadeSharedSurfaceVersion",S.VERSION)
 	row.run:SetAttribute("FacadeSharedSurfaceMasks",game:GetService("HttpService"):JSONEncode(row.masks))
-	return {originals=removed,fragments=added}
+	return {originals=removed,fragments=added,invalidatedBays=invalidated,archivedPreviews=previews}
 end
 function S.ApplyInstalled()
 	assert(not game:GetService("RunService"):IsRunning(),"Edit only")
@@ -140,7 +206,7 @@ function S.VerifyInstalled()
 			local raw=run:GetAttribute("FacadeSharedSurfaceMasks")
 			if raw then
 				out.runs+=1;local masks=H:JSONDecode(raw);local cf=run:GetAttribute("FacadeRunFrame")
-				for _,p in run:GetDescendants() do if p:IsA("BasePart") then
+				for _,p in run:GetDescendants() do if p:IsA("BasePart") and not isBayPreview(p) then
 					out.parts+=1;local b=bounds(p,cf)
 					for _,mask in masks do if intersect(b,mask) then out.remaining+=1 break end end
 				end end
@@ -153,15 +219,25 @@ end
 function S.Restore(archive)
 	assert(not game:GetService("RunService"):IsRunning(),"Edit only")
 	assert(archive:IsDescendantOf(game.ServerStorage) and archive:GetAttribute("Owner")=="facade-surface-repair-v1","Unowned archive")
-	local restored=0;local runs={}
+	local restored=0;local runs={};local invalidatedRoots={}
 	for _,holder in archive:GetChildren() do
+		-- Room snapshots remain archived. Restored facade geometry must pass the
+		-- normal fresh preparation/SAT pipeline before room recipes are enabled.
+		if holder:GetAttribute("Kind")=="BayInteriorInvalidation" then continue end
 		local target=holder:FindFirstChild("OriginalParent")
 		assert(target and target.Value and target.Value:IsDescendantOf(workspace.Buildings),"Original parent missing; preserve archive")
 		local run=target.Value
 		while run and not run:GetAttribute("FacadeRunFrame") do run=run.Parent end
-		if run then runs[run]=true end
+		if run then
+			runs[run]=true
+			local root=run.Parent
+			if not invalidatedRoots[root] then invalidateBayRecipes(root,archive,{});invalidatedRoots[root]=true end
+		end
 		for _,ref in holder:GetChildren() do if ref:IsA("ObjectValue") and ref.Name=="Replacement" and ref.Value then ref.Value:Destroy() end end
-		for _,p in holder:GetChildren() do if p:IsA("BasePart") then p.Parent=target.Value;restored+=1 end end
+		for _,p in holder:GetChildren() do if p:IsA("BasePart") then
+			if p:HasTag("GlassPane") then flatPane(p) end
+			p.Parent=target.Value;restored+=1
+		end end
 		task.wait()
 	end
 	for run in runs do run:SetAttribute("FacadeSharedSurfaceVersion",nil);run:SetAttribute("FacadeSharedSurfaceMasks",nil) end
