@@ -100,11 +100,13 @@ function Section.SelectCity(options)
  table.sort(candidates,function(a,b) return a.id<b.id end)
  local palettes=Catalog.PALETTE_ORDER or fallbackPalettes
  for _,b in candidates do
-  local row=existing[b.id] and copy(existing[b.id]) or Frontage.Survey(scene,b)
+  local saved=existing[b.id]
+  local row=saved and saved.frontageRevision==Frontage.REVISION and copy(saved) or Frontage.Survey(scene,b)
+  if saved then row.palette=saved.palette;row.nameSeed=saved.nameSeed end
   if #row.faces>0 then
    row.palette=palettes[Catalog.Seed("wall/"..b.id)%#palettes+1]
    row.nameSeed=row.nameSeed or Catalog.Seed("tenant/"..b.id)
-   for _,face in row.faces do if face.class=="front" then face.profile=face.profile or "mixed" end end
+   for _,face in row.faces do if face.class=="front" then face.profile=face.profile or "street" end end
    table.insert(rows,row);report.eligible+=1;table.insert(report.eligibleIds,b.id)
   else
    report.held+=1;report.reasons["no-ground-runs"]=(report.reasons["no-ground-runs"] or 0)+1

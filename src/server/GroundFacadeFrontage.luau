@@ -20,7 +20,13 @@ end
 function Frontage.Nearby(scene,point,radius)
 	return scene.cells and nearby(scene.cells,point,radius or 0) or scene.buildings
 end
-Frontage.MAX_ENTRY_RISE=4
+Frontage.MAX_ENTRY_RISE=5.5 -- bounded pedestrian stairs; vehicle ramps retain a four-stud cap
+Frontage.MAX_VEHICLE_RISE=4
+Frontage.REVISION=10
+local function publicRoad(p)
+	if p:GetAttribute("FacadePublicApproach")==true then return true end
+	return p:GetAttribute("RoadClass")~="inferred" and (p:GetAttribute("RoadWay") or 0)>0
+end
 Frontage.MAX_FRONT_GROUND_RANGE=2
 local function inside(p,ring)
 	local yes=false
@@ -53,7 +59,7 @@ function Frontage.Index(center,radius)
 	end
 	local roads=workspace:FindFirstChild("Roads")
 	if roads then for _,p in roads:GetDescendants() do
-		if p:IsA("BasePart") and (p.Position-center).Magnitude<radius+p.Size.Magnitude/2 then
+		if p:IsA("BasePart") and publicRoad(p) and (p.Position-center).Magnitude<radius+p.Size.Magnitude/2 then
 			table.insert(scene.roads,p)
 			local cf,s=p.CFrame,p.Size;local e=Vector3.new(math.abs(cf.XVector.X)*s.X+math.abs(cf.YVector.X)*s.Y+math.abs(cf.ZVector.X)*s.Z,0,math.abs(cf.XVector.Z)*s.X+math.abs(cf.YVector.Z)*s.Y+math.abs(cf.ZVector.Z)*s.Z)/2
 			addCells(scene.roadCells,p,p.Position-e,p.Position+e)
@@ -96,7 +102,7 @@ end
 function Frontage.Ground(cf,x,z)
 	if not groundParams then
 		groundParams=RaycastParams.new();groundParams.FilterType=Enum.RaycastFilterType.Include
-		local list={workspace.Terrain};if workspace:FindFirstChild("Roads") then table.insert(list,workspace.Roads) end
+		local list={workspace.Terrain};if workspace:FindFirstChild("Roads") then for _,p in workspace.Roads:GetDescendants() do if p:IsA("BasePart") and publicRoad(p) then table.insert(list,p) end end end
 		groundParams.FilterDescendantsInstances=list
 	end
 	local point=(cf*CFrame.new(x,0,z)).Position
@@ -121,7 +127,7 @@ function Frontage.Survey(scene,b)
 	local levels=b.plan.levels
 	config.parapet=levels[2] and (levels[2].y-levels[1].y-levels[1].thickness+.3) or 12.8
 	local frame=Layout.FrameOf(b.model);local strips=Layout.Build(b.plan,config)
-	local result={id=b.id,faces={},frame={frame:GetComponents()}}
+	local result={id=b.id,faces={},frame={frame:GetComponents()},frontageRevision=Frontage.REVISION}
 	for _,s in strips do if s.storey==1 then
 		local ring=b.plan.levels[1].pieces[s.piece];local area=0
 		for i,a in ring do local v=ring[i%#ring+1];area+=a[1]*v[2]-v[1]*a[2] end
@@ -133,9 +139,10 @@ function Frontage.Survey(scene,b)
 		local clearance=Frontage.Clearance(scene,cf,width,nil);local road=Frontage.Road(scene,cf,width,nil)
 		local class,reason="window","Open secondary elevation; no road proof"
 		if clearance<=4 then class="blind";reason="Neighbor too close for an entrance"
-		elseif clearance>=8 and width>=14 and (road or clearance>=12) then
+		elseif clearance>=8 and width>=14 and road then
 			class="front";reason=road and ("Visible approach to existing "..road.class.." road") or "Open pedestrian approach; doorway ground checked per bay"
-		elseif clearance<12 then class="window";reason="Restricted gap: quiet windows without entrances"
+		elseif not road and clearance<18 then class="blind";reason="Between buildings: quiet wall, no verified public approach"
+		elseif clearance<8 then class="window";reason="Restricted public approach: quiet windows without entrances"
 		end
 		local ground=Frontage.Ground(cf,0,-2);local gap=ground and math.max(0,bottom.Y-ground) or 0
 		local samples={};local lo,hi=math.huge,-math.huge
@@ -148,7 +155,7 @@ function Frontage.Survey(scene,b)
 		local highOnly=false
 		-- A slope across a long face does not disqualify a locally level doorway.
 		-- safePortal still enforces the bounded rise/range at each actual entrance.
-		if class~="blind" and (hi>bottom.Y+.3 or maxRise>Frontage.MAX_ENTRY_RISE) then
+		if class~="blind" and (lo>bottom.Y+.3 or (hi> -math.huge and bottom.Y-hi>Frontage.MAX_ENTRY_RISE)) then
 			if hi<bottom.Y+(s.size.Y-.3)*.65-.5 then
 				class="window";highOnly=true;reason="Raised ground: high windows, no oversized approach"
 			else class="blind";reason="Ground covers usable window height" end

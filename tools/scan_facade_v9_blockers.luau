@@ -11,8 +11,8 @@ local Registry=require(game.ServerScriptService.Server.GroundFacadeRegistry)
 local all=workspace:WaitForChild("Buildings")
 local reportById={}
 local registry=game.ServerStorage:FindFirstChild("GroundFacadePilotManifest")
-if registry and Registry.Read(registry,"Report") then
- local report=H:JSONDecode(Registry.Read(registry,"Report"))
+if registry and Registry.ReadLatest(registry,"Report") then
+ local report=H:JSONDecode(Registry.ReadLatest(registry,"Report"))
  for _,row in report.rows or {} do
   local faces={};reportById[row.id]=faces
   for _,face in row.faces or {} do faces[tostring(face.piece).."/"..tostring(face.run)]=face end
@@ -72,6 +72,13 @@ for _,model in all:GetChildren() do
   for _,bay in run:GetChildren() do if bay:IsA("Model") and bay:GetAttribute("FacadeType") then table.insert(ordered,bay) end end
   table.sort(ordered,function(a,b)return runFrame:PointToObjectSpace(a:GetPivot().Position).X<runFrame:PointToObjectSpace(b:GetPivot().Position).X end)
   for _,bay in ordered do
+   -- These two authored trims intentionally cover their own glazing. They
+   -- remain opaque blockers for every OTHER bay/building.
+   local bayPool={}
+   for _,p in pool do
+    if not (p:IsDescendantOf(bay) and (p.Name=="SmashBrickButtress" or p.Name=="SecurityGrilleBar")) then table.insert(bayPool,p) end
+   end
+   sight.FilterDescendantsInstances=bayPool
    local panes={}
    for _,p in bay:GetDescendants() do if p:IsA("BasePart") and p:HasTag("GlassPane") then table.insert(panes,p) end end
    if #panes==0 then continue end

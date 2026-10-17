@@ -154,6 +154,12 @@ function Catalog.Brand(id,key,nameSeed,options)
 	if s.feature=="shutter" then return Names.Language(nameSeed or key,options)=="japanese" and "貸店舗" or "貸店舗 / TO LET" end
 	return Names.Generate(s.family,key,options).brand
 end
+-- Road-facing bays must have an entrance-capable style.
+Catalog.PROFILES.street={}
+for _,row in Catalog.PROFILES.mixed do
+ local spec=Catalog.Get(row[1])
+ if spec.feature~="shutter" and spec.feature~="grille" and spec.feature~="sparse" and spec.family~="parking" and not spec.signless then table.insert(Catalog.PROFILES.street,row) end
+end
 function Catalog.Pick(profile, key, width, height)
 	local rows=assert(Catalog.PROFILES[profile], "Unknown facade profile")
 	local eligible,total={},0

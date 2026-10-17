@@ -13,7 +13,7 @@ local helper=O.helper or game.ServerStorage:FindFirstChild("FacadeV9Runtime") or
 assert(helper and helper:FindFirstChild("GroundFacadeFrontage"),"Provide the current fresh facade helper")
 local F=require(helper.GroundFacadeFrontage)
 local config=require(game.ReplicatedStorage.Shared.GlassConfig)
-local manifest=O.manifest or H:JSONDecode(Registry.Read(assert(game.ServerStorage:FindFirstChild("GroundFacadePilotManifest")),"Manifest"))
+local manifest=O.manifest or H:JSONDecode(Registry.ReadLatest(assert(game.ServerStorage:FindFirstChild("GroundFacadePilotManifest")),"Manifest"))
 local out={revision=9,buildings=0,runs=0,panes=0,parts=0,exteriorParts=0,coverageRays=0,visibilityRays=0,volumeChecks=0,
  stairs=0,planters=0,ramps=0,portals=0,unchanged=0,changedCores=0,labels=0,japaneseOnly=0,bilingual=0,fonts={},palettes={},glassColors={},wallColors={},errors={},errorCount=0}
 local function issue(kind,id,detail)

@@ -1,5 +1,18 @@
 --!nonstrict
 --[[
+October 16, 2026 — VERIFIED ROAD FRONTAGE v10.
+  Read tools/FACADE_ROAD_FRONTAGE_HANDOFF.md FIRST for this correction.
+  All1066 surveyed;3 selected fixes persisted. First background pass lost on
+  restart. Second1063-building synchronous pass completed;final persistence
+  UNVERIFIED after editing server shutdown (reason288),MCP unreachable.
+  First local audit:road entrances1639,quiet-side entrances0.
+  Use Registry.ReadLatest to fold committed journal after reopen.
+  No original geometry changed.17 final closed-style/occlusion repairs pending
+  reconnect verification. Studio disconnected after main pass completed.
+  RoadClass=inferred/Way0 is no longer public-road evidence.
+  Bounded pedestrian stairs now5.5stud max;cars retain4stud rise cap.
+  No new city expansion,no computer control.
+
 October 16, 2026 — GROUND FACADES v9 / INTERIOR TRIAL IN PROGRESS.
   Read tools/FACADE_V9_ROLLOUT_NOTES.md and FACADE_INTERIOR_TRIAL.md.
   Owner paused wider rollout to restore trapezoidal/parallax-ish interiors first.

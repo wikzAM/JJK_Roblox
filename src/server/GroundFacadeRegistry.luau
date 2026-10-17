@@ -82,6 +82,41 @@ function Registry.Migrate(reg)
  end
  return changed
 end
+-- Read the atomic checkpoint plus every committed per-building transaction.
+-- Incremental synchronous batches intentionally leave aggregate blobs unchanged
+-- until consolidation; consumers must not mistake those older blobs for live data.
+function Registry.ReadLatest(reg,key,default)
+ if key~="Manifest" and key~="Report" then return Registry.Read(reg,key,default) end
+ local journal=reg:FindFirstChild("CommitJournal")
+ if not journal or #journal:GetChildren()==0 then return Registry.Read(reg,key,default) end
+ local checkpoint=Registry.Read(reg,"Checkpoint")
+ local data=checkpoint and H:JSONDecode(checkpoint) or {
+  manifest=H:JSONDecode(Registry.Read(reg,"Manifest","[]")),
+  report=H:JSONDecode(Registry.Read(reg,"Report",'{"rows":[]}')),
+ }
+ local rows,reports={},{}
+ for _,row in data.manifest do rows[row.id]=row end
+ for _,row in data.report.rows or {} do reports[row.id]=row end
+ for _,entry in journal:GetChildren() do if entry:GetAttribute("Committed")==true then
+  local id=assert(entry:GetAttribute("SourceSliceId"),"Committed entry lacks ID")
+  if entry:GetAttribute("Kind")=="remove" then rows[id]=nil;reports[id]=nil
+  else
+   rows[id]=H:JSONDecode(assert(Registry.Read(entry,"ManifestRow")))
+   reports[id]=H:JSONDecode(assert(Registry.Read(entry,"ReportRow")))
+  end
+ end end
+ local manifest,reportRows={},{}
+ local report={revision=reg:GetAttribute("Revision") or 9,buildings=0,parts=0,panes=0,supportedPlanters=0,rows=reportRows}
+ for id,row in rows do
+  local r=assert(reports[id],"Committed manifest lacks report: "..id)
+  table.insert(manifest,row);table.insert(reportRows,r)
+  report.parts+=r.parts or 0;report.panes+=r.panes or 0;report.supportedPlanters+=r.supportedPlanters or 0
+ end
+ table.sort(manifest,function(a,b)return a.id<b.id end)
+ table.sort(reportRows,function(a,b)return a.id<b.id end)
+ report.buildings=#manifest
+ return H:JSONEncode(key=="Manifest" and manifest or report)
+end
 -- Covers live/archived RegistryBefore folders, avoiding the station archive's
 -- unrelated small capture Manifest and avoiding traversal through source Models.
 function Registry.MigrateTree(root)

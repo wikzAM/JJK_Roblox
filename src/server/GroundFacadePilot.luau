@@ -52,7 +52,7 @@ local function drivewayGeometry(cf,p)
 	local entryGround=Frontage.Ground(cf,p.x,-2)
 	if not entryGround then return nil,"Driveway entry ground unknown" end
 	local rise=math.max(0,cf.Y-entryGround)
-	if rise>Frontage.MAX_ENTRY_RISE then return nil,"Entry rise exceeds bounded approach" end
+	if rise>(Frontage.MAX_VEHICLE_RISE or 4) then return nil,"Entry rise exceeds bounded approach" end
 	if rise<=.2 or (p.y or 0)>=.1 then return {needed=false} end
 	local length=math.max(4,rise*5)
 	local toe=math.huge
@@ -63,7 +63,7 @@ local function drivewayGeometry(cf,p)
 	end
 	if toe>cf.Y+.2 then return nil,"Driveway toe rises above entry" end
 	rise=math.max(.2,cf.Y-toe)
-	if rise>Frontage.MAX_ENTRY_RISE or rise/length>.25 then return nil,"Oversized vehicle ramp rejected" end
+	if rise>(Frontage.MAX_VEHICLE_RISE or 4) or rise/length>.25 then return nil,"Oversized vehicle ramp rejected" end
 	local ground=math.huge
 	for _,x in {p.x-p.width/2,p.x,p.x+p.width/2} do for _,z in {-length,-length/2,0} do
 		local y=Frontage.Ground(cf,x,z)
@@ -294,7 +294,7 @@ local function liveRegistry()
 	end else journal=Instance.new("Folder");journal.Name="CommitJournal";journal.Parent=reg end
 	return reg,journal,rows,reports
 end
-local function checkpoint(reg,journal,rows,reports,state)
+local function checkpoint(reg,journal,rows,reports,state,incremental)
 	local manifest,reportRows={},{}
 	for id,row in rows do
 		assert(reports[id],"Manifest is missing report row: "..id)
@@ -303,10 +303,12 @@ local function checkpoint(reg,journal,rows,reports,state)
 	table.sort(manifest,function(a,b)return a.id<b.id end);table.sort(reportRows,function(a,b)return a.id<b.id end)
 	local report={revision=9,buildings=#manifest,parts=0,panes=0,supportedPlanters=0,rows=reportRows}
 	for _,r in reportRows do report.parts+=r.parts or 0;report.panes+=r.panes or 0;report.supportedPlanters+=r.supportedPlanters or 0 end
+	if not incremental then
 	Registry.Write(reg,"Checkpoint",Http:JSONEncode({manifest=manifest,report=report}))
 	Registry.Write(reg,"Manifest",Http:JSONEncode(manifest));Registry.Write(reg,"Report",Http:JSONEncode(report))
+	end
 	reg:SetAttribute("Revision",9);reg:SetAttribute("State",state or "updating");reg:SetAttribute("Buildings",#manifest)
-	journal:ClearAllChildren()
+	if not incremental then journal:ClearAllChildren() end
 	return report
 end
 local function startArchive(reg,label)
@@ -346,8 +348,10 @@ function Pilot.Upsert(rows,scene,options)
 	end
 	local reg,journal,merged,reports=liveRegistry()
 	-- Fold any committed interrupted work before snapshotting this invocation.
-	checkpoint(reg,journal,merged,reports,"preparing")
-	local archive=startArchive(reg,"BeforeUpsert")
+	local folded=checkpoint(reg,journal,merged,reports,"preparing",options.incremental)
+	if #rows==0 then reg:SetAttribute("State","ready");return folded,{updated=0,errors={},archive=options.archive} end
+	local archive=options.archive or startArchive(reg,"BeforeUpsert")
+	assert(archive:GetAttribute("Owner")==OWNER and archive:IsDescendantOf(game.ServerStorage.GroundFacadePilotArchive),"Unowned incremental archive")
 	local errors={};local updated=0
 	reg:SetAttribute("Expected",#rows);reg:SetAttribute("Completed",0);reg:SetAttribute("State","updating")
 	for index,row in rows do
@@ -381,10 +385,10 @@ function Pilot.Upsert(rows,scene,options)
 		end
 		invalidate(scene,m)
 		reg:SetAttribute("Completed",index);reg:SetAttribute("Updated",updated);reg:SetAttribute("Errors",Http:JSONEncode(errors))
-		if index%100==0 or not ok then checkpoint(reg,journal,merged,reports,"updating") end
+		if index%100==0 or not ok then checkpoint(reg,journal,merged,reports,"updating",options.incremental) end
 		task.wait() -- Never retain an entire city's unparented geometry.
 	end
-	local report=checkpoint(reg,journal,merged,reports,#errors==0 and "ready" or "readyWithErrors")
+	local report=checkpoint(reg,journal,merged,reports,#errors==0 and "ready" or "readyWithErrors",options.incremental)
 	archive:SetAttribute("State","complete");archive:SetAttribute("Updated",updated);archive:SetAttribute("Errors",Http:JSONEncode(errors))
 	game:GetService("ChangeHistoryService"):SetWaypoint("Ground facade v9 incremental city rollout")
 	return report,{updated=updated,errors=errors,archive=archive}
