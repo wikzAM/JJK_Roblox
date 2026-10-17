@@ -1,6 +1,7 @@
 -- Edit-only explicit regional or city rollout. Requiring this module never mutates the map.
 local Shared=game:GetService("ReplicatedStorage").Shared
 local Catalog=require(Shared.GroundFacadeCatalog)
+local Layout=require(Shared.FacadeLayout)
 local Frontage=require(script.Parent.GroundFacadeFrontage)
 local Http=game:GetService("HttpService")
 local Section={}
@@ -67,7 +68,7 @@ function Section.Eligible(model,options)
  if not areaOkay or area~=area or area<=0 or area==math.huge then return false,"invalid-footprint",facts end
  facts.area=area
  if area>(o.maxFootprintArea or 30000) then return false,"large-footprint",facts end
- local frame=model:GetAttribute("SourceSliceOriginCFrame") or model:GetAttribute("FacadeSourceOriginCFrame")
+ local frame=Layout.FrameOf(model)
  if typeof(frame)~="CFrame" then return false,"missing-source-frame",facts end
  for _,zone in o.zones or o.excludedZones or {} do
   if inZone(plan,frame,zone) then facts.zone=zone.id or zone.name or "protected-zone";return false,"protected-zone",facts end

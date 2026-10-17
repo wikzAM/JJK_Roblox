@@ -1,6 +1,12 @@
 --!nonstrict
 --[[
 October 17, 2026 — REOPEN / EXISTING GLASS AND BAYS CAUGHT UP.
+  Subsequent guarded expansion added90LOCAL roots with immediatev2preparation:
+  313newrecipes/1323clear panes/35flatfallbacks. NextbatchstoppedPRE-BUILD on
+  editing-serverdisconnect. Expected1312localroots NOT reopenconfirmed;774queued.
+  Newneighborhood surface/SAT/blockers/reconcile stillpending. SourceDriverV2
+  preparesbays perbatch,uses movedsourceframeguard;Sectionusesactualmovedframe
+  forprotectedzones. Read FACADE_EXPANSION_HANDOFF.md beforefreshresume.
   Owner removed more malformed sources and moved others. Native1222facade roots
   now ALL preparedv2:4915safe shared bays/19373clear panes;258flat fallback bays.
   Glazedbay census5173=4915+258;0incorrect transparency/reflectance,0pendingroots.

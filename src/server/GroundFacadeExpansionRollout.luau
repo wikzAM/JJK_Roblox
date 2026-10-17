@@ -5,12 +5,15 @@ local Storage=game:GetService("ServerStorage")
 local Section=require(script.Parent.GroundFacadeSection)
 local Pilot=require(script.Parent.GroundFacadePilot)
 local Registry=require(script.Parent.GroundFacadeRegistry)
-local Driver={VERSION=1,BATCH_SIZE=10,MIN_STEP_GAP=30}
+local BayInteriors=require(script.Parent.GroundFacadeBayInteriors)
+local Layout=require(game:GetService("ReplicatedStorage").Shared.FacadeLayout)
+local Driver={VERSION=2,BATCH_SIZE=10,MIN_STEP_GAP=30}
 local OWNER="2026-10-08-ground-pilot"
 local busy=false
 local lastCompletedStep=-math.huge
 local contexts=setmetatable({},{__mode="k"})
 local REMOVED="fbx_12_24502_3155_-12717"
+local removedIds={REMOVED,"fbx_4_-11393_1017_-4367","fbx_4_-11596_863_-4573","fbx_4_-12223_1142_-5207"}
 local function connected()
 	return game:GetService("NetworkClient"):FindFirstChildWhichIsA("ClientReplicator")~=nil
 end
@@ -27,13 +30,23 @@ local function exclusive(fn)
 	return a,b,c
 end
 local function policy()
+	local excluded={
+		["fbx_5_6952_1857_6146"]=true,["orph_703_1736"]=true,["orph_706_1735"]=true,
+	}
+	for _,id in removedIds do excluded[id]=true end
 	return {maxFootprintArea=30000,zones={
 		{id="crossing",center=Vector2.new(11,572),radius=500},
 		{id="109-district",center=Vector2.new(683,596),radius=275},
-	},excludedIds={
-		["fbx_5_6952_1857_6146"]=true,["orph_703_1736"]=true,
-		["orph_706_1735"]=true,[REMOVED]=true,
-	}}
+	},excludedIds=excluded}
+end
+local function sourceMoved(model,row)
+	local current=Layout.FrameOf(model)
+	if not current or type(row.frame)~="table" or #row.frame~=12 then return true end
+	local surveyed=CFrame.new(table.unpack(row.frame))
+	return (current.Position-surveyed.Position).Magnitude>.02
+		or current.XVector.Unit:Dot(surveyed.XVector.Unit)<.999999
+		or current.YVector.Unit:Dot(surveyed.YVector.Unit)<.999999
+		or current.ZVector.Unit:Dot(surveyed.ZVector.Unit)<.999999
 end
 local function extraHold(model,row)
 	for _,flag in {"StationInfrastructure","FacadeExcluded"} do
@@ -91,7 +104,7 @@ function Driver.Prepare()
 			heldBuildings=report.heldBuildings,reasonCounts=report.reasonCounts,
 			policy={maxFloors=15,maxFootprintArea=30000,crossing={11,572,500},district109={683,596,275},excludedIds=opts.excludedIds},
 			deferredBoxRepairs={"fbx_6_16012_2445_-12199","fbx_11_13048_1764_5668"},
-			intentionallyRemovedId=REMOVED}
+			intentionallyRemovedId=REMOVED,intentionallyRemovedIds=removedIds}
 		Registry.Write(archive,"ExpansionScope",H:JSONEncode(scope))
 		Registry.Write(reg,"ExpansionScope",H:JSONEncode(scope))
 		local ctx={rows=missing,scene=scene,report=report,options=opts,reg=reg,archive=archive,
@@ -124,6 +137,10 @@ function Driver.Step(ctx)
 			else
 				local allowed,reason=Section.Eligible(m,ctx.options)
 				why=not allowed and reason or extraHold(m,row)
+				if not why and sourceMoved(m,row) then
+					ctx.failed=true
+					return progress(ctx,"source-moved",{id=row.id,resume="Prepare fresh to resurvey moved building and neighborhood"})
+				end
 			end
 			if why then table.insert(skips,{id=row.id,reason=why}) else table.insert(batch,row) end
 			nextCursor=i+1
@@ -137,6 +154,23 @@ function Driver.Step(ctx)
 				error("Build interrupted; Prepare fresh before resuming: "..tostring(reportOrError))
 			end
 			result=info
+			if not connected() then
+				ctx.disconnected=true
+				return {state="disconnected",updatedLocally=result.updated,errors=result.errors,interiorsPrepared=false}
+			end
+			-- Prepare only roots just committed by this call, including any successful
+			-- subset of a partial Upsert. Never silently leave expansion without v2 glass.
+			local built={}
+			for _,row in batch do
+				local m=byId[row.id];local root=m:FindFirstChild("GroundFacadePilot")
+				if root and root:GetAttribute("Owner")==OWNER then table.insert(built,m) end
+			end
+			local prepared,interiorResult=pcall(BayInteriors.ApplyBatch,built,{preview=false})
+			if not prepared then
+				ctx.failed=true;ctx.disconnected=not connected()
+				return progress(ctx,"interior-errors",{updatedLocally=result.updated,error=tostring(interiorResult),resume="Repair unprepared roots, then Prepare fresh"})
+			end
+			result.interiors=interiorResult
 		end
 		lastCompletedStep=os.clock()
 		-- Never issue a subsequent build from a disconnected local datamodel.
@@ -146,11 +180,11 @@ function Driver.Step(ctx)
 		end
 		ctx.updated+=result.updated;ctx.skipped+=#skips;ctx.batches+=1
 		if #result.errors>0 then
-			-- Keep cursor: a fresh retry skips committed roots and retries failed rows.
+			ctx.failed=true -- Stop on errors; fresh preparation discovers partial commits.
 			return progress(ctx,"batch-errors",{errors=result.errors,skips=skips})
 		end
 		ctx.cursor=nextCursor
-		return progress(ctx,ctx.cursor>#ctx.rows and "complete" or "ready",{skips=skips})
+		return progress(ctx,ctx.cursor>#ctx.rows and "complete" or "ready",{skips=skips,interiors=result.interiors})
 	end)
 end
 return Driver
