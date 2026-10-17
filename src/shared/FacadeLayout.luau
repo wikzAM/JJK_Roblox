@@ -254,8 +254,11 @@ end
 -- The building's CURRENT plan frame (it may have been moved since it was built),
 -- the same rule SourceSliceBuilder.Regenerate uses.
 function FacadeLayout.FrameOf(model)
-	local origin = model:GetAttribute("SourceSliceOriginCFrame")
-	local saved = model:GetAttribute("SourceSliceSavedPivot")
+	-- Legacy massing has an explicitly attached facade-only plan. Do not spoof
+	-- SourceSliceBuilder's metadata or automatically regenerate original geometry.
+	local legacy = model:GetAttribute("SourceSlicePlan") == nil
+	local origin = model:GetAttribute(legacy and "FacadeSourceOriginCFrame" or "SourceSliceOriginCFrame")
+	local saved = model:GetAttribute(legacy and "FacadeSourceSavedPivot" or "SourceSliceSavedPivot")
 	if typeof(origin) ~= "CFrame" then return nil end
 	if typeof(saved) == "CFrame" then return model:GetPivot() * saved:Inverse() * origin end
 	return origin
@@ -263,7 +266,7 @@ end
 
 local cache = setmetatable({}, {__mode = "k"})
 function FacadeLayout.ForModel(model, config)
-	local encoded = model:GetAttribute("SourceSlicePlan")
+	local encoded = model:GetAttribute("SourceSlicePlan") or model:GetAttribute("FacadeSourcePlan")
 	if type(encoded) ~= "string" then return nil end
 	local frame = FacadeLayout.FrameOf(model)
 	if not frame then return nil end

@@ -10,6 +10,7 @@
         "FacadeMount": { "$path": "../src/shared/FacadeMount.luau" },
         "GroundFacadeCatalog": { "$path": "../src/shared/GroundFacadeCatalog.luau" },
         "GroundFacadeNames": { "$path": "../src/shared/GroundFacadeNames.luau" },
+        "GroundFacadePresentation": { "$path": "../src/shared/GroundFacadePresentation.luau" },
         "GroundFacadeExpansion": { "$path": "../src/shared/GroundFacadeExpansion.luau" },
         "GroundFacadeKit": { "$path": "../src/shared/GroundFacadeKit.luau" }
       }

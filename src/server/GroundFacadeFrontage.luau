@@ -3,6 +3,23 @@ local Shared=game:GetService("ReplicatedStorage").Shared
 local Layout=require(Shared.FacadeLayout)
 local Http=game:GetService("HttpService")
 local Frontage={}
+local CELL=128
+local groundParams
+local function addCells(cells,item,lo,hi)
+	for x=math.floor(lo.X/CELL),math.floor(hi.X/CELL) do for z=math.floor(lo.Z/CELL),math.floor(hi.Z/CELL) do
+		local key=x..":"..z;cells[key]=cells[key] or {};table.insert(cells[key],item)
+	end end
+end
+local function nearby(cells,point,radius)
+	local rows,seen={},{}
+	for x=math.floor((point.X-radius)/CELL),math.floor((point.X+radius)/CELL) do for z=math.floor((point.Z-radius)/CELL),math.floor((point.Z+radius)/CELL) do
+		for _,b in cells[x..":"..z] or {} do if not seen[b] then seen[b]=true;table.insert(rows,b) end end
+	end end
+	return rows
+end
+function Frontage.Nearby(scene,point,radius)
+	return scene.cells and nearby(scene.cells,point,radius or 0) or scene.buildings
+end
 Frontage.MAX_ENTRY_RISE=4
 Frontage.MAX_FRONT_GROUND_RANGE=2
 local function inside(p,ring)
@@ -13,11 +30,12 @@ local function inside(p,ring)
 	return yes
 end
 function Frontage.Index(center,radius)
-	local scene={buildings={},roads={}}
+	local scene={buildings={},roads={},cells={},roadCells={}}
+	groundParams=nil
 	local scanned=0
 	for _,m in workspace.Buildings:GetChildren() do
 		scanned+=1;if scanned%25==0 then task.wait() end
-		local encoded=m:GetAttribute("SourceSlicePlan")
+		local encoded=m:GetAttribute("SourceSlicePlan") or m:GetAttribute("FacadeSourcePlan")
 		if encoded then
 			local frame=Layout.FrameOf(m)
 			-- Include footprints reaching into the index even when their origin is outside.
@@ -26,18 +44,25 @@ function Frontage.Index(center,radius)
 				local lo,hi=Vector3.one*math.huge,-Vector3.one*math.huge
 				for _,ring in plan.levels[1].pieces do for _,p in ring do local q=frame:PointToWorldSpace(Vector3.new(p[1],0,p[2]));lo=lo:Min(q);hi=hi:Max(q) end end
 				local dx=math.max(lo.X-center.X,0,center.X-hi.X);local dz=math.max(lo.Z-center.Z,0,center.Z-hi.Z)
-				if dx*dx+dz*dz<=radius*radius then table.insert(scene.buildings,{model=m,frame=frame,plan=plan,id=m:GetAttribute("SourceSliceId"),lo=lo,hi=hi}) end
+				if dx*dx+dz*dz<=radius*radius then
+					local b={model=m,frame=frame,plan=plan,id=m:GetAttribute("SourceSliceId") or m:GetAttribute("FacadeSourceId"),lo=lo,hi=hi}
+					table.insert(scene.buildings,b);addCells(scene.cells,b,lo,hi)
+				end
 			end
 		end
 	end
 	local roads=workspace:FindFirstChild("Roads")
 	if roads then for _,p in roads:GetDescendants() do
-		if p:IsA("BasePart") and (p.Position-center).Magnitude<radius+p.Size.Magnitude/2 then table.insert(scene.roads,p) end
+		if p:IsA("BasePart") and (p.Position-center).Magnitude<radius+p.Size.Magnitude/2 then
+			table.insert(scene.roads,p)
+			local cf,s=p.CFrame,p.Size;local e=Vector3.new(math.abs(cf.XVector.X)*s.X+math.abs(cf.YVector.X)*s.Y+math.abs(cf.ZVector.X)*s.Z,0,math.abs(cf.XVector.Z)*s.X+math.abs(cf.YVector.Z)*s.Y+math.abs(cf.ZVector.Z)*s.Z)/2
+			addCells(scene.roadCells,p,p.Position-e,p.Position+e)
+		end
 	end end
 	return scene
 end
 function Frontage.Occupied(scene,point,exclude)
-	for _,b in scene.buildings do if b.model~=exclude and (not b.lo or (point.X>=b.lo.X and point.X<=b.hi.X and point.Z>=b.lo.Z and point.Z<=b.hi.Z)) then
+	for _,b in Frontage.Nearby(scene,point,0) do if b.model~=exclude and (not b.lo or (point.X>=b.lo.X and point.X<=b.hi.X and point.Z>=b.lo.Z and point.Z<=b.hi.Z)) then
 		local q=b.frame:PointToObjectSpace(point)
 		for _,ring in b.plan.levels[1].pieces do if inside(q,ring) then return b.id end end
 	end end
@@ -55,7 +80,7 @@ function Frontage.Clearance(scene,cf,width,exclude)
 end
 function Frontage.Road(scene,cf,width,exclude)
 	local best
-	for _,road in scene.roads do
+	for _,road in scene.roadCells and nearby(scene.roadCells,cf.Position,75) or scene.roads do
 		local localPoint=road.CFrame:PointToObjectSpace(cf.Position)
 		local nearest=road.CFrame:PointToWorldSpace(Vector3.new(math.clamp(localPoint.X,-road.Size.X/2,road.Size.X/2),0,math.clamp(localPoint.Z,-road.Size.Z/2,road.Size.Z/2)))
 		local q=cf:PointToObjectSpace(nearest)
@@ -69,11 +94,13 @@ function Frontage.Road(scene,cf,width,exclude)
 	return best
 end
 function Frontage.Ground(cf,x,z)
-	local params=RaycastParams.new();params.FilterType=Enum.RaycastFilterType.Include
-	local list={workspace.Terrain};if workspace:FindFirstChild("Roads") then table.insert(list,workspace.Roads) end
-	params.FilterDescendantsInstances=list
+	if not groundParams then
+		groundParams=RaycastParams.new();groundParams.FilterType=Enum.RaycastFilterType.Include
+		local list={workspace.Terrain};if workspace:FindFirstChild("Roads") then table.insert(list,workspace.Roads) end
+		groundParams.FilterDescendantsInstances=list
+	end
 	local point=(cf*CFrame.new(x,0,z)).Position
-	local hit=workspace:Raycast(point+Vector3.yAxis*40,-Vector3.yAxis*200,params)
+	local hit=workspace:Raycast(point+Vector3.yAxis*40,-Vector3.yAxis*200,groundParams)
 	return hit and hit.Position.Y or nil
 end
 function Frontage.OpenDepth(model,cf,width,depth)

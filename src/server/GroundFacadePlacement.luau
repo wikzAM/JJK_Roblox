@@ -38,7 +38,7 @@ end
 -- real obstruction even when the source footprint survey reports an open side.
 function P.NeighborBlocked(model,scene,cf,bay,options)
 	local candidates={}
-	for _,b in scene.buildings do
+	for _,b in Frontage.Nearby(scene,cf.Position,bay.width/2+24) do
 		local dx=b.lo and math.max(b.lo.X-cf.X,0,cf.X-b.hi.X) or 0
 		local dz=b.lo and math.max(b.lo.Z-cf.Z,0,cf.Z-b.hi.Z) or 0
 		if dx*dx+dz*dz>(bay.width/2+24)^2 then continue end

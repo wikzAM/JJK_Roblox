@@ -36,7 +36,7 @@ function G.Split(strip)
 	end end
 	return cells
 end
-function G.Id(model) return model:GetAttribute("SourceSliceId") or model.Name end
+function G.Id(model) return model:GetAttribute("SourceSliceId") or model:GetAttribute("FacadeSourceId") or model.Name end
 function G.GeneratedEnabled(model)
 	if Config.GeneratedFacadeScope=="city" then return true end
 	if Config.GeneratedFacadeScope~="groundPilot" then return false end
@@ -51,6 +51,9 @@ function G.OwnedRuns(model)
 	return ok and t or {}
 end
 function G.UpperEnabled(model)
+	-- Facade-only legacy adaptation authorizes ground kits, never generated upper
+	-- curtains. A later upper-family rollout must make a separate explicit decision.
+	if not model:GetAttribute("SourceSlicePlan") then return false end
 	return Config.GeneratedUpperEnabled~=false and G.GeneratedEnabled(model)
 end
 function G.Strips(model)

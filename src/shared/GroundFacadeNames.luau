@@ -1,7 +1,7 @@
 --!nonstrict
 -- Fictional sign identities only. No Instances, geometry, global RNG or networking.
 local Names = {}
-Names.VERSION = 1
+Names.VERSION = 2
 
 Names.Stems = {
 	{id="aoba",japanese="青葉",romanized="AOBA"}, {id="nagi",japanese="なぎ",romanized="NAGI"},
@@ -139,6 +139,18 @@ function Names.Seed(key)
 	for i=1,#key do h=(h*33+string.byte(key,i))%2147483647 end
 	return h
 end
+-- Language is an independent tenant stream: changing it never changes a name,
+-- template, opening, advertisement layout, or physical random seed.
+function Names.Language(keyOrSeed, options)
+	options=options or {}
+	local language=options.language
+	if language then
+		assert(language=="japanese" or language=="bilingual","Unknown facade language")
+		return language
+	end
+	local key=tostring(options.nameSeed~=nil and options.nameSeed or keyOrSeed or "default")
+	return Names.Seed(key.."/language-v2")%10<8 and "japanese" or "bilingual"
+end
 local function compatible(row,category)
 	for _,c in row.categories do if c==category then return true end end
 	return false
@@ -161,7 +173,7 @@ function Names.Generate(category,keyOrSeed,options)
 	if fixed then
 		return {brand=options.brandOverride or fixed.brand,japanese=fixed.japanese,romanized=fixed.romanized,
 			label=fixed.label,subtitle=fixed.label,category="chains",labelId=fixed.id,stemId="fixed",
-			identityKey="ground-name-v1/chains/"..fixed.id,nameSeed=nameKey}
+			identityKey="ground-name-v1/chains/"..fixed.id,nameSeed=nameKey,language="brand"}
 	end
 	local tag=options.tag or Names.FeatureTags[feature]
 	local eligible={}
@@ -181,8 +193,9 @@ function Names.Generate(category,keyOrSeed,options)
 	assert(stem,"Unknown facade name stemId: "..tostring(options.stemId))
 	local jp=chosen.format=="prefix" and (chosen.japanese.." "..stem.japanese) or (stem.japanese..chosen.japanese)
 	local rom=stem.romanized.." "..chosen.english
-	return {brand=options.brandOverride or (jp.." / "..rom),japanese=jp,romanized=rom,
-		label=chosen.japanese,subtitle=chosen.english,category=category,labelId=chosen.id,stemId=stem.id,
+	local language=Names.Language(nameKey,options)
+	return {brand=options.brandOverride or (language=="japanese" and jp or (jp.." / "..rom)),japanese=jp,romanized=rom,
+		label=chosen.japanese,subtitle=language=="japanese" and chosen.japanese or chosen.english,language=language,category=category,labelId=chosen.id,stemId=stem.id,
 		identityKey="ground-name-v1/"..chosen.id.."/"..stem.id,nameSeed=nameKey}
 end
 

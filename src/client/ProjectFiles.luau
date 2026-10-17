@@ -1,6 +1,33 @@
 --!nonstrict
 --[[
-October 10, 2026 — OUTSIDE CLIP-ON GROUND SECTION v8 (LATEST).
+October 16, 2026 — GROUND FACADES v9 / INTERIOR TRIAL IN PROGRESS.
+  Read tools/FACADE_V9_ROLLOUT_NOTES.md and FACADE_INTERIOR_TRIAL.md.
+  Owner paused wider rollout to restore trapezoidal/parallax-ish interiors first.
+  Latest confirmed live census:1066 ground roots,988 revision9,359367 added
+  parts before inlet trial; current359743 parts/24365 panes.
+  Target eligibility2091/held132; city rollout NOT complete.
+  Station four-model archive and source1657/legacy24 core backups persisted
+  across two Team Create reconnects. Do not redo or roll back blindly.
+  Exact archive path:ServerStorage.StationInfrastructureArchive.
+    Selected_64885e25-70d4-4926-b845-f52c23fa71f5
+  Core recovery tool reconstructs old core baselines from saved references;
+  historical non-core baseline was lost on reconnect, so do not claim that
+  previous non-core geometry is retrospectively proven unchanged.
+  GroundFacadeRegistry stores UTF8-safe <=60000-byte chunks; 25 live/archived
+  registries migrated,52 oversized properties retired. Protocol14 disconnect
+  cause is unproven. Use Registry.Read/Write,not GetAttribute('Manifest').
+  Six opt-in buildings carry FacadeInteriorTrial=true. GroundFacadeInteriors
+  creates at most32 client-only rooms within95studs, drops beyond115, max3stud
+  depth, at most2 attempts/.3s. Real structure obstructing a room keeps backing.
+  Geometry tapers inward and clips rear width against nearby facade bisectors;
+  wedge floor/ceiling fills passed25 exact native occupancy samples.
+  39 static inlets +5 deep garages added;376 parts,zero cross-cell overlaps.
+  Glass9-overlay hide/restore/delete proof passed;Edit MCP views reviewed.
+  Full Play/performance and explicit final Roblox save still pending.
+  No broader application until trial approval. No computer control per owner.
+  Upper floors/far proxies remain off. More styles17palettes/6Enumfonts/80%JP.
+
+October 10, 2026 — OUTSIDE CLIP-ON GROUND SECTION v8 (HISTORICAL).
   Read tools/FACADE_CLIP_HANDOFF.md for current scope, evidence and replay.
   Owner authorized outside mounting, review of all old trial locations, then
   a large regional expansion and Roblox save / GitHub push.

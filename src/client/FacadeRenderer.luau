@@ -88,7 +88,7 @@ function Renderer.BuildFarInto(parent,model,options)
  if not Config.FarProxyEnabled or not Geometry.UpperEnabled(model) then return nil end
  options=options or {};local frame,strips=Geometry.Strips(model)
  if not frame then return nil end
- local plan=Http:JSONDecode(model:GetAttribute("SourceSlicePlan"))
+ local plan=Http:JSONDecode(model:GetAttribute("SourceSlicePlan") or model:GetAttribute("FacadeSourcePlan"))
  local style=Layout.StyleOf(Geometry.Id(model));local cells=snapshot(model);local holes={}
  for _,s in strips do if s.kind=="glass" then
   local prefix=string.format("%d/%d/%d:",s.storey,s.piece,s.run);local damaged=false
@@ -166,14 +166,14 @@ function Renderer.Init()
   end
   if not candidates[m] then
    local connections={};candidates[m]={connections=connections}
-   for _,attr in {"FacadeVersion","SourceSlicePlan"} do
+   for _,attr in {"FacadeVersion","SourceSlicePlan","FacadeSourcePlan","FacadeFloorCount"} do
     table.insert(connections,m:GetAttributeChangedSignal(attr):Connect(function()invalidate(m)end))
    end
   end
   invalidate(m)
  end
  local function consider(m)
-  if not m:IsA("Model") or not m:GetAttribute("SourceSlicePlan") or eligibilityConnections[m] then return end
+  if not m:IsA("Model") or not (m:GetAttribute("SourceSlicePlan") or m:GetAttribute("FacadeSourcePlan")) or eligibilityConnections[m] then return end
   local connections={};eligibilityConnections[m]=connections;modelsById[Geometry.Id(m)]=m
   for _,attr in {"GroundFacadeOwnedRuns"} do
    table.insert(connections,m:GetAttributeChangedSignal(attr):Connect(function()refreshEligibility(m)end))
@@ -190,19 +190,67 @@ function Renderer.Init()
   local e=candidates[m];if e then for _,c in e.connections do c:Disconnect() end end
   candidates[m]=nil;dirty[m]=nil;modelsById[Geometry.Id(m)]=nil;Renderer.Drop(m);dropFar(m)
  end)
+ -- Ground geometry is already replicated; this cursor only gates damage
+ -- textures. Never revisit a whole city's panes in a single half-second tick.
+ -- At 50k panes / 256 checks / 60 FPS, a full detail sweep takes >=3.3s;
+ -- slow frames or the .75ms soft deadline can extend that cosmetic delay.
+ -- State changes bypass the sweep and update hiding/collision immediately.
+ local groundList,groundCursor={},1
+ local GROUND_CHECKS_PER_FRAME,GROUND_SCAN_BUDGET=256,.00075
+ local groundChecked=0
+ local function unwatchGround(p)
+  local info=ground[p];if not info then return end
+  info.connection:Disconnect();ground[p]=nil
+  local index,last=info.index,#groundList
+  local moved=groundList[last];groundList[last]=nil
+  if index<last then groundList[index]=moved;ground[moved].index=index end
+  if index<groundCursor then groundCursor-=1 end
+  if groundCursor>#groundList then groundCursor=1 end
+ end
+ local function groundDetail(p,info,pos)
+  local radius=info.detail and Config.DetailRadius+40 or Config.DetailRadius
+  local delta=p.Position-pos
+  return delta:Dot(delta)<radius*radius
+ end
  local function watchGround(p)
   if not p:IsA("BasePart") or not p:IsDescendantOf(workspace) or p:GetAttribute("GlassClientGeometry") or p:GetAttribute("GlassDemoPane") then return end
   if ground[p] then return end
-  local info={detail=nil};ground[p]=info
+  local info={detail=false,index=#groundList+1};ground[p]=info;table.insert(groundList,p)
   info.connection=p:GetAttributeChangedSignal("GlassState"):Connect(function()
-   task.defer(function()if p.Parent then Visual.Apply(p,p:GetAttribute("GlassState") or 1,{textures=info.detail~=false}) end end)
+   if info.pending then return end;info.pending=true
+   task.defer(function()
+    info.pending=false
+    if ground[p]~=info or not p:IsDescendantOf(workspace) then return end
+    local cam=workspace.CurrentCamera
+    if cam then info.detail=groundDetail(p,info,cam.CFrame.Position) end
+    Visual.Apply(p,p:GetAttribute("GlassState") or 1,{textures=info.detail})
+   end)
   end)
  end
  for _,p in Tags:GetTagged("GlassPane") do watchGround(p) end
  Tags:GetInstanceAddedSignal("GlassPane"):Connect(watchGround)
- Tags:GetInstanceRemovedSignal("GlassPane"):Connect(function(p)
-  local info=ground[p];if info then info.connection:Disconnect();ground[p]=nil end
- end)
+ Tags:GetInstanceRemovedSignal("GlassPane"):Connect(unwatchGround)
+ local function scanGround(pos)
+  local started=os.clock();local checked=0;local count=math.min(GROUND_CHECKS_PER_FRAME,#groundList)
+  while checked<count and os.clock()-started<GROUND_SCAN_BUDGET do
+   if groundCursor>#groundList then groundCursor=1 end
+   local p=groundList[groundCursor];if not p then break end
+   local info=ground[p];checked+=1
+   if not p:IsDescendantOf(workspace) then unwatchGround(p)
+   else
+    local detail=groundDetail(p,info,pos)
+    if info.detail~=detail then
+     info.detail=detail
+     local state=p:GetAttribute("GlassState") or 1
+     -- Intact panes have no damage textures to add/remove. Server-rendered
+     -- tint, overlays and collision already express their correct baseline.
+     if state~=Config.State.Intact then Visual.Apply(p,state,{textures=detail}) end
+    end
+    groundCursor+=1
+   end
+  end
+  groundChecked=checked
+ end
  local event=RS:WaitForChild("GlassDamageEvent",30)
  if event then event.OnClientEvent:Connect(function(id,rows,from)
   local m=modelsById[id];if m then invalidate(m) end
@@ -228,13 +276,9 @@ function Renderer.Init()
  Run.Heartbeat:Connect(function(dt)
   local cam=workspace.CurrentCamera;if not cam then return end
   local pos=cam.CFrame.Position;local speed=lastPos and (pos-lastPos).Magnitude/math.max(dt,.001) or 0;lastPos=pos
+  scanGround(pos)
   if os.clock()-lastScan>.5 then
    lastScan=os.clock();queue={}
-   for p,info in ground do
-    if p.Parent then local detail=(p.Position-pos).Magnitude<(info.detail and Config.DetailRadius+40 or Config.DetailRadius)
-     if info.detail~=detail then info.detail=detail;Visual.Apply(p,p:GetAttribute("GlassState") or 1,{textures=detail}) end
-    else info.connection:Disconnect();ground[p]=nil end
-   end
    for m in candidates do
     local d=(m:GetPivot().Position-pos).Magnitude
     if dirty[m] then Renderer.Drop(m);dropFar(m);dirty[m]=nil end
@@ -254,8 +298,10 @@ function Renderer.Init()
    nearFolder:SetAttribute("GeneratedFacadeScope",Config.GeneratedFacadeScope)
    nearFolder:SetAttribute("FarProxyEnabled",Config.FarProxyEnabled)
    nearFolder:SetAttribute("GeneratedUpperEnabled",Config.GeneratedUpperEnabled~=false)
-   local physicalCount=0;for _ in ground do physicalCount+=1 end
-   nearFolder:SetAttribute("PhysicalGroundPanes",physicalCount)
+   nearFolder:SetAttribute("PhysicalGroundPanes",#groundList)
+   nearFolder:SetAttribute("GroundDetailChecksLastFrame",groundChecked)
+   nearFolder:SetAttribute("GroundDetailCheckCap",GROUND_CHECKS_PER_FRAME)
+   nearFolder:SetAttribute("GroundDetailBudgetMs",GROUND_SCAN_BUDGET*1000)
   end
   if speed>Config.MaxBuildSpeed then return end
   local start=os.clock()

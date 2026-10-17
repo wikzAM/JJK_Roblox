@@ -3,7 +3,7 @@
 -- Single-storey types fit existing tuning; tall types explicitly occupy two storeys.
 local Names = require(script.Parent.GroundFacadeNames)
 local Catalog = {}
-Catalog.VERSION = 7
+Catalog.VERSION = 9
 Catalog.PALETTES = {
 	stone = {wall=Color3.fromRGB(179,175,165), trim=Color3.fromRGB(43,47,48), accent=Color3.fromRGB(178,146,86)},
 	cream = {wall=Color3.fromRGB(219,210,187), trim=Color3.fromRGB(62,54,45), accent=Color3.fromRGB(101,121,98)},
@@ -13,7 +13,19 @@ Catalog.PALETTES = {
 	white = {wall=Color3.fromRGB(237,238,234), trim=Color3.fromRGB(57,63,65), accent=Color3.fromRGB(85,112,119)},
 	offwhite = {wall=Color3.fromRGB(224,222,212), trim=Color3.fromRGB(67,64,59), accent=Color3.fromRGB(133,116,87)},
 	darkBrown = {wall=Color3.fromRGB(83,65,54), trim=Color3.fromRGB(35,29,26), accent=Color3.fromRGB(208,185,145)},
+	porcelain = {wall=Color3.fromRGB(231,233,228), trim=Color3.fromRGB(79,91,92), accent=Color3.fromRGB(54,99,107)},
+	warmGrey = {wall=Color3.fromRGB(177,170,159), trim=Color3.fromRGB(70,63,57), accent=Color3.fromRGB(116,79,65)},
+	coolGrey = {wall=Color3.fromRGB(152,163,167), trim=Color3.fromRGB(49,61,68), accent=Color3.fromRGB(47,81,109)},
+	sand = {wall=Color3.fromRGB(201,185,158), trim=Color3.fromRGB(79,62,49), accent=Color3.fromRGB(115,65,48)},
+	slate = {wall=Color3.fromRGB(88,101,111), trim=Color3.fromRGB(32,40,48), accent=Color3.fromRGB(192,169,119)},
+	umber = {wall=Color3.fromRGB(112,91,76), trim=Color3.fromRGB(43,35,31), accent=Color3.fromRGB(191,170,132)},
+	dustyRose = {wall=Color3.fromRGB(189,164,154), trim=Color3.fromRGB(73,59,57), accent=Color3.fromRGB(107,58,61)},
+	sage = {wall=Color3.fromRGB(169,177,160), trim=Color3.fromRGB(51,66,55), accent=Color3.fromRGB(58,99,81)},
+	navyTile = {wall=Color3.fromRGB(67,78,91), trim=Color3.fromRGB(26,33,44), accent=Color3.fromRGB(191,176,138)},
 }
+-- Stable order for city selection; never derive a palette roll from pairs().
+Catalog.PALETTE_ORDER={"stone","cream","charcoal","brick","grey","white","offwhite","darkBrown",
+	"porcelain","warmGrey","coolGrey","sand","slate","umber","dustyRose","sage","navyTile"}
 -- Widths vary within a type's fit range; doors, handles and trim stay human-scale.
 Catalog.TYPES = {
 	{id="01_Konbini", title="Convenience shop", family="retail", width=36, minWidth=28, maxWidth=48, palette="stone", brand="まちマート / MACHI MART", subtitle="24H  /  DAILY GOODS", feature="stripe", accent=Color3.fromRGB(45,129,114), door="slide", depth=1.2},
@@ -133,12 +145,14 @@ Catalog.NAMES = {
 	{"桜","SAKURA"},{"あさひ","ASAHI"},{"ひかり","HIKARI"},{"空","SORA"},{"楓","KAEDE"},
 	{"こはる","KOHARU"},{"つむぎ","TSUMUGI"},{"みなと","MINATO"},{"凪音","NAGINE"},{"余白","YOHAKU"},
 }
-function Catalog.Brand(id,key,nameSeed)
+function Catalog.Brand(id,key,nameSeed,options)
 	local s=Catalog.Get(id)
 	if s.signless or s.family=="parking" or s.feature=="sparse" or s.feature=="servicePair" or s.feature=="townhouse" then return "" end
-	if s.feature=="loading" then return "搬入口 / DELIVERY" end
-	if s.feature=="shutter" then return "貸店舗 / TO LET" end
-	return Names.Generate(s.family,key,{feature=s.feature,nameSeed=nameSeed}).brand
+	options=table.clone(options or {})
+	options.feature=s.feature;options.nameSeed=nameSeed
+	if s.feature=="loading" then return Names.Language(nameSeed or key,options)=="japanese" and "搬入口" or "搬入口 / DELIVERY" end
+	if s.feature=="shutter" then return Names.Language(nameSeed or key,options)=="japanese" and "貸店舗" or "貸店舗 / TO LET" end
+	return Names.Generate(s.family,key,options).brand
 end
 function Catalog.Pick(profile, key, width, height)
 	local rows=assert(Catalog.PROFILES[profile], "Unknown facade profile")

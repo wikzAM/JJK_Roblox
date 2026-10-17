@@ -5,6 +5,7 @@
 local Catalog = require(script.Parent.GroundFacadeCatalog)
 local Expansion = require(script.Parent.GroundFacadeExpansion)
 local Mount = require(script.Parent.FacadeMount)
+local Presentation = require(script.Parent.GroundFacadePresentation)
 local GlassVisual = require(script.Parent.GlassVisual)
 local HttpService = game:GetService("HttpService")
 local Kit = {}
@@ -246,7 +247,11 @@ local function rawLayout(id, options)
 end
 
 function Kit.Layout(id,options)
-	return Mount.Layout(rawLayout(id,options),options)
+	if options and options.nameSeed~=nil and options.brand==nil then
+		options=table.clone(options)
+		options.brand=Catalog.Brand(id,options.key or id.."/"..tostring(options.seed or Catalog.Seed(id)),options.nameSeed,options)
+	end
+	return Presentation.Apply(Mount.Layout(rawLayout(id,options),options),Catalog.Get(id),options)
 end
 
 local function addText(part,row)
@@ -255,7 +260,7 @@ local function addText(part,row)
 	gui.PixelsPerStud=40;gui.LightInfluence=0.2;gui.AlwaysOnTop=false;gui.MaxDistance=220;gui.Parent=part
 	local label=Instance.new("TextLabel")
 	label.Size=UDim2.fromScale(1,1);label.BackgroundTransparency=1;label.Text=row.text
-	label.Font=Enum.Font.SourceSansSemibold;label.TextScaled=true;label.TextColor3=row.ink
+	label.Font=row.font or Enum.Font.SourceSansSemibold;label.TextScaled=true;label.TextColor3=row.ink
 	label.TextWrapped=true;label.Parent=gui
 	local pad=Instance.new("UIPadding")
 	pad.PaddingLeft=UDim.new(0.04,0);pad.PaddingRight=UDim.new(0.04,0);pad.PaddingTop=UDim.new(0.08,0);pad.PaddingBottom=UDim.new(0.08,0);pad.Parent=label
@@ -265,7 +270,7 @@ end
 function Kit.Build(parent,id,frame,options)
 	if options and options.nameSeed~=nil and options.brand==nil then
 		options=table.clone(options)
-		options.brand=Catalog.Brand(id,options.key or id.."/"..tostring(options.seed or Catalog.Seed(id)),options.nameSeed)
+		options.brand=Catalog.Brand(id,options.key or id.."/"..tostring(options.seed or Catalog.Seed(id)),options.nameSeed,options)
 	end
 	local layout=Kit.Layout(id,options)
 	frame=frame or CFrame.identity
@@ -276,6 +281,9 @@ function Kit.Build(parent,id,frame,options)
 	model:SetAttribute("FacadeWidth",layout.width);model:SetAttribute("FacadeHeight",layout.height)
 	model:SetAttribute("FacadeRole",layout.role);model:SetAttribute("DoorsInteractive",false)
 	model:SetAttribute("FacadePalette",options and options.palette or Catalog.Get(id).palette)
+	model:SetAttribute("FacadeLanguage",layout.language)
+	model:SetAttribute("FacadeDisplayFont",layout.displayFont)
+	model:SetAttribute("FacadePresentationSeed",layout.presentationSeed)
 	if options and options.nameSeed then model:SetAttribute("FacadeNameSeed",options.nameSeed) end
 	local portals={}
 	for _,q in layout.portals or (layout.door and {layout.door} or {}) do table.insert(portals,{x=q.x,width=q.width,y=q.y or 0,height=q.height,recess=q.recess,name=q.name or "entry"}) end
@@ -410,7 +418,10 @@ function Kit.BuildRun(parent,width,key,profile,frame,options)
 				local opts=table.clone(options);opts.width=bay.width;opts.seed=bay.seed;opts.role=bay.role
 				opts.mirror=bay.seed%2==0
 				opts.key=key.."/bay"..index
-				opts.brand=bay.role=="entrance" and (options.brand or Catalog.Brand(bay.id,key.."/"..index,options.nameSeed)) or ""
+				-- Preserve the historical identity key when no explicit name seed was
+				-- supplied; presentation and generated wording must share its language.
+				opts.nameSeed=options.nameSeed or key.."/"..index
+				opts.brand=bay.role=="entrance" and (options.brand or Catalog.Brand(bay.id,key.."/"..index,opts.nameSeed,opts)) or ""
 				Kit.Build(holder,bay.id,cf,opts)
 			end
 			cursor+=bay.width
