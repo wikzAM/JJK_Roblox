@@ -1,5 +1,25 @@
 --!nonstrict
 --[[
+October 17, 2026 — REOPEN / EXISTING GLASS AND BAYS CAUGHT UP.
+  Owner removed more malformed sources and moved others. Native1222facade roots
+  now ALL preparedv2:4915safe shared bays/19373clear panes;258flat fallback bays.
+  Glazedbay census5173=4915+258;0incorrect transparency/reflectance,0pendingroots.
+  Independent city SAT0overlaps; surfaceVerify310maskedruns/3557parts/0remaining.
+  Processed165roots including pending160 and invalidated/movedexistingroots.
+  Newsurfacefix compiledandran;507originalparts preserved,320fragmentsinserted.
+  Exact backup:FacadeSharedSurfaceBackup_c7f2c99e-5f87-4440-8e37-c1b9b39293d1.
+  Nine movedrun frames refreshed (no source geometry movement);oldrun/baymetadata
+  preserved in FacadeMovedFrameBackup_b2ab3fb3-2f76-44bd-b5d1-4acf3b57e342.
+  Reconciled164records;1222roots/341351ownedparts/20231panes/78Editpreviews.
+  Most3Drecesses are nearby CLIENT detail inPlay,notpermanentEditgeometry.
+  Three owner's additional removedIDs retiredmetadata only:fbx_4_-11393_1017_-4367,
+  fbx_4_-11596_863_-4573,fbx_4_-12223_1142_-5207. KEEP REMOVED.
+  New42floor ownership/overlapissue:fbx_4_-9770_4222_-4948. Read
+  tools/BUILDING_GEOMETRY_REVIEW_QUEUE.md;nativeBuildingGeometryReviewTargets.
+  No structural repair authorized/performed onthat talltarget. No computercontrol.
+  Thispassverifiedconnected inEdit;manualsave/reopenofcorrectionnotconfirmed.
+  Fresh widerrolloutmustprepareglass/bayswithEACHbatch;noaccumulatingdarkroots.
+
 October 17, 2026 — BROADER EXPANSION AUTHORIZED / IN PROGRESS.
   Owner requests majority/all eligible ground-facade rollout BEFORE repairing
   selected malformed buildings as rectangular boxes. Read expansion/box handoffs.

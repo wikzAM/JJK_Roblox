@@ -1,6 +1,6 @@
 # Expansion surface and bay integration — October 17, 2026
 
-This source correction has **not been executed or natively validated in Studio**. Studio disconnected during the expansion. A successful source build does not establish live geometry acceptance, persistence, or a Roblox save.
+This source correction subsequently compiled and ran in the reopened TestJJK. The catch-up pass preserved507 originals/inserted320 fragments; final exterior verification checked310maskedruns/3557parts withzero remaining intersections. All affected room recipes were prepared again; the city room audit foundzero overlaps. See `FACADE_GLASS_CATCHUP_2026_10_17.md` for the exact current baseline and archives. A fresh reopen/manual Roblox save of this pass remains unconfirmed.
 
 `GroundFacadeSurfaceResolver` consistently excludes generated whole-bay preview parts from run extent/pane counts, clipping, and mask verification. Identification requires all three existing attributes: `FacadeBayInteriorPart=true`, `FacadeLayer="interior"`, and `FacadePieceKind="preview"`. These recessed parts intentionally occupy a different depth from exterior shared surfaces; their wedges and angled sides must never be passed to the exterior rectangle fragmenter.
 
