@@ -6,7 +6,8 @@ October 17, 2026 — PRIORITY: FINISH MISSING COVERAGE; STILL INCOMPLETE.
   buildingmodelsverifiedbybinaryhierarchycensus. ExactexistingStudioAutoRecovery
   copiedwithautomaticapprovaltoassets/TestJJK_StudioRecovery_2026-10-17_160533.rbxl.
   70205942bytes,SHA256544c278fb7bb1ecb8ce5e9dfeaa64b011f3e916ccb4c1948d8479438c16a6496.
-  Releasebackupuploadpending;doNOTcommitthe70MBbinary.Repositoryusesreleaseassets.
+  ReleaseuploadAUTOREVIEWBLOCKED;repoisPUBLIC.Fullbinarypublicuploadquestionpending.
+  No fullfileuploaded;doNOTbypassviaotherpaths/commitbinary.Repositoryusesreleaseassets.
   Cloudqueue814safemissing;offlinebackupqueue734. FreshPrepareonactualopenplace.
   Reopenedcensus2219livebuildings/1222facaderoots/pendingglass0. Last90newroots
   DID NOT PERSIST.976atmost15floorbuildingsbare beforeexclusions;864safemissing
