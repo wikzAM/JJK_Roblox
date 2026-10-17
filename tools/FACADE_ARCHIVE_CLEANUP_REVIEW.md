@@ -1,6 +1,6 @@
 # Additional facade archive cleanup review
 
-October 17, 2026. **The owner explicitly approved this additional cleanup: "Approve cleanup; retain recipes and reports". No cleanup has yet been performed under this plan; Studio has exited.** This approval covers the two snapshots below, 400 obsolete generated copies and 193,759 parts. The earlier approval for 101 archived copies/35,527 parts applied to a different set and has already been completed.
+October 17, 2026. **The owner explicitly approved this additional cleanup: "Approve cleanup; retain recipes and reports". No cleanup has yet been performed under this plan.** Studio initially exited, then reappeared with TestJJK/1,272 facade roots. The helper was uploaded and read-only preparation launched, but the following read-only baseline request timed out after 300 seconds. Neither `Approve` nor `Step` was called; zero archive parts were deleted. Studio's process remained running with no reported window title. Await a healthy editing connection, then verify exact scope/recipes again. The human approval persists and must not be requested again. It covers the two snapshots below, 400 obsolete generated copies and 193,759 parts. The earlier approval for 101 archived copies/35,527 parts applied to a different set and has already been completed.
 
 The current native `ServerStorage.GroundFacadePilotArchive` contains 322,411 BaseParts. Its two largest reviewed snapshots are:
 

@@ -1,10 +1,16 @@
 --!nonstrict
 --[[
 October 17, 2026 — TWO HUMAN APPROVALS RECEIVED / RECOVERY UPLOADED.
+  Studio67496504-0f67-4191-8d48-7329d526c462reappearedasTestJJK/1272roots.
+  CleanuphelperuploadedandreadonlyPreparelaunched;subsequentreadonlybaseline
+  RPCtimedoutat300seconds. NO Approve/Step/destructioncalled;0archivepartsdeleted.
+  Studio process40836stillRespondingtruebutMainWindowTitleempty;editorbridge
+  unresponsive. AwaitownerUIreadiness;donotre-requestalreadygivenapprovals.
+  Recheckexactcounts/embeddedrecipesonfreshhealthyconnectionbeforedestroying.
   Owner approved removing ONLY400obsoletegeneratedcopies/193759parts from
   BeforePerimeter_1791668032 and1791668306,retainingembeddedrecipes/reports.
   This isADDITIONALtoalreadycompleted101copycleanup. Newcleanupnotyetexecuted:
-  noStudio process/MCPconnectionatcheck. ReopenandPrepareexactreviewedcounts.
+  noStudio processatinitialcheck;laterreappearedbuteditingRPCtimedout(above).
   OwneralsoexplicitlyapprovedPUBLICGitHubReleaseuploadoffull70MBrecoveryfile.
   Recoveryuploadedandreleasesize+SHA256verified:GitHubreleases/tag/place-files-2026-10-17.
   Historicaluploadapprovalblockresolved;firstretryHTTP422shortcommitIDinvalid,
