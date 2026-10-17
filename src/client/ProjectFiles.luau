@@ -1,5 +1,15 @@
 --!nonstrict
 --[[
+October 17, 2026 — REOPEN VERIFIED / APPROVED ARCHIVE CLEANUP COMPLETE.
+  TestJJK reconnected:all1066 installed roots retained frontageRevision10,
+  1063 committed journal entries and the final audit summary persisted.
+  Owner explicitly approved deleting101 archived facade geometry copies while
+  retaining recipes. Removed exactly35527 archived BaseParts; verified all101
+  ArchivedManifestRow/ArchivedReportRow recipe pairs before and after deletion.
+  Live1066 facades,station12884 parts,and both core backup roots remain present.
+  Cleanup summary:GroundFacadePilotManifest.ApprovedArchiveCleanupSummary.
+  Explicit manual Save to Roblox remains unconfirmed; no computer control used.
+
 October 16, 2026 — VERIFIED ROAD FRONTAGE v10 COMPLETE IN EDIT.
   Read tools/FACADE_ROAD_FRONTAGE_HANDOFF.md FIRST for current truth.
   All1066 installed roots use frontageRevision10.10061 runs;1636 verified-road
@@ -12,7 +22,7 @@ October 16, 2026 — VERIFIED ROAD FRONTAGE v10 COMPLETE IN EDIT.
   connected. Explicit manual Roblox save and full Play/performance still pending.
   Use Registry.ReadLatest for live Report/Manifest:1063 committed journal entries
   remain authoritative with the three-building checkpoint. Do not clear them.
-  Keep existing archived backups. Final calls used incremental=true and
+  Keep other archived backups (see approved October17 cleanup above). Final calls used incremental=true and
   keepReplacedGeometry=false to avoid adding more full geometry copies, retaining
   old per-building recipes and exact pre-commit rollback handles.
   No new city expansion,no computer control. Prior v9 counts below are historical.
