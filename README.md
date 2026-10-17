@@ -1,4 +1,4 @@
-> Road-frontage correction v10: read [current persistence blocker and recovery](tools/FACADE_ROAD_FRONTAGE_HANDOFF.md). Three selected fixes were confirmed persisted; a second synchronous pass updated the other1063 buildings, but Roblox shut down its editing server before final persistence verification. Reopen TestJJK and use Registry.ReadLatest before resuming.
+> Ground frontage v10: all1066 installed buildings corrected and audited in Edit. Read [current handoff](tools/FACADE_ROAD_FRONTAGE_HANDOFF.md). Use Registry.ReadLatest for the committed journal; explicit final Roblox save and full Play testing remain unconfirmed.
 
 > October16 checkpoint: ground facade v9 and the new shallow inlet/deep garage trial are in progress. Read [interior trial](tools/FACADE_INTERIOR_TRIAL.md) and [rollout recovery](tools/FACADE_V9_ROLLOUT_NOTES.md) before continuing. Open saved TestJJK for the live city; a fresh Rojo build does not contain its complete map. Wider rollout is paused for inlet review. Final manual Roblox save and full Play verification are not yet confirmed.
 

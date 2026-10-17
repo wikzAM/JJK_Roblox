@@ -365,7 +365,14 @@ function Pilot.Upsert(rows,scene,options)
 			if old then
 				held=Instance.new("Folder");held.Name=row.id;held:SetAttribute("SourceSliceId",row.id);held:SetAttribute("GroundFacadeOwnedRuns",oldRuns);held:SetAttribute("GroundFacadeMaxOutset",oldOutset)
 				local target=Instance.new("ObjectValue");target.Name="Target";target.Value=m;target.Parent=held;held.Parent=archive
-				old.Parent=held
+				if options.keepReplacedGeometry==false then
+                    -- Only the CURRENT live generated facade is being replaced.
+                    -- Never delete pre-existing archived backups in this mode.
+                    Registry.Write(held,"ArchivedManifestRow",Http:JSONEncode(merged[row.id]))
+                    Registry.Write(held,"ArchivedReportRow",Http:JSONEncode(reports[row.id]))
+                    held:SetAttribute("ArchiveMode","generated-rebuild-recipe")
+                    old.Parent=nil -- Retain exact rollback handle until commit succeeds.
+                else old.Parent=held end
 			end
 			fresh.Parent=m;m:SetAttribute("GroundFacadeOwnedRuns",Http:JSONEncode(owned));m:SetAttribute("GroundFacadeMaxOutset",fresh:GetAttribute("MaxOutset") or 0)
 			-- A single committed flag is written only after all geometry/metadata is live.
@@ -378,7 +385,8 @@ function Pilot.Upsert(rows,scene,options)
 			if entry then entry:Destroy() end;if held then held:Destroy() end
 			table.insert(errors,{id=row.id,reason=tostring(err)})
 		else
-			merged[row.id]=row;reports[row.id]=record;updated+=1
+			if options.keepReplacedGeometry==false and old and old.Parent==nil then old:Destroy() end
+            merged[row.id]=row;reports[row.id]=record;updated+=1
 			-- Reset only stable ground-cell damage for this deliberately rebuilt root.
 			local repaired,why=pcall(repairRuns,m,row.id,oldRuns)
 			if not repaired then table.insert(errors,{id=row.id,reason="Geometry committed; damage reset failed: "..tostring(why)}) end

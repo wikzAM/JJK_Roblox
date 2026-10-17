@@ -1,17 +1,21 @@
 --!nonstrict
 --[[
-October 16, 2026 — VERIFIED ROAD FRONTAGE v10.
-  Read tools/FACADE_ROAD_FRONTAGE_HANDOFF.md FIRST for this correction.
-  All1066 surveyed;3 selected fixes persisted. First background pass lost on
-  restart. Second1063-building synchronous pass completed;final persistence
-  UNVERIFIED after editing server shutdown (reason288),MCP unreachable.
-  First local audit:road entrances1639,quiet-side entrances0.
-  Use Registry.ReadLatest to fold committed journal after reopen.
-  No original geometry changed.17 final closed-style/occlusion repairs pending
-  reconnect verification. Studio disconnected after main pass completed.
-  RoadClass=inferred/Way0 is no longer public-road evidence.
-  Bounded pedestrian stairs now5.5stud max;cars retain4stud rise cap.
-  No new city expansion,no computer control.
+October 16, 2026 — VERIFIED ROAD FRONTAGE v10 COMPLETE IN EDIT.
+  Read tools/FACADE_ROAD_FRONTAGE_HANDOFF.md FIRST for current truth.
+  All1066 installed roots use frontageRevision10.10061 runs;1636 verified-road
+  entrance portals,8559 quiet runs with ZERO portals.518 physical/size access
+  exceptions;no unexplained closed-style cases.17029 panes/153261 visibility
+  rays:ZERO blocked bays/unresolved.44 shallow inlet cells restored.
+  Current289682 owned parts. Original terrain/roads/floors/cores untouched.
+  Earlier passes lost work on editing-server shutdown. Final963 used synchronous
+  25-building calls with live-connection guard;all1066 roots read back v10 while
+  connected. Explicit manual Roblox save and full Play/performance still pending.
+  Use Registry.ReadLatest for live Report/Manifest:1063 committed journal entries
+  remain authoritative with the three-building checkpoint. Do not clear them.
+  Keep existing archived backups. Final calls used incremental=true and
+  keepReplacedGeometry=false to avoid adding more full geometry copies, retaining
+  old per-building recipes and exact pre-commit rollback handles.
+  No new city expansion,no computer control. Prior v9 counts below are historical.
 
 October 16, 2026 — GROUND FACADES v9 / INTERIOR TRIAL IN PROGRESS.
   Read tools/FACADE_V9_ROLLOUT_NOTES.md and FACADE_INTERIOR_TRIAL.md.
