@@ -162,7 +162,9 @@ function Driver.Step(ctx)
 			-- subset of a partial Upsert. Never silently leave expansion without v2 glass.
 			local built={}
 			for _,row in batch do
-				local m=byId[row.id];local root=m:FindFirstChild("GroundFacadePilot")
+				local m=byId[row.id]
+				if not m or m.Parent~=workspace.Buildings then continue end
+				local root=m:FindFirstChild("GroundFacadePilot")
 				if root and root:GetAttribute("Owner")==OWNER then table.insert(built,m) end
 			end
 			local prepared,interiorResult=pcall(BayInteriors.ApplyBatch,built,{preview=false})

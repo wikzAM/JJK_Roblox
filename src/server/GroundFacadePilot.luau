@@ -355,7 +355,14 @@ function Pilot.Upsert(rows,scene,options)
 	local errors={};local updated=0
 	reg:SetAttribute("Expected",#rows);reg:SetAttribute("Completed",0);reg:SetAttribute("State","updating")
 	for index,row in rows do
-		local m=models[row.id];local old=m:FindFirstChild("GroundFacadePilot")
+		local m=models[row.id]
+		-- The owner may remove a later target while this bounded batch yields.
+		-- Never rebuild/reparent a missing source model from its earlier snapshot.
+		if m.Parent~=workspace.Buildings then
+			table.insert(errors,{id=row.id,reason="Owner removed target during rollout; preserved removal"})
+			continue
+		end
+		local old=m:FindFirstChild("GroundFacadePilot")
 		local oldRuns=m:GetAttribute("GroundFacadeOwnedRuns");local oldOutset=m:GetAttribute("GroundFacadeMaxOutset")
 		local fresh,record,owned,entry,held
 		local ok,err=pcall(function()
@@ -374,15 +381,21 @@ function Pilot.Upsert(rows,scene,options)
                     old.Parent=nil -- Retain exact rollback handle until commit succeeds.
                 else old.Parent=held end
 			end
+			assert(m.Parent==workspace.Buildings,"Target removed during construction; preserved removal")
 			fresh.Parent=m;m:SetAttribute("GroundFacadeOwnedRuns",Http:JSONEncode(owned));m:SetAttribute("GroundFacadeMaxOutset",fresh:GetAttribute("MaxOutset") or 0)
 			-- A single committed flag is written only after all geometry/metadata is live.
 			entry:SetAttribute("Committed",true);entry.Parent=journal
 		end)
 		if not ok then
 			if fresh then fresh:Destroy() end
-			if old and old.Parent~=m then old.Parent=m end
-			m:SetAttribute("GroundFacadeOwnedRuns",oldRuns);m:SetAttribute("GroundFacadeMaxOutset",oldOutset)
-			if entry then entry:Destroy() end;if held then held:Destroy() end
+			local removed=m.Parent~=workspace.Buildings
+			if old and old.Parent~=m then
+				if not removed then old.Parent=m
+				elseif held then old.Parent=held;held:SetAttribute("TargetRemovedDuringUpsert",true) end
+			end
+			if not removed then m:SetAttribute("GroundFacadeOwnedRuns",oldRuns);m:SetAttribute("GroundFacadeMaxOutset",oldOutset) end
+			if entry then entry:Destroy() end
+			if held and not (removed and old and old.Parent==held) then held:Destroy() end
 			table.insert(errors,{id=row.id,reason=tostring(err)})
 		else
 			if options.keepReplacedGeometry==false and old and old.Parent==nil then old:Destroy() end
