@@ -1,80 +1,91 @@
 --!nonstrict
--- Explicit opt-in trial, client-only shallow 3D interiors; no per-pane physics.
+-- Map-wide, bounded client detail. ONE room per tenant bay; no pane-sized cells.
 local I={}
-local RS=game:GetService("ReplicatedStorage")
+local RS=game.ReplicatedStorage
 local G=require(RS.Shared.GroundFacadeInteriorGeometry)
-local GlassVisual=require(RS.Shared.GlassVisual)
-local active,tracked,retryAfter={},{ },{}
-local folder,started
-local function remove(p)
-	local room=active[p];if not room then return end
-	for _,back in room.backings do if back.Parent then back.LocalTransparencyModifier=0 end end
-	if p.Parent then GlassVisual.SetInteriorView(p,false) end
-	room.model:Destroy();active[p]=nil
-end
-local function eligible(p)
-	if p:GetAttribute("GlassInteriorStaticVersion") then return end
-	if not p.Parent or not p:IsDescendantOf(workspace) or (p:GetAttribute("GlassState") or 1)>=3 then return end
-	local root=p:FindFirstAncestor("GroundFacadePilot")
-	if not root or not root.Parent:GetAttribute("FacadeInteriorTrial") then return end
-	return root
-end
-local function build(p,root)
-	local cell=G.Plan(p,root);if not cell then return end
-	local filter=RaycastParams.new();filter.FilterType=Enum.RaycastFilterType.Exclude;filter.FilterDescendantsInstances={root,folder}
-	-- Core/neighbor walls must not protrude into the fake room. Keep the flat
-	-- backing where real structure leaves insufficient space; never cut a core.
-	for _,x in {cell.left,0,cell.right} do for _,y in {cell.bottom+.1,(cell.bottom+cell.top)/2,cell.top-.1} do
-		local origin=p.CFrame:PointToWorldSpace(Vector3.new(x,y,cell.start))
-		if workspace:Raycast(origin,p.CFrame.ZVector*(cell.depth+.1),filter) then return end
+local V=require(RS.Shared.GlassVisual)
+local H=game:GetService("HttpService")
+local entries,lookup,active={},{},{}
+local cursor,started=1,false
+local function backing(entry,detail)
+	for _,pane in entry.panes do if pane.Parent then
+		local intact=(pane:GetAttribute("GlassState") or 1)<=2
+		for _,p in pane:GetChildren() do if p:IsA("BasePart") and p.Name=="InteriorWindowBacking" then
+			p.Transparency=(detail or not intact) and 1 or 0
+			p:SetAttribute("GlassFilmTransparency",detail and 1 or 0)
+		end end
 	end end
-	local model=Instance.new("Model");model.Name="WindowInterior"
-	local id=p:GetAttribute("GlassPaneId") or p.Name;local seed=0
-	for n=1,#id do seed=(seed*33+id:byte(n))%65521 end
-	for _,row in G.Rows(cell,seed) do
-		local part=Instance.new(row.shape or "Part");part.Name=row.name;part.CFrame=p.CFrame*row.cframe;part.Size=row.size
-		part.Color=row.color;part.Material=Enum.Material.SmoothPlastic;part.Anchored=true
-		part.CanCollide=false;part.CanQuery=false;part.CanTouch=false;part.CastShadow=false;part.Parent=model
+end
+local function remove(entry)
+	if entry.room then
+		if entry.preview then for _,p in entry.room:GetChildren() do if p:IsA("BasePart") then p.LocalTransparencyModifier=1 end end
+		else entry.room:Destroy();entry.room=nil end
 	end
-	local backings={}
-	for _,back in p:GetChildren() do if back:IsA("BasePart") and back.Name=="InteriorWindowBacking" then
-		back.LocalTransparencyModifier=1;table.insert(backings,back)
-	end end
-	model:SetAttribute("PaneId",id);model:SetAttribute("Depth",cell.depth);model.Parent=folder
-	GlassVisual.SetInteriorView(p,true)
-	active[p]={model=model,backings=backings}
+	active[entry]=nil;backing(entry,false)
+end
+local function usable(entry)
+	if not entry.bay:IsDescendantOf(workspace) then return false end
+	for _,p in entry.panes do if p.Parent and (p:GetAttribute("GlassState") or 1)<=2 then return true end end
+	return false
+end
+local function build(entry)
+	local bay=entry.bay
+	if not usable(entry) then return false end
+	if not entry.room then
+		local cell=H:JSONDecode(bay:GetAttribute("FacadeBayInteriorPlan"));cell.frame=bay:GetPivot()
+		local folder=Instance.new("Folder");folder.Name="BayInterior"
+		for _,row in G.Rows(cell,bay:GetAttribute("FacadeBayInteriorSeed") or 19) do
+			local p=Instance.new(row.shape or "Part");p.Name=row.name;p.CFrame=cell.frame*row.cframe;p.Size=row.size
+			p.Color=row.color;p.Material=Enum.Material.SmoothPlastic;p.Anchored=true
+			p.CanCollide=false;p.CanQuery=false;p.CanTouch=false;p.CastShadow=false;p.Parent=folder
+		end
+		folder.Parent=bay;entry.room=folder
+	else for _,p in entry.room:GetChildren() do if p:IsA("BasePart") then p.LocalTransparencyModifier=0 end end end
+	V.RefreshBayInterior(bay);backing(entry,true);active[entry]=true;return true
+end
+local function track(bay)
+	if lookup[bay] or not bay:IsA("Model") or bay:GetAttribute("FacadeBayInteriorVersion")~=2 then return end
+	local entry={bay=bay,panes=G.Panes(bay),room=bay:FindFirstChild("BayInterior")}
+	entry.preview=entry.room~=nil;lookup[bay]=entry;table.insert(entries,entry)
+	remove(entry)
 end
 function I.Init()
 	if started then return end;started=true
-	folder=Instance.new("Folder");folder.Name="LocalGroundInteriors";folder.Parent=workspace
 	local tags=game:GetService("CollectionService")
-	local function watch(p)
-		local root=p:IsA("BasePart") and p:FindFirstAncestor("GroundFacadePilot")
-		if not root or not root.Parent:GetAttribute("FacadeInteriorTrial") or tracked[p] then return end
-		tracked[p]=p:GetAttributeChangedSignal("GlassState"):Connect(function()if (p:GetAttribute("GlassState") or 1)>=3 then remove(p) end end)
-	end
-	for _,p in tags:GetTagged("GlassPane") do watch(p) end
-	tags:GetInstanceAddedSignal("GlassPane"):Connect(watch)
-	tags:GetInstanceRemovedSignal("GlassPane"):Connect(function(p)remove(p);if tracked[p] then tracked[p]:Disconnect();tracked[p]=nil end end)
-	local elapsed=0
+	-- Registration yields between small groups; no initial city-sized room build.
+	for i,bay in tags:GetTagged("FacadeInteriorBay") do track(bay);if i%32==0 then task.wait() end end
+	tags:GetInstanceAddedSignal("FacadeInteriorBay"):Connect(track)
+	tags:GetInstanceRemovedSignal("FacadeInteriorBay"):Connect(function(bay)
+		local entry=lookup[bay];if entry then remove(entry);lookup[bay]=nil end
+	end)
+	local attempts=0;local elapsed=0
 	game:GetService("RunService").Heartbeat:Connect(function(dt)
-		elapsed+=dt;if elapsed<.3 then return end;elapsed=0
-		local cam=workspace.CurrentCamera;if not cam then return end
-		local candidates={};local count=0
-		for p in active do if not eligible(p) or (p.Position-cam.CFrame.Position).Magnitude>G.DropRadius then remove(p) else count+=1 end end
-		for p in tracked do local root=eligible(p)
-			if root and not active[p] and (retryAfter[p] or 0)<os.clock() then local distance=(p.Position-cam.CFrame.Position).Magnitude
-				if distance<G.NearRadius then table.insert(candidates,{pane=p,root=root,distance=distance}) end
+		local cam=workspace.CurrentCamera;if not cam or #entries==0 then return end
+		local position=cam.CFrame.Position
+		elapsed+=dt;if elapsed>=.3 then elapsed=0;attempts=0 end
+		local count,furthest,farDistance=0,nil,0
+		for entry in active do
+			local d=(entry.bay:GetPivot().Position-position).Magnitude
+			if not usable(entry) or d>G.DropRadius then remove(entry)
+			else
+				count+=1
+				if d>farDistance then furthest=entry;farDistance=d end
 			end
 		end
-		table.sort(candidates,function(a,b)return a.distance<b.distance end)
-		local built=0
-		for _,candidate in candidates do
-			if count>=G.MaxRooms or built>=2 then break end
-			build(candidate.pane,candidate.root);built+=1
-			if active[candidate.pane] then count+=1 else retryAfter[candidate.pane]=os.clock()+5 end
+		local start=os.clock();local visited=0;local nearest,nearDistance
+		-- A budgeted sweep discovers nearby bays without sorting all17029 panes.
+		while visited<64 and os.clock()-start<.00075 do
+			if cursor>#entries then cursor=1 end
+			local entry=entries[cursor];cursor+=1;visited+=1
+			if lookup[entry.bay]==entry and not active[entry] and usable(entry) then
+				local d=(entry.bay:GetPivot().Position-position).Magnitude
+				if d<G.NearRadius and (not nearDistance or d<nearDistance) then nearest=entry;nearDistance=d end
+			end
 		end
-		folder:SetAttribute("Rooms",count);folder:SetAttribute("RoomCap",G.MaxRooms);folder:SetAttribute("TrialOnly",true)
+		if nearest and attempts<2 then
+			if count>=G.MaxRooms and furthest and nearDistance<farDistance-5 then remove(furthest);count-=1 end
+			if count<G.MaxRooms then attempts+=1;build(nearest) end
+		end
 	end)
 end
 return I

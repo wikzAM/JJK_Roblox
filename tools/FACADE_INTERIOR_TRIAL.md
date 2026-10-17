@@ -1,5 +1,7 @@
 # Ground facade inlet trial - October 16, 2026
 
+Superseded October17:the owner clarified ONE trapezoidal interior per whole bay. Read FACADE_BAY_INTERIORS_HANDOFF.md. All old pane-sized cells are archived; this file describes the historical interpretation only.
+
 The owner requested small walled inlets before further city expansion. No computer control is authorized while the owner uses the browser. Use Studio MCP only.
 
 ## Live changes verified in TestJJK

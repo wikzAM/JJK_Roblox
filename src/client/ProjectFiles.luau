@@ -1,5 +1,26 @@
 --!nonstrict
 --[[
+October 17, 2026 — WHOLE-BAY TRAPEZOIDS v2 / MAP-WIDE / PLAY VERIFIED.
+  Read tools/FACADE_BAY_INTERIORS_HANDOFF.md FIRST. Owner clarified ONE room per
+  facade/tenant bay, NOT one tapered recess per window. Windows share the rear.
+  Processed1066 ground-facade buildings:4147 shared bay recipes,
+  16378 clearer panes;197 glazed bays safely retain flat backing. No expansion.
+  Zero room-volume overlaps in independent whole-city SAT audit. Native90/60deg,
+  straight/offset corner tests:400 inside/floor samples,80 exclusion samples.
+  Old57 pane cells/513 parts archived intact;live oldcells=0. Seven reviewmodels
+  have78 whole-bay Edit previews/702parts. Final resident1065 roots contain
+  289209 ownedparts/17029panes. One98-part/no-glass source model was found
+  unparented after Play,cause unknown;preserved EXACTLY in ServerStorage.
+  FacadeDetachedBuildingRecovery_2026_10_17. Not reinserted into scene.
+  Other rooms build only on CLIENT:48 max,2 attempts/.3s,110/135stud hysteresis.
+  Actual Play:13/13 nearby bays rendered117 parts;far0 visible/dynamic rooms,
+  no related client errors. Shared glass states verified; no broad FPS claim.
+  GroundFacadeBayInteriors.PrepareNextBatch resumes <=25 buildings per call;
+  root completion marker invalidates naturally when facade root is rebuilt.
+  Preserve station/core/shared-surface backups. Terrain/structure unchanged.
+  Registry root rows and1066 journal entries reconciled. Manual Roblox save and
+  fresh reopen of this v2 rollout remain unconfirmed. No computer control.
+
 October 17, 2026 — SHARED SURFACE FLICKER / CLEARER INLET GLASS.
   Read tools/FACADE_SHARED_SURFACE_HANDOFF.md for latest truth.
   Overlapping source slices generated coplanar facade walls.285 shared boundary

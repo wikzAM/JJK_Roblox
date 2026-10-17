@@ -1,5 +1,7 @@
 # Shared facade surfaces and clearer inlet glass
 
+Latest interior approach:see FACADE_BAY_INTERIORS_HANDOFF.md. The57 per-window cells below have been replaced by shared whole-bay recipes across all1066 installed buildings. Shared-surface trimming and its backups remain in place.
+
 October 17, 2026. Applied in TestJJK through Studio MCP. No computer control, source structure edits or additional city rollout.
 
 ## Cause and correction

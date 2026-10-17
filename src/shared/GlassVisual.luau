@@ -3,6 +3,15 @@ local Config=require(script.Parent.GlassConfig)
 local V={}
 local S=Config.State
 local PREFIX="GlassDamage_"
+-- A shared bay recess survives a broken window while other glazing remains.
+-- When its final pane breaks/removes, hide the cosmetic shell as a unit.
+function V.RefreshBayInterior(bay)
+	if not bay or bay:GetAttribute("FacadeBayInteriorVersion")~=2 then return end
+	local folder=bay:FindFirstChild("BayInterior");if not folder then return end
+	local visible=false
+	for _,p in bay:GetChildren() do if p:IsA("BasePart") and p:HasTag("GlassPane") and (p:GetAttribute("GlassState") or 1)<=2 then visible=true break end end
+	for _,p in folder:GetChildren() do if p:IsA("BasePart") then p.Transparency=visible and 0 or 1 end end
+end
 -- Reveal a bounded 3D inlet only while its geometry exists. Keep the exterior
 -- baseline so client distance removal and glass resets restore the same style.
 function V.SetInteriorView(part,enabled)
@@ -100,7 +109,7 @@ function V.Apply(part,state,options)
 	V.Capture(part)
 	V.ClearTextures(part);clearEdges(part)
 	part:SetAttribute("GlassState",state)
-	if state==S.Removed then part:Destroy();return end
+	if state==S.Removed then local bay=part:FindFirstAncestorWhichIsA("Model");part:Destroy();V.RefreshBayInterior(bay);return end
 	part.Material=Enum.Material.Glass
 	part.Color=baseline(part)
 	part.CanCollide=state<=S.Cracked and part:GetAttribute("GlassIntactCollision")==true
@@ -120,6 +129,7 @@ function V.Apply(part,state,options)
 		if state==S.Cracked then cracks(part)
 		elseif state==S.Shattered then brokenEdges(part) end
 	end
+	V.RefreshBayInterior(part:FindFirstAncestorWhichIsA("Model"))
 end
 function V.ResetPooled(part)
 	V.ClearTextures(part);clearEdges(part)
