@@ -14,4 +14,6 @@ Use the recovery file as a local Studio backup when continuing elsewhere. It inc
 
 This repository distributes full place snapshots as GitHub Release assets instead of committing large binaries to Git. The original local copy is ignored under `assets/`.
 
-Upload status: automatic approval review rejected the full-file GitHub Release upload because the destination had not been verified as trusted and previous source-push authorization did not clearly cover the complete binary payload. Read-only verification confirmed `wikzAM/JJK_Roblox` is public. Explicit human approval for public upload has been requested and is pending. No release or binary upload was performed. Do not retry through an alternate upload path without resolving that approval.
+Upload authorization: automatic approval review initially rejected the full-file upload. After confirming that `wikzAM/JJK_Roblox` is public, the owner explicitly answered **"Approve public recovery-file upload"** on October 17, 2026. The release upload is authorized. This backup is incomplete work; its preserved geometry is separate from the lower cloud-persisted count described above.
+
+Upload completed: [place-files-2026-10-17](https://github.com/wikzAM/JJK_Roblox/releases/tag/place-files-2026-10-17). GitHub reports the exact 70,205,942-byte size and the matching SHA-256 digest above. The separately approved archive cleanup has not yet run; the recovery preserves those original archive copies too.

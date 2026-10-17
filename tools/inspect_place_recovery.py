@@ -61,7 +61,10 @@ def lz4(data, expected):
 
 def inspect(path):
     classes, names, parents = {}, {}, {}
-    wanted = {"Model", "Folder", "Workspace", "ServerStorage"}
+    named = {"Model", "Folder", "Workspace", "ServerStorage"}
+    physical = {"Part", "WedgePart", "CornerWedgePart", "MeshPart", "UnionOperation",
+                "NegateOperation", "TrussPart", "Seat", "VehicleSeat", "SpawnLocation", "Terrain"}
+    wanted = named | physical
     chunks = 0
     with path.open("rb") as stream:
         header = stream.read(32)
@@ -93,7 +96,7 @@ def inspect(path):
                 ident = struct.unpack_from("<I", payload)[0]
                 prop, pos = string(payload, 4)
                 name, count, members = classes[ident]
-                if prop == "Name" and name in wanted:
+                if prop == "Name" and name in named:
                     assert payload[pos] == 1
                     pos += 1
                     for referent in members:
@@ -112,10 +115,25 @@ def inspect(path):
     buildings = {r for r, name in names.items() if name == "Buildings" and names.get(parents.get(r)) == "Workspace"}
     models = {r for r, name in names.items() if name.startswith("Building") and parents.get(r) in buildings}
     facades = [r for r, name in names.items() if name == "GroundFacadePilot" and parents.get(r) in models]
+    reviewed = {r: name for r, name in names.items()
+                if name in {"BeforePerimeter_1791668032", "BeforePerimeter_1791668306"}
+                and names.get(parents.get(r)) == "GroundFacadePilotArchive"
+                and names.get(parents.get(parents.get(r))) == "ServerStorage"}
+    archive_parts = {name: 0 for name in reviewed.values()}
+    for class_name, count, members in classes.values():
+        if class_name not in physical: continue
+        for referent in members:
+            ancestor = parents.get(referent, -1)
+            while ancestor != -1:
+                if ancestor in reviewed:
+                    archive_parts[reviewed[ancestor]] += 1
+                    break
+                ancestor = parents.get(ancestor, -1)
     return {"file": str(path), "bytes": path.stat().st_size,
             "sha256": hashlib.file_digest(path.open("rb"), "sha256").hexdigest(),
             "instances": instance_count, "classes": class_count, "chunks": chunks,
             "workspaceBuildingModels": len(models), "liveGroundFacadeRoots": len(facades),
+            "reviewedArchiveParts": archive_parts,
             "scope": "Hierarchy census only; no Studio reopening, geometry or script validation"}
 
 

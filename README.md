@@ -4,6 +4,8 @@
 
 > Current work:broader rollout has2087 eligible buildings after the owner's deletions,then the two selected malformed buildings receive rectangular replacements. Editing-server shutdowns interrupted expansion;do not mistake locally created additions for saved map data. Read [expansion recovery](tools/FACADE_EXPANSION_HANDOFF.md) and [selected box repairs](tools/FACADE_BOX_REPAIR_HANDOFF.md). Keep all owner-removed buildings removed.
 
+> Full local place backup:[October17 Studio recovery](https://github.com/wikzAM/JJK_Roblox/releases/tag/place-files-2026-10-17). Its verified1,352facade roots include80 more than the latest cloud reopening. The owner approved this public upload and the separate193,759-part obsolete archive cleanup; cleanup execution is still in progress.
+
 > Historical notes:the [per-window interior trial](tools/FACADE_INTERIOR_TRIAL.md) and [v9 rollout recovery](tools/FACADE_V9_ROLLOUT_NOTES.md) are superseded by the current bay handoff above. Open TestJJK for the live city;a fresh Rojo build does not contain its complete map.
 
 # JJK_Roblox

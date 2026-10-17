@@ -1,22 +1,32 @@
 --!nonstrict
 --[[
+October 17, 2026 — TWO HUMAN APPROVALS RECEIVED / RECOVERY UPLOADED.
+  Owner approved removing ONLY400obsoletegeneratedcopies/193759parts from
+  BeforePerimeter_1791668032 and1791668306,retainingembeddedrecipes/reports.
+  This isADDITIONALtoalreadycompleted101copycleanup. Newcleanupnotyetexecuted:
+  noStudio process/MCPconnectionatcheck. ReopenandPrepareexactreviewedcounts.
+  OwneralsoexplicitlyapprovedPUBLICGitHubReleaseuploadoffull70MBrecoveryfile.
+  Recoveryuploadedandreleasesize+SHA256verified:GitHubreleases/tag/place-files-2026-10-17.
+  Historicaluploadapprovalblockresolved;firstretryHTTP422shortcommitIDinvalid,
+  fullcommit36cd1ab1b3d2d12d30e97eaa4021631b8f7cfd89succeeded.
+
 October 17, 2026 — PRIORITY: FINISH MISSING COVERAGE; STILL INCOMPLETE.
   Latestfullqueueattempt130newlocal;disconnectbeforeStep14. Reopenedcloud1272
   roots/pending0:only50of130persistedthere. OFFLINErecovery1352facaderoots/2219
   buildingmodelsverifiedbybinaryhierarchycensus. ExactexistingStudioAutoRecovery
   copiedwithautomaticapprovaltoassets/TestJJK_StudioRecovery_2026-10-17_160533.rbxl.
   70205942bytes,SHA256544c278fb7bb1ecb8ce5e9dfeaa64b011f3e916ccb4c1948d8479438c16a6496.
-  ReleaseuploadAUTOREVIEWBLOCKED;repoisPUBLIC.Fullbinarypublicuploadquestionpending.
-  No fullfileuploaded;doNOTbypassviaotherpaths/commitbinary.Repositoryusesreleaseassets.
+  OwnerapprovedPUBLICreleaseupload;completedplace-files-2026-10-17,size+hashverified.
+  DoNOTcommitthe70MBbinary.Repositoryusesreleaseassets.
   Cloudqueue814safemissing;offlinebackupqueue734. FreshPrepareonactualopenplace.
   Reopenedcensus2219livebuildings/1222facaderoots/pendingglass0. Last90newroots
   DID NOT PERSIST.976atmost15floorbuildingsbare beforeexclusions;864safemissing
   targets remain byfreshscope2087eligible/132held. DoNOTreportinstalledsubset
   checksascompletedcityrollout. ExpansionDriverV2 mustpreparebaysineachbatch.
   Investigatingpersistence: nativeServerStorage.GroundFacadePilotArchive holds
-  322411BaseParts;NOnewcleanupapproved/performed. TwoverifiedBeforePerimeter
+  322411BaseParts;newcleanupAPPROVEDbutnotyetperformed. TwoverifiedBeforePerimeter
   snapshots1791668032/1791668306 contain400obsoletegeneratedrootcopies/193759parts
-  withembedded200Manifest+Reportrowseach. NewapprovalQUESTION PENDING.
+  withembedded200Manifest+Reportrowseach. Ownerapprovedretainingrecipes/reports.
   Read tools/FACADE_ARCHIVE_CLEANUP_REVIEW.md;helperdoesnothingonrequire.
   Prior101copy/35527partdeletionapprovalwasalreadyconsumed,notblanketpermission.
 
