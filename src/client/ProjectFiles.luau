@@ -35,6 +35,12 @@ October 18, 2026 (overnight, owner asleep) — ALLEY GLAZING (FRONTAGE REV 11) D
   (31019), FacadeSharedSurfaceBackup_656f/c7f2/123c (3542/507/3867),
   FacadePerPaneInteriorBackup_v2 (513). Preflight: 0 source-building parts,
   0 external references. Keep Station/Core/LegacyCore/Greys/Removed archives.
+  Ready-to-run tools (each needs owner approval): tools/apply_alley_quiet.luau
+  (25 bldgs/call) and tools/cleanup_facade_archive_geometry.luau (10k parts/call).
+  tools/verify_ground_frontage_v11.luau (read-only): 2078 bldgs / 19664 runs,
+  0 missing, 0 class mismatch, 0 entrances on 16871 quiet runs; window 9849,
+  blind 7048 (was 9630), street 2754, alleyQuiet 13.
+  NOT done: Play test of interiors (RAM too tight; rooms only exist in Play).
   Last verified cloud save 05:42:14 (includes everything above).
 
 October 18, 2026 — EXPANSION QUEUE COMPLETE + POST-EXPANSION AUDITS PASS.
