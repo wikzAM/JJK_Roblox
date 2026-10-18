@@ -1,5 +1,42 @@
 --!nonstrict
 --[[
+October 18, 2026 (overnight, owner asleep) — ALLEY GLAZING (FRONTAGE REV 11) DONE.
+  Owner: "too many buildings without facades" -> census: 2078/2205 have roots;
+  the 127 without are Crossing/109 zones (owner: Crossing stays bare), 22
+  landmark/crown, 19 >15 floors, 17 >30000 footprint, 1 explicit, 1 hold.
+  Real gap was blank concrete: 49% of runs were "blind". Owner approved rev 11:
+  between-building sides (no road, 6-12 stud gap) -> quiet glazed windows, no
+  doors. GroundFacadeFrontage REVISION 11 (repo + Studio). 1199 buildings /
+  2791 faces rebuilt (199 high-slit on raised ground, 0 left blind). Archive
+  AlleyGlazing_ec6f1b2c-... (recipes only, keepReplacedGeometry=false).
+  Saves now triggered WITHOUT the owner: Ctrl+S sent to the Studio window via
+  user32 (scratchpad studio_save.ps1) and verified in the Studio log.
+  05:02:15 STUDIO CRASHED OutOfMemory (16 GB box; Studio private ~19 GB commit).
+  Lost only the in-flight step; relaunched via roblox-studio: protocol
+  (placeId 99539622209675 universeId 10309594565). Call
+  ChangeHistoryService:ResetWaypoints() after every bulk step. Do NOT Play-test
+  with <2 GB free RAM.
+  Audits after glazing: surface 206 runs trimmed (0 remaining), SAT 10645 rooms
+  / 0 overlaps, blockers 11270 glazed bays / 40973 panes / 0 blocked,
+  reconcile 2078 rows == 2078 roots. Totals 625922 owned parts / 40967 panes.
+  Summary attr GroundFacadePilotManifest.AlleyGlazingAuditSummary.
+  Studio scripts synced: GroundFacadeKit (bayRoles fix), GroundFacadeFrontage
+  (rev 11), GroundFacadeCatalog (+alleyQuiet profile).
+  SAMPLE FOR OWNER REVIEW (6 buildings near (-1930,70,-1830)): alley walls use
+  new profile "alleyQuiet" (ramen/izakaya/local shop/takeaway/shutter/sparse,
+  display windows only, no doors) instead of high-slit/frosted "window":
+  fbx_15_-19216_887_-17484, orph_-1986_-1775, fbx_15_-19162_851_-19324,
+  fbx_15_-18420_1465_-18989, fbx_15_-19598_1083_-18336, fbx_15_-18936_1130_-19081.
+  If approved, apply city-wide by setting class="alleyQuiet" on faces with the
+  glazed-alley reason and Upsert in 25-building steps (+interiors, ResetWaypoints).
+  PENDING OWNER APPROVAL (auto-mode classifier blocked as irreversible):
+  delete facade-generated BaseParts only (keep folders/recipes) in
+  GroundFacadePilotArchive (118082 top parts), GroundFacadeDraftArchive
+  (31019), FacadeSharedSurfaceBackup_656f/c7f2/123c (3542/507/3867),
+  FacadePerPaneInteriorBackup_v2 (513). Preflight: 0 source-building parts,
+  0 external references. Keep Station/Core/LegacyCore/Greys/Removed archives.
+  Last verified cloud save 05:42:14 (includes everything above).
+
 October 18, 2026 — EXPANSION QUEUE COMPLETE + POST-EXPANSION AUDITS PASS.
   Studio 2acaf4c1 (connected throughout). Save-verified 50-root cycles from
   1613 -> 2078 roots (see tools/FACADE_CLOUD_SAVE_LEDGER.md; confirm saves by

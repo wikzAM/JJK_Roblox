@@ -124,6 +124,9 @@ table.insert(Catalog.PROFILES.mixed,{"37_SmashKing",1})
 table.insert(Catalog.PROFILES.retail,{"38_Starboys",1})
 Catalog.PROFILES.blind = {{"39_PlainConcrete",5},{"40_PanelSeams",3},{"43_UtilityWall",1},{"45_TiledBoundary",1}}
 Catalog.PROFILES.window = {{"41_HighSlit",3},{"42_PairedFrost",3},{"45_TiledBoundary",2}}
+-- Alley shopfronts for between-building sides: display windows only (Pilot never
+-- allows entrances off a non-front class). No garages: no vehicle approach is surveyed.
+Catalog.PROFILES.alleyQuiet = {{"03_Ramen",3},{"04_Izakaya",3},{"19_LocalShop",3},{"21_TakeawayHatch",2},{"09_Shutter",1},{"24_ConcreteSparse",1}}
 Catalog.PROFILES.backStreet = {{"39_PlainConcrete",2},{"40_PanelSeams",2},{"41_HighSlit",2},{"42_PairedFrost",2},{"43_UtilityWall",2},{"44_RearSteelDoor",1},{"45_TiledBoundary",1}}
 Catalog.PROFILES.tokyo = {{"46_Laundry",2},{"47_BicycleRepair",1},{"48_Florist",2},{"49_Clinic",1},{"50_Bookshop",2},{"51_SobaShop",3},{"52_Bathhouse",1},{"53_TimberHouse",2}}
 for _,id in {"46_Laundry","48_Florist","50_Bookshop"} do table.insert(Catalog.PROFILES.retail,{id,1});table.insert(Catalog.PROFILES.mixed,{id,1}) end

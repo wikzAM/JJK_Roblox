@@ -68,3 +68,10 @@ The surface resolver, blocker repair (46 rebuilds), interior re-preparation, SAT
 The owner approved changing between-building blind walls (no road, 6–12 stud gaps) into quiet glazed windows with no doors. `GroundFacadeFrontage` was bumped to REVISION 11. The rows were patched from stored recipes, applying the same raised-ground rule: 2,791 faces became window, 199 of them high slit, and none stayed blind. Then 1,199 buildings were rebuilt via `Pilot.Upsert` (archive `AlleyGlazing_ec6f1b2c-…`) with immediate `BayInteriors.ApplyBatch`. The owner was asleep, so saves were triggered by sending Ctrl+S to the Studio window (user32) and verified via `[FLog::CreatorOutput]`. A test save went through at 04:48:22. Verified saves came at 125/250/375/500/625/750/875/1000/1125 rebuilt (last at 05:01:40), all with zero errors.
 
 **05:02:15 Studio crashed: `RBXCRASH: OutOfMemory (std::bad_alloc)`**, on a 16 GB machine, while running the step after 1,126. The likely cause is ChangeHistory waypoints from `Pilot.Upsert` keeping replaced geometry alive. Studio memory climbed from about 3 to 5.5 GB per cycle. The remaining 73 rebuilds were lost or never ran and will be redone. TestJJK was relaunched at 05:26 via the `roblox-studio:` protocol (placeId 99539622209675, universeId 10309594565). From now on, call `ChangeHistoryService:ResetWaypoints()` after each step.
+
+## October 18 overnight (owner asleep, continued)
+
+- Relaunched 05:26. The cloud census showed 1,175 of the 1,199 already glazed. The remaining 24 were rebuilt, and **saved at 05:29:14**.
+- The surface pass (206 runs) and interior re-prep (74 buildings) were **saved at 05:31:21**.
+- SAT, blocker scan, reconcile and summary attribute were **saved at 05:35:47**.
+- Kit/Frontage/Catalog script sync plus the 6-building `alleyQuiet` sample (blocker re-scan 0) were **saved at 05:42:14**.
