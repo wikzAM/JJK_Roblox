@@ -1,0 +1,15 @@
+{
+  "file": "assets\\TestJJK_StudioRecovery_2026-10-17_201316.rbxl",
+  "bytes": 72833279,
+  "sha256": "68c7c363eb5892bad6b1e3df3231a2a63e5ca28628983bf52eb52dcc8f786cea",
+  "instances": 1705162,
+  "classes": 122,
+  "chunks": 2466,
+  "workspaceBuildingModels": 2212,
+  "liveGroundFacadeRoots": 1663,
+  "reviewedArchiveParts": {
+    "BeforePerimeter_1791668032": 0,
+    "BeforePerimeter_1791668306": 0
+  },
+  "scope": "Hierarchy census only; no Studio reopening, geometry or script validation"
+}

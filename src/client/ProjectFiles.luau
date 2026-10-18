@@ -1,5 +1,43 @@
 --!nonstrict
 --[[
+October 17, 2026 (20:31) — INSTANCE BUDGET CENSUS / BIGGER LEVER THAN COMPACT.
+  Studio 3f82725b still open but Team Create DISCONNECTED (Output: "Internal
+  server error"; ClientReplicator absent). Local view: 2212 buildings / 1663
+  roots, identical to the banked 20:13:16 recovery; no newer AutoRecovery exists.
+  Read-only census of that open view (no mutation):
+    Workspace ~864.6k instances (Buildings 855k; facade roots 457,273 BaseParts).
+    ServerStorage ~839.3k. Of that, 59 SourceSliceStage_* folders = 549,287
+    instances: 529,671 ObjectValues (SourceSliceBindings Sources/Parts/
+    OriginalParent rollback refs), 488,253 of them nil. 57 are applied
+    replacement stages whose rollback is mostly impossible (per stage ~95%
+    dead refs). Two unapplied stages (e948c30c 55 models, be08b4e3 1 model)
+    were already documented as stale in SHIBUYA_LIVE_STATE.md.
+  GroundFacadeCompact dry estimate on all 1663 roots: 48,015 candidate walls ->
+  ~23.5k merged (saves ~24.5k parts) plus 11,999 UIPaddings = ~36k instances
+  (~2% of place). Removing the stage folders would cut ~32%. Recommend owner
+  approve deleting those 59 folders BEFORE any more compaction/expansion.
+  NOT performed: needs owner approval + a healthy connected session. Disconnect
+  cause still unproven; size reduction is a hypothesis, not a confirmed fix.
+  Compact helper + verify_facade_compact fixture remain untested in Studio.
+
+October 17, 2026 — HOLD GROWTH: SAVE DISCONNECTED AGAIN / LOCAL1663 SAFE.
+  Fresh50-rootcycle reached1663/pending-v2=0. UI Save started20:12:26.765,
+  disconnected20:12:41.594beforecompletion;lastreopenconfirmedcloud1613.
+  Existingrecovery20:13:16copiedlocally assets/TestJJK_StudioRecovery_2026-10-17_201316.rbxl,
+  72833279bytes,SHA25668c7c363eb5892bad6b1e3df3231a2a63e5ca28628983bf52eb52dcc8f786cea.
+  Binarycensus2212buildings/1663roots/approvedarchives0. Notpubliclyuploaded.
+  Expansion stopped pending testedreversibleGroundFacadeCompact optimization;
+  helperunderdevelopment,NOliveoptimizationyet. No confirmedshutdowncause.
+
+October 17, 2026 — MANUAL SAVE VERIFIED THROUGH NEXT REOPEN.
+  UI Save confirmed1513roots19:51:38.805,then1613roots19:59:17.567.
+  Next100built locally1713/pending0;serverdisconnected20:03:10beforea new
+  Saving/complete line. Reopen3f82725b-683e-4e74-bc56-c484b6ea6bf7 confirms
+  2212buildings/1613roots/connectedtrue. Thus manual1613save DID persist;
+  last100notcloudsaved,but1713publicrecoverypreserved. Use freshPrepare.
+  Reduce cycles50newthenUI save+completioncheck. See FACADE_CLOUD_SAVE_LEDGER.md.
+  ClientStats6472MB onreopen:highloadobservation,NOTconfirmedservercrashcause.
+
 October 17, 2026 — OWNER NOW AUTHORIZES COMPUTER CONTROL / MANUAL SAVE.
   Previous no-computer-control restriction revoked explicitly by owner.
   Expansion paused before any new reconnect batch. Used computer-use skill
