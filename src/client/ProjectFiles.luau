@@ -34,6 +34,12 @@ October 18, 2026 (06:13) — OVERLAP/DETACHED BUILDING REPAIR + UPPER FACADES v1
   asphalt terrain verified under all sampled road spots. Terrain voxel scan:
   no visible floating terrain; only a hidden void under SW asphalt (-2240,-2300)
   and slivers near the station. Studio private memory ~20.7 GB at fresh load.
+  Renderer additions (all Play-tested): per-building tint (+-9%), deterministic
+  neighbour de-dup (no family+palette repeat within 90 studs; 53 -> 0 clashes),
+  far silhouette tier 380-750 studs (2 parts/run, max 150 bldgs). Play at
+  (-1040,64,-660): 85 buildings / 36k client parts / no errors. One earlier Play
+  with a bigger far tier (220/850) ended in a Studio crash at 06:34 (OOM, third
+  Play of that session); always restart Studio before Play-testing.
   A 22-floor tower = 353 runs / 6665 parts client-side; tune if FPS suffers.
   Research: tools/OPTIMIZATION_RESEARCH.md (top: client-built ground facades
   from recipes, ~-43% instances; export archives to .rbxm; servers have
