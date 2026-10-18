@@ -6,7 +6,7 @@
 -- one floor-run at a time inside a per-frame budget, so tall towers never hitch.
 -- Two tiers: full kit detail within BUILD_RADIUS; a 2-part-per-run silhouette
 -- (tinted wall + window band, same palette) out to FAR_RADIUS for the skyline.
-local Renderer={BUILD_RADIUS=380,DROP_RADIUS=480,MAX_BUILDINGS=60,FAR_RADIUS=850,FAR_DROP=950,MAX_FAR=220,BUDGET_MS=4}
+local Renderer={BUILD_RADIUS=380,DROP_RADIUS=480,MAX_BUILDINGS=60,FAR_RADIUS=750,FAR_DROP=850,MAX_FAR=150,BUDGET_MS=4}
 local RS=game:GetService("ReplicatedStorage")
 local Run=game:GetService("RunService")
 local Collection=game:GetService("CollectionService")
