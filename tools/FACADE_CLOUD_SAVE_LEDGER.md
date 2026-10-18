@@ -56,3 +56,8 @@ Save confirmations below come from the `[FLog::CreatorOutput]` lines in `%LOCALA
 ### Expansion queue finished
 
 All 468 targets from the 22:12 Prepare are built. Owner deletions during the run were preserved. The final cloud save still needs confirming. Still to do, per `FACADE_EXPANSION_HANDOFF.md` "Required completion work": the GroundFacadeSurfaceResolver pass over newly adjacent neighborhoods, the independent room SAT audit, pane blocker/frontage checks, metadata reconciliation, and street/corner review in screenshots and Play.
+- 03:11:12 Saving, then 03:11:44 **Saved** at **2,078 roots**. This is the final expansion checkpoint.
+
+## October 18: post-expansion audits (after the 03:11 save, not yet saved)
+
+The surface resolver, blocker repair (46 rebuilds), interior re-preparation, SAT audit, reconcile and retirement of 7 owner-removal rows all ran after the 03:11:44 save. Details are in the October 18 entry of `src/client/ProjectFiles.luau`. **These changes need a verified Save to Roblox.**

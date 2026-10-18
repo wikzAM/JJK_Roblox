@@ -1,5 +1,36 @@
 --!nonstrict
 --[[
+October 18, 2026 — EXPANSION QUEUE COMPLETE + POST-EXPANSION AUDITS PASS.
+  Studio 2acaf4c1 (connected throughout). Save-verified 50-root cycles from
+  1613 -> 2078 roots (see tools/FACADE_CLOUD_SAVE_LEDGER.md; confirm saves by
+  grepping [FLog::CreatorOutput] in %LOCALAPPDATA%\Roblox\logs, NOT LogService).
+  Last confirmed cloud save: 03:11:44 at 2078 roots, BEFORE the audits below.
+  Owner deleted 7 buildings mid-run (2212 -> 2205); kept deleted.
+  Audits/repairs, all in Edit:
+    Surface: Plan 371 pairs; 78 runs trimmed (59 + 19 after blocker rebuild);
+      1224 originals backed up in FacadeSharedSurfaceBackup_123cf4ba-...;
+      VerifyInstalled 368 runs / 0 remaining masked parts.
+    Blockers: first full scan 62 blocked bays / 46 buildings (59 neighbor
+      facade occlusion, 3 own-source overlap), 0 unresolved. Repaired by
+      setting bayRoles[bay]="blind" in each ManifestRow and Pilot.Upsert
+      (incremental, keepReplacedGeometry=false, archive BlockerRepair_2abd3857-...),
+      then re-ran surface + PrepareNextBatch. Final scan: 2078 bldgs / 8852
+      glazed bays / 34545 panes / 310905 rays: 0 blocked, 0 unresolved.
+    SAT: 8402 room recipes, 0 overlaps. 0 pending v2 roots.
+    Reconcile: 876 records refreshed; totals 2078 roots / 577420 owned parts /
+      34545 panes / 8402 bay interiors / 78 previews. 7 stale rows for
+      owner-deleted buildings retired as committed "remove" journal entries;
+      their recipes moved to GroundFacadePilotArchive.RetiredOwnerRemovals_20261018.
+      ReadLatest now 2078 rows == 2078 live roots.
+    Summary attr: GroundFacadePilotManifest.PostExpansionAuditSummary.
+  BUG FIXED (repo only): GroundFacadeKit.PlanRun looked up bayRoles[i] but
+  persisted vetoes decode with string keys, so stored vetoes were ignored on
+  replay. Kit now checks both. Studio copy NOT yet synced; this repair passed
+  numeric keys explicitly. Sync Kit (fresh require) before future rebuilds.
+  Not done: verify_ground_frontage_v10 (asserts on rows for deleted buildings;
+  needs a skip-missing tweak), street/corner screenshot + Play review,
+  GroundFacadeCompact (low value, ~2%), deferred box repairs, 42-floor review.
+
 October 17, 2026 (22:10) — APPROVED: ALL 59 SourceSliceStage_* FOLDERS DELETED.
   Owner explicitly approved ("delete the 59 SourceSliceStage_* folders in
   ServerStorage"). Done on freshly reopened, connected Studio 2acaf4c1 (cloud
