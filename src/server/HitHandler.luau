@@ -1128,6 +1128,7 @@ function HitHandler.Init()
 	-- Persist logical glass damage independently of client LOD and late joins.
 	local GlassDamage=require(script.Parent.GlassDamageService)
 	GlassDamage.Init()
+	local UpperFacadeHits=require(script.Parent.UpperFacadeHits)
 
 	HitEvent.OnServerEvent:Connect(function(player, targetModel, hitDirection)
 		if typeof(targetModel) ~= "Instance" or not targetModel:IsA("Model") then return end
@@ -1184,6 +1185,7 @@ function HitHandler.Init()
 
 		task.spawn(function()
 			GlassDamage.DestroyPath(startPos,endPos,HOLE_RADIUS)
+			UpperFacadeHits.Record(startPos,endPos,HOLE_RADIUS) -- client-built upper facades
 			destroyAlongCylinder(startPos, endPos, HOLE_RADIUS)
 		end)
 

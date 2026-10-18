@@ -1,5 +1,37 @@
 --!nonstrict
 --[[
+October 18, 2026 (06:13) — OVERLAP/DETACHED BUILDING REPAIR + UPPER FACADES v1.
+  Owner: "no overlapping buildings; small random ones can be a simple box".
+  src/server/OverlapBoxRepair.luau: Plan() read-only greedy (protected first,
+  then clean buildings by area*floors, then detached ones). Conflicting or
+  detached (2nd component >=64 st2) buildings -> largest rectangle inside own
+  ground footprint, clear of kept neighbours (+2 stud margin), same floors.
+  Applied: 272 boxed, 103 archived (sat inside another building), 16 left for
+  review (fragmented footprint, little overlap), 1813 kept. Re-plan verifies
+  0 box/0 archive remaining. Originals MOVED to ServerStorage.OverlapBoxRepairArchive.
+  260 boxes got ground facades (expansion Prepare/Step, MIN_STEP_GAP 8 s);
+  surface pairs city-wide fell 371 -> 1; SAT 10199 rooms/0; blockers 10710
+  bays/0; reconcile 1984 rows == 1984 roots (99 rows retired to
+  GroundFacadePilotArchive.RetiredOverlapArchive_20261018). Saved 06:08:27.
+  BLOCKED BY AUTO-MODE CLASSIFIER (needs owner OK): archiving 38 floating /
+  stacked artifact buildings (list via _G.FloatArchive logic: on top of another
+  building with base >6 studs up, floating >=30 studs, or <=3 floors floating
+  >=12). 9 taller buildings floating 14-25 studs left for terrain review.
+  UPPER FACADES: subagent deck = src/shared/UpperFacadeCatalog.luau (29
+  variants / 10 families / 48 palettes, per-building seeded style) +
+  UpperFacadeKit.luau (flat only). tools/verify_upper_facade_kit.luau passes in
+  Studio. 9 Edit test buildings near (1450,125,-630) baked (UpperFacade folder).
+  City-wide is CLIENT-ONLY: src/client/UpperFacadeRenderer.luau builds within
+  380 studs, max 60 buildings, 4 ms/frame budget, one run per step; skips
+  landmark/crown/station/explicit IDs and Crossing/109 zones. HitHandler now
+  logs capsules via UpperFacadeHits (ReplicatedStorage.UpperFacadeHits, last
+  256) and clients delete/skip parts inside them. NOT Play-tested (Studio RAM).
+  A 22-floor tower = 353 runs / 6665 parts client-side; tune if FPS suffers.
+  Research: tools/OPTIMIZATION_RESEARCH.md (top: client-built ground facades
+  from recipes, ~-43% instances; export archives to .rbxm; servers have
+  6.25 GiB). Studio fetches repo files from a local python http.server on
+  127.0.0.1:8766 (HttpService:GetAsync works in the MCP plugin context).
+
 October 18, 2026 (overnight, owner asleep) — ALLEY GLAZING (FRONTAGE REV 11) DONE.
   Owner: "too many buildings without facades" -> census: 2078/2205 have roots;
   the 127 without are Crossing/109 zones (owner: Crossing stays bare), 22
