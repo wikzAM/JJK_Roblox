@@ -12,8 +12,9 @@ local Collection=game:GetService("CollectionService")
 local EXCLUDED={["fbx_6_4510_4915_-8852"]=true,["orph_703_1736"]=true,["orph_706_1735"]=true,["fbx_5_6952_1857_6146"]=true,
 	["orph_-1012_-190"]=true,["orph_-912_-37"]=true,["part_-424_296"]=true}
 local ZONES={{Vector2.new(11,572),500},{Vector2.new(683,596),275}}
-local Kit
+local Kit,Catalog
 local candidates,built={},{}
+local styles={} -- model -> deduplicated style (deterministic on every client)
 local hits={}
 local container
 local function eligible(m,pos)
@@ -49,7 +50,7 @@ local function start(m,d)
 end
 local function step(e)
 	if not e.runs then -- planning is a budgeted step of its own
-		local ok,plan=pcall(Kit.PlanBuilding,e.model,{})
+		local ok,plan=pcall(Kit.PlanBuilding,e.model,{style=styles[e.model]})
 		e.runs=ok and plan.runs or {};return
 	end
 	local run=e.runs[e.i];e.i+=1
@@ -75,9 +76,37 @@ local function refreshCandidates()
 		end
 	end
 end
+-- Neighbouring buildings must not share family AND palette. Walk buildings in id
+-- order and re-roll a salted seed (up to 3x) on a clash within 90 studs. Inputs
+-- are replicated data only, so every client reaches the same assignment.
+local function assignStyles()
+	local list=table.clone(candidates)
+	local function id(c) return tostring(c.model:GetAttribute("SourceSliceId") or c.model.Name) end
+	table.sort(list,function(a,b) return id(a)<id(b) end)
+	local grid={};local t0=os.clock()
+	for i,c in list do
+		local ok,plan=pcall(Kit.PlanBuilding,c.model,{})
+		if ok then
+			local key=id(c);local style=plan.style
+			local gx,gz=math.floor(c.pos.X/90),math.floor(c.pos.Z/90)
+			for salt=1,3 do
+				local clash=false
+				for dx=-1,1 do for dz=-1,1 do for _,o in grid[(gx+dx)..","..(gz+dz)] or {} do
+					if (Vector2.new(o.pos.X,o.pos.Z)-Vector2.new(c.pos.X,c.pos.Z)).Magnitude<90 and o.family==style.family and o.palette==style.palette then clash=true end
+				end end end
+				if not clash then break end
+				style=Catalog.Pick(key.."#"..salt,plan.class)
+			end
+			styles[c.model]=style
+			local cell=gx..","..gz;grid[cell]=grid[cell] or {}
+			table.insert(grid[cell],{pos=c.pos,family=style.family,palette=style.palette})
+		end
+		if os.clock()-t0>.004 then task.wait();t0=os.clock() end
+	end
+end
 function Renderer.Init()
 	local Shared=RS:WaitForChild("Shared")
-	Kit=require(Shared:WaitForChild("UpperFacadeKit"))
+	Kit=require(Shared:WaitForChild("UpperFacadeKit"));Catalog=require(Shared:WaitForChild("UpperFacadeCatalog"))
 	workspace:WaitForChild("Buildings")
 	container=Instance.new("Folder");container.Name="ClientUpperFacades";container.Parent=workspace
 	local log=RS:WaitForChild("UpperFacadeHits",10)
@@ -86,6 +115,7 @@ function Renderer.Init()
 		log.ChildAdded:Connect(addHit)
 	end
 	refreshCandidates()
+	task.spawn(assignStyles)
 	workspace.Buildings.ChildAdded:Connect(function() task.defer(refreshCandidates) end)
 	workspace.Buildings.ChildRemoved:Connect(function(m) drop(m);task.defer(refreshCandidates) end)
 	local queue,lastSort={},0
@@ -104,7 +134,7 @@ function Renderer.Init()
 			local order={}
 			for _,c in candidates do
 				local d=flatDistance(c.pos,eye)
-				if d<Renderer.BUILD_RADIUS and not built[c.model] then table.insert(order,{m=c.model,d=d}) end
+				if d<Renderer.BUILD_RADIUS and not built[c.model] and styles[c.model] then table.insert(order,{m=c.model,d=d}) end
 			end
 			table.sort(order,function(a,b) return a.d<b.d end)
 			for _,o in order do
