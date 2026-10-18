@@ -48,3 +48,5 @@ Save confirmations below come from the `[FLog::CreatorOutput]` lines in `%LOCALA
 - The next two Steps (finished 23:23:51) added 50 roots (1,913), with 200 prepared bays, 14 flat-backed, 630 panes and zero errors. 168 remain queued. Memory was about 4.3 GB. Save of 1,913 is pending.
 - 23:24:54 Saving, then 23:25:32 **Saved** at **1,913 roots**.
 - The next two Steps (finished 23:27:53) added 50 roots (1,963), with 190 prepared bays, 11 flat-backed, 706 panes and zero errors. 118 remain queued. Memory was about 4.3 GB. Save of 1,963 is pending.
+- 23:29:13 Saving, then 23:29:57 **Saved** at **1,963 roots**.
+- October 18, 01:20. While the session sat idle, the owner removed 7 buildings (2,212 → 2,205): `BuildingSmooth_5_2509_2220_11853_Body01`, `orph_-614_1472` and `orph_-404_2149` (these three had facades), plus `orph_-178_477`, `orph_-449_497`, `orph_-417_470` and `fbx_5_-1548_2341_8660`. All 7 stay removed and are never restored. The next two Steps (finished 01:20:53) committed 50 roots with 214 prepared bays, 13 flat-backed, 827 panes and zero errors. The live count is **2,010 roots** (1,963 − 3 deleted + 50), and 68 remain queued. Save of 2,010 is pending.
