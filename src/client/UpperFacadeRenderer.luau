@@ -4,7 +4,9 @@
 -- place: the server only keeps a bounded hit-capsule log (UpperFacadeHits), so
 -- every client derives the same seeded facade and the same damage. Builds advance
 -- one floor-run at a time inside a per-frame budget, so tall towers never hitch.
-local Renderer={BUILD_RADIUS=380,DROP_RADIUS=480,MAX_BUILDINGS=60,BUDGET_MS=4}
+-- Two tiers: full kit detail within BUILD_RADIUS; a 2-part-per-run silhouette
+-- (tinted wall + window band, same palette) out to FAR_RADIUS for the skyline.
+local Renderer={BUILD_RADIUS=380,DROP_RADIUS=480,MAX_BUILDINGS=60,FAR_RADIUS=850,FAR_DROP=950,MAX_FAR=220,BUDGET_MS=4}
 local RS=game:GetService("ReplicatedStorage")
 local Run=game:GetService("RunService")
 local Collection=game:GetService("CollectionService")
@@ -44,9 +46,25 @@ local function addHit(h)
 		for _,p in e.folder:GetDescendants() do if p:IsA("BasePart") and inHit(p,hit) then p:Destroy() end end
 	end
 end
-local function start(m,d)
+local function start(m,d,lite)
 	local folder=Instance.new("Folder");folder.Name=m.Name;folder.Parent=container
-	return {model=m,folder=folder,i=1,d=d}
+	return {model=m,folder=folder,i=1,d=d,lite=lite}
+end
+local function litePart(parent,cf,size,color,refl)
+	local p=Instance.new("Part");p.Anchored=true;p.CanCollide=false;p.CanQuery=false;p.CanTouch=false;p.CastShadow=false
+	p.Material=Enum.Material.SmoothPlastic;p.Color=color;p.Reflectance=refl or 0;p.Size=size;p.CFrame=cf
+	for _,hit in hits do if inHit(p,hit) then p:Destroy();return end end
+	p.Parent=parent
+end
+local function liteRun(e,run)
+	local pal=Catalog.Palette(run.options.palette)
+	local k=1+(run.options.tint or 0)*.09
+	local function shade(c) return Color3.new(math.clamp(c.R*k,0,1),math.clamp(c.G*k,0,1),math.clamp(c.B*k,0,1)) end
+	local w,h=run.width,run.height
+	litePart(e.folder,run.frame*CFrame.new(0,h/2,.05),Vector3.new(w,h,.5),shade(pal.wall))
+	if w>=6 and not (Catalog.Get(run.spec).cycle and #Catalog.Get(run.spec).cycle==1 and Catalog.Get(run.spec).cycle[1]=="vent") then
+		litePart(e.folder,run.frame*CFrame.new(0,h*.55,-.25),Vector3.new(w-1.6,h*.42,.2),pal.glass,.15)
+	end
 end
 local function step(e)
 	if not e.runs then -- planning is a budgeted step of its own
@@ -54,6 +72,7 @@ local function step(e)
 		e.runs=ok and plan.runs or {};return
 	end
 	local run=e.runs[e.i];e.i+=1
+	if e.lite then pcall(liteRun,e,run);return end
 	local ok,model=pcall(Kit.BuildFloorRun,nil,run.frame,run.width,run.height,run.spec,run.options)
 	if not ok then return end
 	for _,p in model:GetDescendants() do if p:IsA("BasePart") then
@@ -125,21 +144,25 @@ function Renderer.Init()
 		local now=os.clock()
 		if now-lastSort>.75 then
 			lastSort=now
-			local count=0
+			local near,far=0,0
 			for m,e in built do
 				local cf=m:GetAttribute("InteriorBBoxCFrame")
 				local pos=typeof(cf)=="CFrame" and cf.Position or m:GetPivot().Position
-				if not m.Parent or flatDistance(pos,eye)>Renderer.DROP_RADIUS then drop(m) else count+=1 end
+				local d=flatDistance(pos,eye);e.d=d
+				-- Swap tiers as the camera moves: far silhouettes upgrade, detail downgrades.
+				if not m.Parent or d>Renderer.FAR_DROP or (e.lite and d<Renderer.BUILD_RADIUS) or (not e.lite and d>Renderer.DROP_RADIUS) then drop(m)
+				elseif e.lite then far+=1 else near+=1 end
 			end
 			local order={}
 			for _,c in candidates do
 				local d=flatDistance(c.pos,eye)
-				if d<Renderer.BUILD_RADIUS and not built[c.model] and styles[c.model] then table.insert(order,{m=c.model,d=d}) end
+				if d<Renderer.FAR_RADIUS and not built[c.model] and styles[c.model] then table.insert(order,{m=c.model,d=d}) end
 			end
 			table.sort(order,function(a,b) return a.d<b.d end)
 			for _,o in order do
-				if count>=Renderer.MAX_BUILDINGS then break end
-				built[o.m]=start(o.m,o.d);count+=1
+				if o.d<Renderer.BUILD_RADIUS then
+					if near<Renderer.MAX_BUILDINGS then built[o.m]=start(o.m,o.d,false);near+=1 end
+				elseif far<Renderer.MAX_FAR then built[o.m]=start(o.m,o.d,true);far+=1 end
 			end
 			queue={}
 			for m,e in built do if not e.runs or e.i<=#e.runs then table.insert(queue,e) end end
