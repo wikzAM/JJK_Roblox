@@ -1,5 +1,21 @@
 --!nonstrict
 --[[
+October 17, 2026 (22:10) — APPROVED: ALL 59 SourceSliceStage_* FOLDERS DELETED.
+  Owner explicitly approved ("delete the 59 SourceSliceStage_* folders in
+  ServerStorage"). Done on freshly reopened, connected Studio 2acaf4c1 (cloud
+  view 2212 buildings / 1613 roots, PlaceVersion 625). Preflight: zero
+  ObjectValue/PrimaryPart/joint refs from anywhere outside the stages into
+  them (95,005 ref holders scanned). Destroyed one folder at a time, 1.5 s apart,
+  connection checked after each; never disconnected. Removed exactly 549,287
+  instances (529,671 ObjectValues, 11,542 BaseParts incl. the two unapplied
+  stale stages e948c30c/be08b4e3). Names+counts: tools/FACADE_CLOUD_SAVE_LEDGER.md.
+  After: ServerStorage 289,707 instances, Workspace 848,039; 2212/1613 and all
+  protected archives (Station 14282, PilotArchive 154757, Manifest 10409,
+  CoreClearance 33141, SharedSurface 13452+2014, DraftArchive 39838) intact.
+  Cloud save of this deletion NOT yet confirmed — needs File > Save to Roblox
+  and an Output "Saved new changes" line. Expansion still held; cloud has 1613,
+  local-only 1663 state lives in the 20:13:16 recovery file.
+
 October 17, 2026 (20:31) — INSTANCE BUDGET CENSUS / BIGGER LEVER THAN COMPACT.
   Studio 3f82725b still open but Team Create DISCONNECTED (Output: "Internal
   server error"; ClientReplicator absent). Local view: 2212 buildings / 1663

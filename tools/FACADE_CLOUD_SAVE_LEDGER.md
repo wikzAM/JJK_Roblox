@@ -17,3 +17,15 @@ The separate public recovery checkpoint containing 1,713 roots predates this sav
 Studio `3f82725b-683e-4e74-bc56-c484b6ea6bf7` is still open, but Team Create is disconnected (Output ends with `Internal server error.`; no ClientReplicator). The local view shows 2,212 buildings and 1,663 roots. The only AutoRecovery file is the 20:13:16 one already banked above. No save was attempted and nothing was mutated. Computer-use tools were not available to this session, so reconnecting needs the owner, either in the Studio UI or by reopening TestJJK.
 
 Instance-budget census of the open view: ServerStorage holds 59 `SourceSliceStage_*` folders with 549,287 instances (529,671 ObjectValue rollback bindings, 488,253 of them nil). That is roughly 32% of the place, compared with about 2% for the full `GroundFacadeCompact` pass. See the 20:31 entry in `src/client/ProjectFiles.luau`.
+
+## 22:10 approved stage-folder deletion
+
+The owner explicitly approved deleting all 59 `ServerStorage.SourceSliceStage_*` folders. The owner closed and reopened TestJJK. The new Studio is `2acaf4c1-6678-4895-a58c-f4b836d3ebc0`, connected, PlaceVersion 625, with 2,212 buildings and 1,613 roots. That census matches the last confirmed cloud save. A preflight scan found zero references from outside the stages into them. Folders were destroyed one at a time, 1.5 s apart, with the ClientReplicator checked after each one. The session stayed connected throughout.
+
+Removed 549,287 instances in total. Each entry is a GUID suffix followed by the instance count:
+- Trial batch: be08b4e3=100 (unapplied FBX sample), 1d3017d7=845, 8b35902b=3837.
+- a23ef8f1=3983, de05053d=5503, f9560124=5601, fc7b8a3c=5641, b486468d=5753, 05b53068=5799, 807f84bd=6601, fa10b947=6783, 471be245=7049, f3bbdd98=7057, e0cc33f0=7131, 8cd558b0=7885, 7851feaf=7887, f6d55196=7915, 5012d1c2=8289.
+- d6dff438=8617, 470028a2=8711, 2d2385a0=8835, a04db857=8937, e0ed5feb=8955, 2455cfad=9001, e3afbd07=9223, 2e601c0a=9241, 08894eb9=9463, 4f82c720=9515, 251660aa=9539, 521111ee=9693, 53a678e4=9809, d84f5a70=9827, 57dc4ac1=9897, cba4e066=9925, eb4c235e=9997, c3ebd640=10059, 513a872e=10095, b969a645=10201.
+- 13f67a9e=10273, 5d0bedfd=10373, 87499fd8=10543, 6dd8a6e5=10639, 556bee08=10689, 2238bbab=10771, 9a2f9425=10939, 547ca2d8=11327, 7e42c1ce=11929, e948c30c=11944 (unapplied v8 stage, 55 models), 6ce449f4=12125, 176caf77=12131, da0060f9=12441, a5c1bc51=12457, 1bf10b36=12561, f004d50b=12647, 6143222e=12859, 17718ca9=14179, e60fd247=14183, b4e8ddb8=15351, c786ff8a=15727.
+
+Post-check: 2,212 buildings and 1,613 roots. ServerStorage is down to 289,707 instances and Workspace is at 848,039. All protected archives are present. **Cloud save of this deletion is not yet confirmed.**
