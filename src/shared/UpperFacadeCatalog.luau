@@ -193,7 +193,8 @@ function Catalog.Pick(seed,class)
 	local style={seed=seed,class=class or "mid",family=f.id,variant=v.id,palette=paletteName,
 		moduleScale=span("module",.85,1.2,.05),sillScale=span("sill",.85,1.2,.05),headScale=span("head",.85,1.2,.05),
 		bandMode=weighted(Catalog.BAND_MODES,Catalog.Roll(seed,"band")),crown=weighted(Catalog.CROWNS,Catalog.Roll(seed,"crown")),
-		cycleOffset=math.floor(Catalog.Roll(seed,"cycle")*6),accentIndex=math.floor(Catalog.Roll(seed,"accent")*8)+1}
+		cycleOffset=math.floor(Catalog.Roll(seed,"cycle")*6),accentIndex=math.floor(Catalog.Roll(seed,"accent")*8)+1,
+		tint=math.floor((Catalog.Roll(seed,"tint")*2-1)*10+.5)/10}
 	if v.paneChoices then style.panes=v.paneChoices[math.floor(Catalog.Roll(seed,"panes")*#v.paneChoices)+1] end
 	if Catalog.Roll(seed,"blade")<f.blade then
 		style.blade={side=Catalog.Roll(seed,"bladeSide")<.5 and -1 or 1,floors=2+math.floor(Catalog.Roll(seed,"bladeFloors")*4),width=1.8+math.floor(Catalog.Roll(seed,"bladeWidth")*3)*.4}

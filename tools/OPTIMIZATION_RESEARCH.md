@@ -403,3 +403,18 @@ Exit criteria:
 - The real upload-time serialized size versus the `.rbxl` (staff-acknowledged discrepancy).
 - Edit-server memory cap: not documented. Use the Output disconnect reason and timing as a proxy.
 - Per-part memory numbers here come from Studio, which inflates them. Re-measure on a live server with `Stats`.
+
+## 5. In-engine evidence (2026-10-18, Claude Code)
+
+- **Baseline, in Edit after the overlap repair:**
+  - `Stats.InstanceCount` was 1,468,002.
+  - Workspace held 812,442 BaseParts: 580,889 ground-facade parts and 225,870 other building parts.
+  - ServerStorage held 506,800 instances. That figure includes 375 archived original buildings and `RoadReference`.
+  - Fresh-load Studio private commit was about 20.7 GB on a 16 GB machine.
+- **Recipe rebuild parity (read-only scratch build):** for 20 buildings and 210 runs, the existing ManifestRow/ReportRow data was fed to `GroundFacadeKit.BuildRun`. The part-name multiset matched the live run exactly for 193 runs (92%). This test excluded footing, steps, ramps, corner closures, outset returns and interiors, which `Pilot.build` adds separately.
+- **The remaining differences:**
+  - `NarrowPerimeterInfill`, built by Pilot, not Kit, so trivial to reproduce.
+  - A few bays where the role differs (entrance vs window). A recipe must store the FINAL per-bay roles.
+  - Surface-resolver trimmed runs. A recipe must store `FacadeSharedSurfaceMasks`.
+- **Conclusion:** change #1 needs little new data. It mostly needs final bay roles, trim masks and baked footing/step rows per run.
+- **Client-only upper facades (change #3) are implemented** in `src/client/UpperFacadeRenderer.luau`. In Play, about 17 buildings and 15–17k client parts held about 55 FPS near (-1040, -660).

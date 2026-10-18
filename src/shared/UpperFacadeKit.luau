@@ -24,6 +24,12 @@ function Kit.Layout(width,height,spec,options)
 	assert(finite(width) and width>0 and width<=1000,"Invalid upper facade width")
 	assert(finite(height) and height>=Kit.MIN_HEIGHT and height<=Kit.MAX_HEIGHT,"Upper facade height must be 8..30 studs")
 	local pal=Catalog.Palette(options.palette or spec.palette)
+	if options.tint and options.tint~=0 then
+		-- Per-building shade so equal palettes never read as copies (+-9% value).
+		local k=1+options.tint*.09;pal=table.clone(pal)
+		local function shade(c) return Color3.new(math.clamp(c.R*k,0,1),math.clamp(c.G*k,0,1),math.clamp(c.B*k,0,1)) end
+		for _,key in {"wall","band","pier","band2"} do if typeof(pal[key])=="Color3" then pal[key]=shade(pal[key]) end end
+	end
 	local M=Catalog.Mat
 	local w,h=width,height
 	local slab=math.clamp(options.slab or 0,0,6);local cap=math.clamp(options.cap or 0,0,6)
@@ -310,7 +316,7 @@ function Kit.PlanBuilding(model,opts)
 		local o={key=key,palette=style.palette,slab=slab,cap=top and (levels[#levels].thickness or 0) or 0,top=top,crown=style.crown,
 			primary=r.primary,storey=s.storey,cornerLeft=math.max(0,extL),cornerRight=math.max(0,extR),bandColor=band,
 			moduleScale=style.moduleScale,sillScale=style.sillScale,headScale=style.headScale,panes=spec==base and style.panes or nil,
-			cycleOffset=style.cycleOffset,accentColor=accent,ac=style.ac,rail=style.rail,signSide=style.blade and -style.blade.side or 1,
+			cycleOffset=style.cycleOffset,accentColor=accent,ac=style.ac,rail=style.rail,tint=style.tint,signSide=style.blade and -style.blade.side or 1,
 			name="UpperRun_"..s.storey.."_"..s.piece.."_"..s.run}
 		if style.blade and bladeRun[s.storey]==r and r.width>=14 and s.storey<first+style.blade.floors then
 			o.blade={side=style.blade.side,width=style.blade.width,color=accent}
