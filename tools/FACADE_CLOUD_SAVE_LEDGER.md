@@ -38,3 +38,5 @@ Save confirmations below come from the `[FLog::CreatorOutput]` lines in `%LOCALA
 - Fresh Prepare: alias `_Save50_`, archive `Expansion_b7fcc541-4dc0-4497-8210-470082f715bb`. Scope: 2,082 eligible, 130 held, 1,612 installed, 468 queued, plus 2 extra height holds. BATCH_SIZE was set to 25 at runtime. The first two Steps added 50 roots (1,663) with immediate v2 interiors (196 prepared bays, 17 flat-backed, 821 panes) and zero errors.
 - 22:16:50 Saving, then 22:17:12 **Saved** at **1,663 roots**.
 - The next two Steps added 50 more (1,713), with 278 prepared bays, 16 flat-backed, 1,158 panes and zero errors. 368 targets remain queued. Studio memory rose from about 3.1 GB to 4.0 GB over these four Steps. Save of 1,713 is pending.
+- 22:21:24 Saving, then 22:21:53 **Saved** at **1,713 roots**.
+- The next two Steps (finished 22:23:20) added 50 roots (1,763), with 228 prepared bays, 11 flat-backed, 910 panes and zero errors. 318 remain queued. Memory was about 4.4 GB. Save of 1,763 is pending.
