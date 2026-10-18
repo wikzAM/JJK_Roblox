@@ -1,5 +1,25 @@
 --!nonstrict
 --[[
+October 18, 2026 (10:05) — OWNER-APPROVED CLEANUPS + GAP MERGES DONE.
+  Owner approved: (1) archived the 38 floating/stacked artifact buildings
+  (recomputed list matched exactly) into ServerStorage.OverlapBoxRepairArchive;
+  (2) ran tools/cleanup_facade_archive_geometry.luau: 157,530 old facade copies
+  removed, 0 source parts, ServerStorage 506,800 -> 329,272, place 1.47M ->
+  1.28M instances. Owner also deleted part_-1592_215 (row retired).
+  Owner: shrunk boxes left gaps / half-buildings -> merge instead. New
+  OverlapBoxRepair.PlanMerges(.5)/ApplyMerge: a box that kept <50% of its
+  original ground area + the live neighbours it overlapped (groups of 2-3) ->
+  archived and replaced by ONE mass of up to 3 rectangles over their combined
+  footprint (tallest floor count), clear of other buildings, refused below 60%
+  coverage. 39 groups merged, 23 refused (would open new gaps), 18 groups of
+  4+ buildings left for review (_G.MergeBig at the time). Buildings 2063->2020.
+  38 merged buildings got ground facades (+ client upper facades automatically).
+  Audits: surface 0 pending / 0 masked remaining, SAT 10324 rooms / 0 overlaps,
+  blockers 10813 bays / 0, reconcile 1906 rows == 1906 roots (41 rows retired to
+  GroundFacadePilotArchive.RetiredRows). New repo tools run via local fetch:
+  tools/surface_resolve_pending.luau, tools/retire_stale_facade_rows.luau.
+  Instances now 1,307,715; facade parts 579,615; panes 39,819.
+
 October 18, 2026 (06:13) — OVERLAP/DETACHED BUILDING REPAIR + UPPER FACADES v1.
   Owner: "no overlapping buildings; small random ones can be a simple box".
   src/server/OverlapBoxRepair.luau: Plan() read-only greedy (protected first,
