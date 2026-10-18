@@ -61,3 +61,4 @@ All 468 targets from the 22:12 Prepare are built. Owner deletions during the run
 ## October 18: post-expansion audits (after the 03:11 save, not yet saved)
 
 The surface resolver, blocker repair (46 rebuilds), interior re-preparation, SAT audit, reconcile and retirement of 7 owner-removal rows all ran after the 03:11:44 save. Details are in the October 18 entry of `src/client/ProjectFiles.luau`. **These changes need a verified Save to Roblox.**
+- 03:31:59 Saving, then 03:32:20 **Saved**. All post-expansion audit edits finished before 03:24:55, so the cloud now holds the audited 2,078-root state.
