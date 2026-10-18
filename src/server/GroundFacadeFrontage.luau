@@ -22,7 +22,7 @@ function Frontage.Nearby(scene,point,radius)
 end
 Frontage.MAX_ENTRY_RISE=5.5 -- bounded pedestrian stairs; vehicle ramps retain a four-stud cap
 Frontage.MAX_VEHICLE_RISE=4
-Frontage.REVISION=10
+Frontage.REVISION=11
 local function publicRoad(p)
 	if p:GetAttribute("FacadePublicApproach")==true then return true end
 	return p:GetAttribute("RoadClass")~="inferred" and (p:GetAttribute("RoadWay") or 0)>0
@@ -141,7 +141,8 @@ function Frontage.Survey(scene,b)
 		if clearance<=4 then class="blind";reason="Neighbor too close for an entrance"
 		elseif clearance>=8 and width>=14 and road then
 			class="front";reason=road and ("Visible approach to existing "..road.class.." road") or "Open pedestrian approach; doorway ground checked per bay"
-		elseif not road and clearance<18 then class="blind";reason="Between buildings: quiet wall, no verified public approach"
+		-- Rev 11 (owner): visible alleys get quiet glazing instead of blank concrete.
+		elseif not road and clearance<18 then class="window";reason="Between buildings: quiet glazed wall, no verified public approach"
 		elseif clearance<8 then class="window";reason="Restricted public approach: quiet windows without entrances"
 		end
 		local ground=Frontage.Ground(cf,0,-2);local gap=ground and math.max(0,bottom.Y-ground) or 0

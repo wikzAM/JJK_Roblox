@@ -62,3 +62,9 @@ All 468 targets from the 22:12 Prepare are built. Owner deletions during the run
 
 The surface resolver, blocker repair (46 rebuilds), interior re-preparation, SAT audit, reconcile and retirement of 7 owner-removal rows all ran after the 03:11:44 save. Details are in the October 18 entry of `src/client/ProjectFiles.luau`. **These changes need a verified Save to Roblox.**
 - 03:31:59 Saving, then 03:32:20 **Saved**. All post-expansion audit edits finished before 03:24:55, so the cloud now holds the audited 2,078-root state.
+
+## October 18: frontage rev 11 alley glazing (owner-approved), Ctrl+S saves
+
+The owner approved changing between-building blind walls (no road, 6–12 stud gaps) into quiet glazed windows with no doors. `GroundFacadeFrontage` was bumped to REVISION 11. The rows were patched from stored recipes, applying the same raised-ground rule: 2,791 faces became window, 199 of them high slit, and none stayed blind. Then 1,199 buildings were rebuilt via `Pilot.Upsert` (archive `AlleyGlazing_ec6f1b2c-…`) with immediate `BayInteriors.ApplyBatch`. The owner was asleep, so saves were triggered by sending Ctrl+S to the Studio window (user32) and verified via `[FLog::CreatorOutput]`. A test save went through at 04:48:22. Verified saves came at 125/250/375/500/625/750/875/1000/1125 rebuilt (last at 05:01:40), all with zero errors.
+
+**05:02:15 Studio crashed: `RBXCRASH: OutOfMemory (std::bad_alloc)`**, on a 16 GB machine, while running the step after 1,126. The likely cause is ChangeHistory waypoints from `Pilot.Upsert` keeping replaced geometry alive. Studio memory climbed from about 3 to 5.5 GB per cycle. The remaining 73 rebuilds were lost or never ran and will be redone. TestJJK was relaunched at 05:26 via the `roblox-studio:` protocol (placeId 99539622209675, universeId 10309594565). From now on, call `ChangeHistoryService:ResetWaypoints()` after each step.
