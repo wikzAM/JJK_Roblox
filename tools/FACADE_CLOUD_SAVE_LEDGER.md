@@ -40,3 +40,5 @@ Save confirmations below come from the `[FLog::CreatorOutput]` lines in `%LOCALA
 - The next two Steps added 50 more (1,713), with 278 prepared bays, 16 flat-backed, 1,158 panes and zero errors. 368 targets remain queued. Studio memory rose from about 3.1 GB to 4.0 GB over these four Steps. Save of 1,713 is pending.
 - 22:21:24 Saving, then 22:21:53 **Saved** at **1,713 roots**.
 - The next two Steps (finished 22:23:20) added 50 roots (1,763), with 228 prepared bays, 11 flat-backed, 910 panes and zero errors. 318 remain queued. Memory was about 4.4 GB. Save of 1,763 is pending.
+- 23:16:02 Saving, then 23:16:43 **Saved** at **1,763 roots** (41 s).
+- The next two Steps (finished 23:18:21) added 50 roots (1,813), with 198 prepared bays, 13 flat-backed, 724 panes and zero errors. 268 remain queued. Memory was about 4.3 GB. Save of 1,813 is pending.
