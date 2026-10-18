@@ -57,7 +57,9 @@ function Frontage.Index(center,radius)
 			end
 		end
 	end
-	local roads=workspace:FindFirstChild("Roads")
+	-- Road parts were moved out of the world (asphalt terrain stays); the geometry
+	-- is kept in ServerStorage purely as street-frontage reference data.
+	local roads=workspace:FindFirstChild("Roads") or game:GetService("ServerStorage"):FindFirstChild("RoadReference")
 	if roads then for _,p in roads:GetDescendants() do
 		if p:IsA("BasePart") and publicRoad(p) and (p.Position-center).Magnitude<radius+p.Size.Magnitude/2 then
 			table.insert(scene.roads,p)

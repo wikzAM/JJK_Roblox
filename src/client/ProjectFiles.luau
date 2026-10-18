@@ -25,7 +25,15 @@ October 18, 2026 (06:13) — OVERLAP/DETACHED BUILDING REPAIR + UPPER FACADES v1
   380 studs, max 60 buildings, 4 ms/frame budget, one run per step; skips
   landmark/crown/station/explicit IDs and Crossing/109 zones. HitHandler now
   logs capsules via UpperFacadeHits (ReplicatedStorage.UpperFacadeHits, last
-  256) and clients delete/skip parts inside them. NOT Play-tested (Studio RAM).
+  256) and clients delete/skip parts inside them. PLAY-TESTED 06:25 after a
+  fresh Studio restart: at (-1040,63,-660) 17-18 buildings / ~15-17k client
+  parts / ~55 FPS, ground interiors also built; hit capsule logged by server
+  and received by client. Fixed: distance is horizontal (tall towers' box
+  centres sat >380 studs up and never built). Roads: Workspace.Roads (1037
+  parts) moved to ServerStorage.RoadReference; Frontage.Index reads it there;
+  asphalt terrain verified under all sampled road spots. Terrain voxel scan:
+  no visible floating terrain; only a hidden void under SW asphalt (-2240,-2300)
+  and slivers near the station. Studio private memory ~20.7 GB at fresh load.
   A 22-floor tower = 353 runs / 6665 parts client-side; tune if FPS suffers.
   Research: tools/OPTIMIZATION_RESEARCH.md (top: client-built ground facades
   from recipes, ~-43% instances; export archives to .rbxm; servers have

@@ -26,6 +26,8 @@ local function eligible(m,pos)
 	for _,z in ZONES do if (Vector2.new(pos.X,pos.Z)-z[1]).Magnitude<z[2] then return false end end
 	return (m:GetAttribute("GeneratedFloors") or 0)>=2
 end
+-- Horizontal distance: a tall tower's box centre sits hundreds of studs up.
+local function flatDistance(a,b) return Vector2.new(a.X-b.X,a.Z-b.Z).Magnitude end
 local function segmentDistance(p,a,b)
 	local d=b-a;local t=d:Dot(d)>0 and math.clamp((p-a):Dot(d)/d:Dot(d),0,1) or 0
 	return (p-(a+d*t)).Magnitude
@@ -97,11 +99,11 @@ function Renderer.Init()
 			for m,e in built do
 				local cf=m:GetAttribute("InteriorBBoxCFrame")
 				local pos=typeof(cf)=="CFrame" and cf.Position or m:GetPivot().Position
-				if not m.Parent or (pos-eye).Magnitude>Renderer.DROP_RADIUS then drop(m) else count+=1 end
+				if not m.Parent or flatDistance(pos,eye)>Renderer.DROP_RADIUS then drop(m) else count+=1 end
 			end
 			local order={}
 			for _,c in candidates do
-				local d=(c.pos-eye).Magnitude
+				local d=flatDistance(c.pos,eye)
 				if d<Renderer.BUILD_RADIUS and not built[c.model] then table.insert(order,{m=c.model,d=d}) end
 			end
 			table.sort(order,function(a,b) return a.d<b.d end)
