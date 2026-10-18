@@ -42,3 +42,5 @@ Save confirmations below come from the `[FLog::CreatorOutput]` lines in `%LOCALA
 - The next two Steps (finished 22:23:20) added 50 roots (1,763), with 228 prepared bays, 11 flat-backed, 910 panes and zero errors. 318 remain queued. Memory was about 4.4 GB. Save of 1,763 is pending.
 - 23:16:02 Saving, then 23:16:43 **Saved** at **1,763 roots** (41 s).
 - The next two Steps (finished 23:18:21) added 50 roots (1,813), with 198 prepared bays, 13 flat-backed, 724 panes and zero errors. 268 remain queued. Memory was about 4.3 GB. Save of 1,813 is pending.
+- 23:20:08 Saving, then 23:20:38 **Saved** at **1,813 roots**.
+- The next two Steps (finished 23:21:28) added 50 roots (1,863), with 210 prepared bays, 10 flat-backed, 737 panes and zero errors. 218 remain queued. Memory was about 4.1 GB. Save of 1,863 is pending.
