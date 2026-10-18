@@ -29,3 +29,12 @@ Removed 549,287 instances in total. Each entry is a GUID suffix followed by the 
 - 13f67a9e=10273, 5d0bedfd=10373, 87499fd8=10543, 6dd8a6e5=10639, 556bee08=10689, 2238bbab=10771, 9a2f9425=10939, 547ca2d8=11327, 7e42c1ce=11929, e948c30c=11944 (unapplied v8 stage, 55 models), 6ce449f4=12125, 176caf77=12131, da0060f9=12441, a5c1bc51=12457, 1bf10b36=12561, f004d50b=12647, 6143222e=12859, 17718ca9=14179, e60fd247=14183, b4e8ddb8=15351, c786ff8a=15727.
 
 Post-check: 2,212 buildings and 1,613 roots. ServerStorage is down to 289,707 instances and Workspace is at 848,039. All protected archives are present. **Cloud save of this deletion is not yet confirmed.**
+
+## 22:11 – 22:24 save-verified cycles (Studio 2acaf4c1)
+
+Save confirmations below come from the `[FLog::CreatorOutput]` lines in `%LOCALAPPDATA%\Roblox\logs\*Studio*_last.log`. LogService and the MCP console tool never show them.
+
+- 22:11:14 Saving, then 22:11:43 **Saved**. This captures the 59-stage-folder deletion at 1,613 roots.
+- Fresh Prepare: alias `_Save50_`, archive `Expansion_b7fcc541-4dc0-4497-8210-470082f715bb`. Scope: 2,082 eligible, 130 held, 1,612 installed, 468 queued, plus 2 extra height holds. BATCH_SIZE was set to 25 at runtime. The first two Steps added 50 roots (1,663) with immediate v2 interiors (196 prepared bays, 17 flat-backed, 821 panes) and zero errors.
+- 22:16:50 Saving, then 22:17:12 **Saved** at **1,663 roots**.
+- The next two Steps added 50 more (1,713), with 278 prepared bays, 16 flat-backed, 1,158 panes and zero errors. 368 targets remain queued. Studio memory rose from about 3.1 GB to 4.0 GB over these four Steps. Save of 1,713 is pending.
