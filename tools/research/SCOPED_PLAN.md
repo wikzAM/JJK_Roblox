@@ -39,3 +39,36 @@ The facade system acted like a streaming engine on top of Roblox. It created and
 2. What is the player's top travel speed (studs/s)?
 3. Which matters more: skyline completeness or close-up detail?
 4. Is it acceptable for the hole to finish forming about 0.1–0.3 s after impact, under the dust?
+
+## Update after round 2 (owner answers + research)
+
+Owner answers:
+- **Platform:** PC that runs on ordinary laptops, maybe console. Mobile would be a separate, smaller version.
+- **Speed:** top players cross the map end to end in seconds.
+- **Skyline:** must always be present.
+- **Holes:** may finish forming a few tenths of a second after impact, provided multiplayer timing stays consistent.
+- **Attacks:** most move victims in real time along vector paths. Only the strongest use the teleport fake.
+- **Players:** victims are players and bots; the dummy is a stand-in for them.
+- **Collapse:** structural collapse should be faked.
+
+Research files: `SPEED_SKYLINE_STREAMING.md` and `COMBAT_MOTION_DESTRUCTION_SYNC.md`.
+
+### Why the skyline disappears (root cause)
+
+`StreamingEnabled` is already off, so streaming is not the cause. Roblox's client shortens its draw distance on its own when the frame is too busy or the frame rate is low. Developers cannot change a player's quality level or view distance. With about 1.1M instances, ordinary laptops hit that limit, so the far city disappears.
+
+The part count is therefore the skyline problem, not only a performance problem. The research's laptop budget is about 10–25 visible parts per building and about 60k parts map-wide. That is roughly 10 to 20 times fewer than now.
+
+### Revised architecture
+
+- **Horizon:** paint a Tokyo skyline into the skybox, ring the map edge with 20–40 large backdrop meshes, and tune the haze so the city fades out.
+- **Skyline stand-ins:** one merged mesh per block, 150–250 meshes, at most about 250k triangles, kept on each client. Each stand-in sits 1–2 studs inside its real buildings. The real geometry hides it up close; where the real geometry has been culled, the stand-in shows. A damaged block swaps its mesh for per-building boxes.
+- **Near detail:** keep streaming off; it cannot refill at these speeds, and frustum streaming disables itself on low-end machines. Bring each building down to about 10–25 parts by moving facade detail into textures and shared materials, and hide small decoration above about 300 studs/s.
+- **Victim motion:** the server anchors the victim and plans kinematic segments (fly, slide, wall pin, teleport fake) with spherecasts. Each segment carries a server-clock start time, and every client evaluates the same function. A 60–120 ms hitstop hides latency. Physics is handed back only at the end.
+- **Hit timeline:** one per hit, sent on a reliable, sequenced remote. It holds the path, the time each wall breaks, and the debris seed. Clients open walls locally at the break time, and the server's carve replaces the local version when it arrives.
+- **Structure:** a logical cell grid per building. Unsupported sections fall, and a core-capacity check decides collapse. Collapses are seeded, vector-driven events.
+- **Security:** clients send attack intent only. The server does hit detection; today's `HitEvent` trusts the client.
+
+### First step
+
+Spend one evening testing a live client at several quality levels. Record which part sizes and types survive the draw-distance cut, and what the part count per building has to be on a laptop. Every later budget depends on this measurement.
