@@ -197,3 +197,31 @@ A 200×200×1.5 slab hit by 15 random spheres (r 8–25) in sequence; each resul
 - Use SurfaceAppearance or MaterialVariant emissive masks (live since 2026-02), opaque Neon, or separate night bakes. Re-check after future engine releases.
 
 The probe was deleted and `ResetWaypoints` called.
+
+## T11: Render cost by category, cumulative hide (Edit, window focused)
+
+**Method:** same views and method as T7. Each stage hides one more category locally with `LocalTransparencyModifier` (restored afterwards; 862,621 parts checked back to 0). Cells show draw calls / triangles / render CPU.
+
+**Categories:**
+- 140,776 slab WedgeParts under `Interior`;
+- 45,152 other Interior parts (cores, slab Parts, furniture);
+- 22,989 Crown and ParapetRim parts;
+- 653,704 ground-facade parts.
+
+| Stage | Street | 300 up | Corner across | Skyline |
+|---|---|---|---|---|
+| Full | 418 / 0.77M / 29.1 | 657 / 0.90M / 20.8 | 342 / 1.93M / 60.7 | 252 / 1.56M / 57.0 |
+| − slab wedges | 227 / 0.30M / 30.2 | 580 / 0.69M / 20.3 | 344 / 1.07M / 55.5 | 252 / 0.84M / 53.6 |
+| − all interior | 340 / 0.60M / 30.5 | 875 / 1.11M / 21.4 | 349 / 1.06M / 55.0 | 250 / 0.80M / 53.4 |
+| − crowns and rims | 379 / 0.58M / 29.6 | 878 / 1.12M / 21.2 | 349 / 0.92M / 53.2 | 250 / 0.65M / 51.5 |
+| − ground facades (only shells, terrain, roads left) | 208 / 0.21M / 22.4 | 152 / 0.15M / 15.0 | 278 / 0.18M / 25.9 | 246 / 0.14M / 24.7 |
+
+**Findings:**
+1. **Render CPU grows roughly linearly with the number of parts in the scene, at about 35–45 ns per part on this desktop CPU.**
+   - Hiding 654k facade parts saved about 27 ms on wide views, about 41 ns per part.
+   - Hiding 141k wedges saved about 5 ms, about 36 ns per part.
+   - **At this rate, a 60k-part map costs about 2.5 ms of scene CPU here**, against about 45 ms now. A laptop CPU might be 1.5–2.5× slower.
+   - **[est] This is the strongest evidence yet that part count, not triangles or draw calls, drives the frame time and with it Roblox's draw-distance cut.**
+2. **Slab wedges are mostly a triangle cost:** they make up 45–60% of triangles at wide views, but only about 5 ms of CPU. Merging slabs matters for triangles and the part count. Facades matter most for CPU.
+3. **Interior parts act as occluders.** Hiding them *raised* draw calls from the 300-up view (580 → 875) because more things behind became visible. Lean buildings still need opaque slabs and core walls to keep occlusion culling effective.
+4. **The floor without buildings** (shells, terrain, roads; editor floor about 11 ms) is 15–26 ms. Shells and terrain still cost 4–15 ms above the editor floor. Worth a separate look at terrain and road geometry later.
