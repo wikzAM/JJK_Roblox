@@ -42,7 +42,7 @@ Results:
 - **Implication:** watertight MeshParts are a real option for richer geometry per part, such as facade faces with recessed windows or merged per-floor slabs, that is still destructible. To persist and replicate, the meshes must be **uploaded assets**: generated offline as watertight OBJ or FBX, then imported or uploaded. The next test is to carve an *uploaded* watertight mesh and check that the carved result replicates to clients in Play.
 - **Upload route for meshes:**
   - Open Cloud's Assets API accepts **FBX or glTF/GLB** Model uploads, which arrive as a Model containing MeshParts. OBJ is not in the official list.
-  - The documented cap is **20 Model uploads per day**, for ID-verified users aged 13+.
+  - The documented cap is **20 Model uploads per day**, for ID-verified users aged 13+. **Disputed by `R3_OFFLINE_PLACE_PIPELINE.md`:** current docs cap only Audio and Video, and batched GLB uploads would cover about 280 meshes in about 10 calls. Verify with one test upload.
   - Larger batches go through Studio's 3D Importer or Asset Manager bulk import.
   - Sources: [Usage guide for assets](https://create.roblox.com/docs/en-us/cloud/guides/usage-assets), [Open Cloud upload support for more asset types](https://devforum.roblox.com/t/open-cloud-upload-support-for-more-asset-types/4022082)
   - Implication: a mesh-based facade library has to be a **small reusable set**, for example a few dozen modules per style, tiled and instanced. Not one unique mesh per building.
