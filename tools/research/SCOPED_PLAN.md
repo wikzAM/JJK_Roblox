@@ -1,5 +1,7 @@
 # Scoped plan: AAA techniques → Roblox → this game (2026-10-19, discussion draft)
 
+> **Superseded in detail by `R2_MASTER_SYNTHESIS.md`** (phased plan after research wave 2). This file is kept for history.
+
 This draft synthesizes two research files: `AAA_OPEN_WORLD_TECHNIQUES.md` and `ROBLOX_ENGINE_SCOPING.md`. No code has been changed for this plan.
 
 ## What we got wrong

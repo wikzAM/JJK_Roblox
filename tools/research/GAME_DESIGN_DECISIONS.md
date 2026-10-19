@@ -6,6 +6,7 @@ This document collects what the owner and Claude agreed on 2026-10-19. Supportin
 - `ROBLOX_ENGINE_SCOPING.md`
 - `SPEED_SKYLINE_STREAMING.md`
 - `COMBAT_MOTION_DESTRUCTION_SYNC.md`
+- `R2_MASTER_SYNTHESIS.md` (wave 1–2 synthesis and phased plan; the `R2_*` and `R3_*` files)
 
 Status: **design agreed in discussion. Not implemented** except where a line says otherwise.
 
@@ -111,3 +112,35 @@ Status: **design agreed in discussion. Not implemented** except where a line say
 - **Weaker hardware:** players on weaker hardware must not be trapped at lower levels. Gameplay must never depend on client load speed, and the server owns movement, collision and hits.
 - **Measurement pass:** owner-approved. It covers graphics quality levels (which part sizes and counts survive the draw-distance cut) and a test of streaming in a copy of the place: persistent stand-ins, about a 1,000–1,500 stud radius, top speeds, and teleports with and without pre-loading.
 - **Working conclusion:** with arrival anywhere at any moment, the whole map must be ready on every client at all times. The preferred route is a lean map (about 60k parts) that fits low-end clients without streaming. Streaming is the fallback if measurement shows memory still too high. Event detail is sent by sector: full timelines near the action, compact ones far away.
+
+## Research wave 2 findings (2026-10-19, overnight; proposals, not yet agreed)
+
+Full detail and a phased plan are in `R2_MASTER_SYNTHESIS.md`.
+
+- **The lean map is required, not just nice to have.**
+  - The live server limit is 6.25 GiB plus 100 MiB per player.
+  - At about 6.4 KB per part, 1.14M instances needs about 7 GB. This probably explains the error-288 shutdowns.
+  - About 60k parts is about 0.4 GB.
+- **Victim steering (answers the open question):**
+  - Input-based: the victim sends capped stick inputs; the server integrates them and the client predicts and replays.
+  - Influence tiers:
+    - DI read at hitstop end (about ±12°);
+    - a 150–200 ms lock;
+    - bounded perpendicular steering;
+    - a meter- or cooldown-gated redirect.
+  - Hits are server-side with rewind of up to 200 ms. Grounded movement stays on the stock Humanoid with server checks. (`R2_CHARACTER_NETCODE.md`)
+- **Slices need no CSG.**
+  - A 2D clip of each thin slab or wall, then re-extrusion, gives at most 4–6 pieces per part.
+  - The slice plane snaps to a building axis.
+  - Collapses are client `BulkMoveTo` along a closed-form slide-then-sink path, with levels deleted at analytic times. The server only flips collision and deletes on schedule.
+  - CSG stays for beams and glass holes. (`R2_SLICE_COLLAPSE_CSG.md`)
+- **Glass on textured skins was tested in-engine:**
+  - CSG pane holes cost 3–11 ms each.
+  - Textures must be re-cloned onto the result.
+  - Skins must be opaque, because transparent objects behind Glass are not drawn. The building you're inside uses its Part version. (`R2_ENGINE_TESTS.md`, `R2_FACADE_BAKING_PIPELINE.md`)
+- **Skyline:**
+  - `Lighting.PrioritizeLightingQuality = Disabled` is the only documented setting that trades lighting quality for draw distance.
+  - Block stand-ins must be uploaded meshes.
+  - Stand-ins are hidden near the camera (300 in / 400 out) so they don't show through glass. (`R2_SKYLINE_HORIZON_RENDERING.md`)
+- **Tokyo look:** 12 texture families plus a 2018 construction overlay, district weights, signage rules, and night as the default. Heroes are bespoke. (`R2_TOKYO_FACADE_ART_DIRECTION.md`)
+- **Testing:** Studio can't load-test this place. Use a separate test place on live private servers with bots and a scenario playlist, with budgets in `R2_LOAD_TEST_PROFILING.md`.
