@@ -187,3 +187,13 @@ A 200×200×1.5 slab hit by 15 random spheres (r 8–25) in sequence; each resul
 - A hit that carves 20 slabs and walls is therefore about **150–300 KB per client**, against a budget of 30–50 KB/s.
 - **Server-side CSG on structural parts can't be the default for frequent hits.** Use the "deterministic mirror" instead: the server sends an event of a few hundred bytes, and server and clients run the same analytic primitive splitting. Client-side CSG is optional and cosmetic.
 - Network compression may shrink these numbers. Measure in Play (M-tests in the R3 replication doc).
+
+## T10: Does `Texture.EmissiveStrength` glow? (visual, window focused)
+
+**Setup:** four dark SmoothPlastic panels with the same Front Texture (`SpawnLocation.png`), with `EmissiveStrength` set to 0, 1, 5 and 20, in front of a black backdrop at Y=23000 in daylight.
+
+**Result:** the four panels render **identically and dim**. The property has no visible effect today; it is probably a placeholder for the planned decal-emissive feature.
+- **Night lit windows can't rely on Texture emissive yet.**
+- Use SurfaceAppearance or MaterialVariant emissive masks (live since 2026-02), opaque Neon, or separate night bakes. Re-check after future engine releases.
+
+The probe was deleted and `ResetWaypoints` called.
