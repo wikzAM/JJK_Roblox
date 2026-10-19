@@ -144,3 +144,18 @@ Full detail and a phased plan are in `R2_MASTER_SYNTHESIS.md`.
   - Stand-ins are hidden near the camera (300 in / 400 out) so they don't show through glass. (`R2_SKYLINE_HORIZON_RENDERING.md`)
 - **Tokyo look:** 12 texture families plus a 2018 construction overlay, district weights, signage rules, and night as the default. Heroes are bespoke. (`R2_TOKYO_FACADE_ART_DIRECTION.md`)
 - **Testing:** Studio can't load-test this place. Use a separate test place on live private servers with bots and a scenario playlist, with budgets in `R2_LOAD_TEST_PROFILING.md`.
+
+## Research wave 3 findings (2026-10-19 overnight; proposals, not yet agreed)
+
+See `R2_MASTER_SYNTHESIS.md` §8.
+
+- **Server CSG replication is too expensive for frequent hits** (measured: about 8–53 KB per carved part, sent to every client). The proposal is a **deterministic mirror**:
+  - the server sends small events;
+  - the server and clients run the same analytic primitive splitting;
+  - server pieces live in a non-replicated container;
+  - client CSG is cosmetic.
+
+  Beams would keep a CSG *look* client-side. Owner decision pending.
+- **Ground facades measured as the main render cost:** 45–77% of draw calls, and half the render CPU on wide views. Glass costs render CPU, not draw calls.
+- **Night lighting:** emissive SurfaceAppearance/MaterialVariant for distant lit windows and signs; a small budget of near-street lights and GUIs.
+- **Traversal:** the map is about 6,400 × 6,000 studs at 0.2391 m per stud. Proposed speed regimes are combat 50–70, sprint 140–180, travel 600–900 studs/s, with streak or teleport above. FOV is capped at 90 pending a draw-distance test.

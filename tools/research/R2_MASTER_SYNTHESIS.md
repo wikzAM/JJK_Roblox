@@ -261,4 +261,98 @@ Tokyo kit families F1–F12, night masks, signage rules, hero landmarks, street 
 | `R2_SLICE_COLLAPSE_CSG.md` | Analytic slicing, structure graph, collapse pipeline |
 | `R2_FACADE_BAKING_PIPELINE.md` | Capture, upload, skins, glass on skins, swap rules |
 | `R2_SKYLINE_HORIZON_RENDERING.md` | Skybox, edge ring, stand-ins, lighting recipe |
-| `R3_*` (wave 3, in progress) | Replication cost, night lighting, offline pipeline, competitor analysis |
+| `R3_DESTRUCTION_REPLICATION_COST.md` | CSG replication bytes, deterministic mirror, M1–M9 |
+| `R3_NIGHT_LIGHTING_TRANSPARENCY_COST.md` | Lights, emissive, glass, GUI costs; night recipe |
+| `R3_OFFLINE_PLACE_PIPELINE.md` | Lune/Python offline migration, uploads, pilot |
+| `R3_BATTLEGROUNDS_COMPETITOR_ANALYSIS.md` | TSB, JJS, HB, JJI, AUT, Flashpoint lessons |
+| `R3_TRAVERSAL_GAME_FEEL.md` | Speed tiers, FOV, hitstop, impact frames |
+
+---
+
+## 8. Wave 3 updates (2026-10-19 overnight: research plus in-engine measurements)
+
+New files:
+- `R3_DESTRUCTION_REPLICATION_COST.md`
+- `R3_NIGHT_LIGHTING_TRANSPARENCY_COST.md`
+- `R3_OFFLINE_PLACE_PIPELINE.md`
+- `R3_BATTLEGROUNDS_COMPETITOR_ANALYSIS.md`
+- `R3_TRAVERSAL_GAME_FEEL.md`
+- engine tests T3–T9 in `R2_ENGINE_TESTS.md`
+
+### 8.1 What changed in the plan
+
+1. **Destruction becomes a "deterministic mirror" (Proposed; changes §3.3).**
+   - **Measured (T9):** a server-carved slab replicates as about 8–15 KB for one hole and about 53 KB after 15 holes. That data goes to every client.
+   - Server CSG on structure would cost about 350–1,400 KB/s per client with 5 fights. The budget is 30–50 KB/s.
+   - **The new scheme:**
+     - The server sends one event of about 200–500 bytes.
+     - The server and every client run the same analytic primitive splitting: octagon frames for holes, prisms for slices.
+     - The server keeps its pieces in a non-replicated container for collision, the way Jujutsu Shenanigans and Shatterbox do.
+     - Clients may add cosmetic CSG within about 300 studs.
+     - A per-building event log serves late joiners, with hash checks and a regenerate-out-of-sight loop.
+   - **Estimated cost:** about 3–5 KB/s per client for 5 fights.
+   - **Consequence for the beam type:** beams still *look* like pure CSG carves (client cosmetic CSG), but the server's collision is analytic. This is an **owner decision** (§8.2).
+2. **Physical holes default to 8-primitive octagons** (open decision 2 in §5 is answered by the data). They cost 3 ms to build, about 1 KB on the network, and are deterministic. Client CSG rounds the edges up close.
+3. **Ground facades are the render bottleneck (measured, T8).**
+   - Hiding the 654k facade parts cut draw calls by 45–77% at street level and from the air.
+   - It also halved scene render CPU on wide views (49 → 19 ms above the editor's floor).
+   - Rendering is CPU-bound (GPU about 1 ms).
+   - **This confirms baking ground facades as phase 2–4's first target.**
+4. **Glass correction (T8).** The 47k panes do **not** cost draw calls (hiding them changed draw calls by 2), but they do cost up to about 7.5 ms of render CPU from the air. They also hide particles, beams and GUIs behind them, so dust behind a window vanishes. Bake distant glass; keep at most about 150 real panes near the player.
+5. **Night lighting budget** (`R3_NIGHT_LIGHTING_TRANSPARENCY_COST.md`):
+   - **Far lit windows and signs:** emissive masks on SurfaceAppearance or MaterialVariant. They are live since 2026-02-12, show at all quality levels, don't fade with distance, and add no draw calls.
+   - **Near street lights:** at most about 48 unshadowed lights, range ≤24, within about 220 studs. Soft mode's light cost grows with the cube of range.
+   - **Near sign GUIs:** at most about 60. Mid-distance signs become opaque Neon blocks.
+   - **Workaround for an open culling bug:** parent each light to an invisible part about the size of its range.
+   - `Texture.EmissiveStrength` (T6) still needs a visual test.
+6. **Offline pipeline** (`R3_OFFLINE_PLACE_PIPELINE.md`):
+   - **Tools:** Lune 0.11 reads and writes the place file; Python does geometry and meshes; Studio is needed only for review, playtest and publish (publishing over the place keeps its ID).
+   - **Memory risk:** Lune might need 4–12 GB for the full place. Measure first; the repo's Python reader is the fallback.
+   - **Upload cap:** the "20 Model uploads/day" cap appears to be outdated. Verify with one upload.
+   - **Pilot:** 10 buildings written to a separate `pilot.rbxl`.
+   - **Live census:** only 14,759 ObjectValues remain, so instance reduction must come from geometry.
+7. **Traversal and feel** (`R3_TRAVERSAL_GAME_FEEL.md`):
+   - **Scale and pace:** the map is 0.2391 m per stud, about 6,400 × 6,000 studs. Twenty seconds anywhere needs travel at about 600–900 studs/s, with leaps and streaks or teleports above that.
+   - **Speed regimes:** combat run 50–70 studs/s (today's 256 is a test value), sprint 140–180, dash 200–250.
+   - **Field of view:** FOV `70 + 7·log2(v/100)`, capped at 90. **Measure whether a wide FOV triggers the draw-distance cut.**
+   - **Hitstop:** 50–120 ms by tier.
+   - **Impact frames:** at most 3 flashes per second (WCAG).
+   - **Walls at speed:** never dead-stop. Deflect, break through or plant, using a swept sphere cast each step.
+8. **Competitor lessons** (`R3_BATTLEGROUNDS_COMPETITOR_ANALYSIS.md`):
+   - No shipped battlegrounds game combines a large city, runtime carving and 20-second traversal.
+   - **Ping-dependent knockback is the genre's top complaint.** Our server paths avoid it.
+   - **Copy:**
+     - part caps per event and per server;
+     - debris throttling under load;
+     - client effect settings;
+     - non-colliding debris;
+     - leak-tested long servers;
+     - out-of-sight regeneration;
+     - an anti-teaming answer.
+
+### 8.2 New owner decisions
+
+1. **Beam authority.** The server uses analytic collision (cheap and deterministic) while clients render a cosmetic CSG carve. The alternative is true server CSG, which costs about 10–25 KB per carved part per client. **Recommend: analytic server, cosmetic client CSG.**
+2. **Map regeneration.** Rebuild a damaged building after N idle minutes, out of sight, behind dust. This caps log size and memory and is what the competitors do. **Recommend: yes, with N to be tuned.**
+3. **Combat movement speed.** Drop the test WalkSpeed of 256 to about 60 in combat, with separate travel regimes. **Recommend: yes, during the traversal prototype.**
+4. **Approvals for the offline pilot:**
+   - adding Lune to `aftman.toml`;
+   - an Open Cloud API key;
+   - which saved place version to use as the source;
+   - one test upload.
+
+### 8.3 Revised phase 1 measurement list (adds to §4)
+
+Tests from the R3 docs, all cheap:
+- **Replication:** M1–M9, especially M8 (cross-machine determinism of the analytic splitter) and M4 (whether one destroy message covers a whole subtree).
+- **Night lighting:** tests A–J (light counts, emissive at quality level 1, GUI cost).
+- **FOV:** the effect on draw distance.
+- **Lune:** memory to load the full place.
+
+**Already done this night (Edit, dev PC):**
+- T3: BulkMoveTo cost;
+- T4–T5: CSG time and triangle counts;
+- T6: Texture properties;
+- T7: render baseline;
+- T8: glass and facade render cost;
+- T9: carved-part bytes.

@@ -1,5 +1,7 @@
 # Night lighting, glow, glass and sign costs (research wave 3, 2026-10-19)
 
+> **Measured correction (`R2_ENGINE_TESTS.md` T8):** hiding all 47k glass panes changed draw calls by at most 2. The 2018 "one draw call per transparent part" claim below does not hold today. Glass costs render CPU (up to about 7.5 ms from the air) and hides particles, beams and GUIs behind it. Those reasons still support baking distant glass.
+
 Scope: how to make night-time Shibuya (Halloween 2018) look lit and dense on an Intel Iris Xe / 8 GB laptop, with streaming off and a low-tier target of **≤ 500 draw calls**. This builds on `GAME_DESIGN_DECISIONS.md`, `R2_TOKYO_FACADE_ART_DIRECTION.md` (night look: "the anime reads Shibuya through its lights, not its walls"), `R2_SKYLINE_HORIZON_RENDERING.md` (lighting recipe) and `R2_FACADE_BAKING_PIPELINE.md` (alpha section). Research only; no game code was changed.
 
 Tags: **[doc]** Creator Hub, **[staff]** Roblox staff post, **[community]** non-staff DevForum report, **[est]** my estimate or inference, **[local]** measured or read in this repo.

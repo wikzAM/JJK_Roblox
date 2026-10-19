@@ -52,6 +52,6 @@ Counts are references to GlassPane, GroundFacadePilot, FacadeInteriorBay, UpperF
 
 ## Map extents (Edit census, 2026-10-19 overnight)
 
-- **Footprint:** 1,941 building models span X −3,155 to 3,235 and Z −2,603 to 3,431, which is **about 6,400 × 6,000 studs** (about 1.8 × 1.7 km at 0.28 m per stud). The diagonal is **about 8,800 studs**.
+- **Footprint:** 1,941 building models span X −3,155 to 3,235 and Z −2,603 to 3,431, which is **about 6,400 × 6,000 studs** (about 1.5 × 1.4 km at this map's scale of 0.2391 m per stud, per the handoff docs). The diagonal is **about 8,800 studs**.
 - **Heights:** the tallest roof is at Y ≈ 967. Building heights are p50 74 studs, p90 154 studs, max 910 studs.
 - **Pacing implication:** "anywhere within about 20 s" means crossing about 6,000 studs (edge to edge) or about 8,800 (corner to corner). That is an average of **about 300–440 studs/s** including fighting and detours. In practice it calls for long-range movement of about 600+ studs/s, or teleport-tier abilities.

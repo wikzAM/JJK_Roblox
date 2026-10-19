@@ -169,3 +169,21 @@ A 200×200×1.5 slab hit by 15 random spheres (r 8–25) in sequence; each resul
 - These parts were only hidden, not removed, so the engine may still walk them. Removing them should save at least this much.
 - **This is the first direct measurement behind the plan:** baking ground facades to textures is the biggest single render lever, as `R2_CITY_INVENTORY.md` predicted from part counts.
 - With facades hidden, 18–19 ms of scene cost remains for wide views. That comes from slabs, cores, crowns and terrain, about 480k parts. Merging slabs is the second lever.
+
+## T9: Serialized size of a carved part (proxy for replication bytes)
+
+`SerializationService:SerializeInstancesAsync({part})` produces the binary model format, the same format the engine replicates. The numbers include a fixed file header of about 2 KB.
+
+| Part (100×100×1.5 slab) | Triangles | Serialized bytes |
+|---|---|---|
+| Plain Part | — | 2,633 |
+| One 3×4×3 box hole | 32 | 8,041 |
+| One r20 cylinder hole | 112 | 10,156 |
+| One r20 sphere hole | 256 | 14,680 (14,528 with Box collision) |
+| 15 sphere holes | 714 | 53,480 |
+
+- **A carved part costs roughly 5–12 KB more than a plain part for one hole, growing to about 50 KB after many holes.** Collision fidelity barely changes this.
+- This confirms the estimate in `R3_DESTRUCTION_REPLICATION_COST.md` (6–25 KB per carved part, sent to every client).
+- A hit that carves 20 slabs and walls is therefore about **150–300 KB per client**, against a budget of 30–50 KB/s.
+- **Server-side CSG on structural parts can't be the default for frequent hits.** Use the "deterministic mirror" instead: the server sends an event of a few hundred bytes, and server and clients run the same analytic primitive splitting. Client-side CSG is optional and cosmetic.
+- Network compression may shrink these numbers. Measure in Play (M-tests in the R3 replication doc).
