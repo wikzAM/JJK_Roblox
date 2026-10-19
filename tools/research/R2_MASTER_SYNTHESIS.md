@@ -356,3 +356,14 @@ Tests from the R3 docs, all cheap:
 - T7: render baseline;
 - T8: glass and facade render cost;
 - T9: carved-part bytes.
+
+### 8.4 Late measurements (T10–T13) and wave 4 status
+
+- **T10:** `Texture.EmissiveStrength` has no visible effect. Night windows need SurfaceAppearance or MaterialVariant emissive, Neon, or night bakes.
+- **T11:** render CPU scales at about **40 ns per part**:
+  - ground facades are about 27 ms of it on wide views;
+  - slab wedges are mostly triangles;
+  - interior slabs act as occluders.
+- **T12:** a lean mockup of 210 buildings × 18 parts with textured skins rendered in **7 draw calls** and cost 0.4–3.6 ms. Today's city costs 20–60 ms. **The lean budget is validated on the render side.**
+- **T13:** texture tint, texture offset and part colour don't break batching. Each unique image (about 2 draw calls) and each material does. **Bake into one atlas per facade family**, with crops selected through `OffsetStuds`, instead of about 1,000 separate images.
+- **Wave 4 (stopped at the usage limit, no files written):** the deterministic splitter spec, domains and ultimates, and the Shibuya reference board. They can be resumed.
