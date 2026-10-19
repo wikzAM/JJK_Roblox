@@ -1,5 +1,19 @@
 --!nonstrict
 --[[
+October 19, 2026 — DESIGN DIRECTION (READ tools/research/GAME_DESIGN_DECISIONS.md).
+  Owner + Claude agreed the game's combat/motion/destruction/rendering pillars:
+  physics off by default; motion tiers (kinematic vector paths for most hits,
+  teleport fake only for top hits, brief physics hand-offs); victims can steer;
+  three destruction types (physical CSG+debris, beam CSG, Sukuna slice incl. the
+  slice-collapse sequence); server hit timelines with server-clock times + seed
+  for multiplayer consistency; never tear down/rebuild detail around the camera;
+  missing skyline = Roblox auto-shortened draw distance from ~1.1M instances ->
+  budget ~10-25 parts/building, skybox skyline + per-block stand-ins. Research:
+  tools/research/*.md. The client upper-facade renderer is a prototype to replace.
+  Done this day: Lighting.Ambient floor (WorldSetup), PlayerMovement (no auto
+  ragdoll), DummyTracker (marker + G summon). Hit lag diagnosis in
+  tools/OPTIMIZATION_RESEARCH.md section 6 (fixes A/B agreed, not implemented).
+
 October 19, 2026 — OWNER-APPROVED DELETION: OverlapBoxRepairArchive + 3 holders.
   Permanently deleted ServerStorage.OverlapBoxRepairArchive (268,397 inst: all
   originals replaced/merged/archived by OverlapBoxRepair) and the 3 emptied
