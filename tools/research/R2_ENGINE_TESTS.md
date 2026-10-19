@@ -225,3 +225,12 @@ The probe was deleted and `ResetWaypoints` called.
 2. **Slab wedges are mostly a triangle cost:** they make up 45–60% of triangles at wide views, but only about 5 ms of CPU. Merging slabs matters for triangles and the part count. Facades matter most for CPU.
 3. **Interior parts act as occluders.** Hiding them *raised* draw calls from the 300-up view (580 → 875) because more things behind became visible. Lean buildings still need opaque slabs and core walls to keep occlusion culling effective.
 4. **The floor without buildings** (shells, terrain, roads; editor floor about 11 ms) is 15–26 ms. Shells and terrain still cost 4–15 ms above the editor floor. Worth a separate look at terrain and road geometry later.
+
+**Addendum to T11 (Workspace census):**
+- With all four categories hidden, only about 3.4k other building parts (shells, upper facades) and about 5.8k loose parts remain:
+  - `GroundFacadeDraftGallery`: 4,755 parts;
+  - `Thin Skyscraper 7`: 455;
+  - `TestBuilding`: 427.
+- So the 4–15 ms that remains above the editor floor is mostly **terrain**, plus possibly SurfaceGuis whose host parts were hidden.
+- `Buildings` holds 146k non-part instances: Textures, SurfaceGuis, values.
+- **Candidate cleanup (needs owner approval):** move `GroundFacadeDraftGallery` (4,755 parts, a design gallery) out of Workspace into ServerStorage.
