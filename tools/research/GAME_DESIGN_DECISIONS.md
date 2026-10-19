@@ -102,3 +102,12 @@ Status: **design agreed in discussion. Not implemented** except where a line say
 - **Reaction time comes from design.** A map-crossing attack needs a wind-up and telegraph: a charge flash visible map-wide, an audio cue, and a HUD direction indicator for incoming threats aimed at you. Hits faster than human reaction must be telegraphed, or they will feel unfair.
 - **Cost scales with distance.** Far clients get the same timeline but render reduced effects: fewer debris pieces and no small chunks.
 - **Open risk:** server CSG results replicate to every client, including far ones, as mesh data. With many simultaneous fights this needs measuring. Fallbacks: cosmetic CSG on clients plus simplified collision on the server, or a cap on concurrent carving.
+
+## Owner clarifications (2026-10-19, later)
+
+- **Feel:** the game should feel like the anime (the chaos of the Shibuya Incident and the Culling Game) and much faster-paced than other battlegrounds games. A top-tier player can expect to be anywhere on the map, fighting, within about 20 seconds.
+- **Teleports:** they come from physical attacks and also from real teleport abilities. Both can arrive anywhere with no warning.
+- **Telegraphs:** no long, readable telegraphs for fairness. Balance comes from the natural JJK power system. Hollow Purple and Fuga are effectively undodgeable, with invincibility during their wind-up, as in other JJK games. Characters do not wait for each other's wind-ups. The earlier "telegraph and HUD warning" suggestion is withdrawn.
+- **Weaker hardware:** players on weaker hardware must not be trapped at lower levels. Gameplay must never depend on client load speed, and the server owns movement, collision and hits.
+- **Measurement pass:** owner-approved. It covers graphics quality levels (which part sizes and counts survive the draw-distance cut) and a test of streaming in a copy of the place: persistent stand-ins, about a 1,000–1,500 stud radius, top speeds, and teleports with and without pre-loading.
+- **Working conclusion:** with arrival anywhere at any moment, the whole map must be ready on every client at all times. The preferred route is a lean map (about 60k parts) that fits low-end clients without streaming. Streaming is the fallback if measurement shows memory still too high. Event detail is sent by sector: full timelines near the action, compact ones far away.
