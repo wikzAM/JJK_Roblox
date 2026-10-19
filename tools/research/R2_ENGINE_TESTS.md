@@ -234,3 +234,28 @@ The probe was deleted and `ResetWaypoints` called.
 - So the 4–15 ms that remains above the editor floor is mostly **terrain**, plus possibly SurfaceGuis whose host parts were hidden.
 - `Buildings` holds 146k non-part instances: Textures, SurfaceGuis, values.
 - **Candidate cleanup (needs owner approval):** move `GroundFacadeDraftGallery` (4,755 parts, a design gallery) out of Workspace into ServerStorage.
+
+## T12: Lean-building mockup (210 buildings × 18 parts, textured skins)
+
+**Setup:** at Y=25000, a 14 × 15 grid of buildings on a 130-stud pitch, each 40–90 studs wide and 4–25 floors tall (12.5-stud storeys). Each building had:
+- 4 face skins, each one Part with one Front `Texture` (one shared image, tiled per bay);
+- 8 slab bands, 4 corner piers, 1 roof and 1 roof box.
+
+Total: 3,780 parts. Creating them in Edit took 4.0 s, mostly parenting under change history. The mockup was deleted and `ResetWaypoints` called.
+
+| View | Lean city (draw calls / triangles / render CPU) | Same view, mockup hidden |
+|---|---|---|
+| Corner, 400 up, whole grid in view | **7 / 21k / 15.1 ms** | 19 / 2k / 11.5 ms |
+| Street level inside the grid | **7 / 5k / 11.7 ms** | 93 / 1k / 11.3 ms |
+| Corner view without Textures | 5 / 20k / 14.8 ms | — |
+
+- **The whole 210-building lean district renders in about 7 draw calls.**
+  - Parts with the same material batch together, and the shared Texture adds about 2 draw calls.
+  - It costs 0.4–3.6 ms of render CPU above an empty view, against 20–60 ms for today's city from comparable views (T7).
+  - "Empty" shows more draw calls than "lean" because the lean buildings occlude the terrain and sky behind them.
+- **Extrapolation [est]:** a full lean city of about 1,941 buildings and about 35–50k parts should cost tens of draw calls for the shells plus the street-level near set, and well under 10 ms of editor render CPU. That is consistent with T11's 40 ns per part.
+- **Caveats:**
+  - There was one shared texture. Real bakes use many unique images, so expect up to 1 draw call per unique texture in view.
+  - The test omitted ground-floor detail, signs and lights.
+  - Measure with ~300 unique textures next (`R2_FACADE_BAKING_PIPELINE.md` key count).
+- **Conclusion:** the lean-map budget (10–25 parts per building) is validated on the render side. The cost driver is the number of unique textures, not parts.
