@@ -7,7 +7,9 @@ local Pilot=require(script.Parent.GroundFacadePilot)
 local Registry=require(script.Parent.GroundFacadeRegistry)
 local BayInteriors=require(script.Parent.GroundFacadeBayInteriors)
 local Layout=require(game:GetService("ReplicatedStorage").Shared.FacadeLayout)
-local Driver={VERSION=2,BATCH_SIZE=10,MIN_STEP_GAP=30}
+-- Coverage policy (owner Oct 19: facades on far more ordinary buildings). Only the
+-- Scramble Crossing itself stays bare; tall and large ordinary buildings qualify.
+local Driver={VERSION=2,BATCH_SIZE=10,MIN_STEP_GAP=30,MAX_FLOORS=60,MAX_FOOTPRINT=1e9,CROSSING_RADIUS=220}
 local OWNER="2026-10-08-ground-pilot"
 local busy=false
 local lastCompletedStep=-math.huge
@@ -34,9 +36,8 @@ local function policy()
 		["fbx_5_6952_1857_6146"]=true,["orph_703_1736"]=true,["orph_706_1735"]=true,
 	}
 	for _,id in removedIds do excluded[id]=true end
-	return {maxFootprintArea=30000,zones={
-		{id="crossing",center=Vector2.new(11,572),radius=500},
-		{id="109-district",center=Vector2.new(683,596),radius=275},
+	return {maxFloors=Driver.MAX_FLOORS,maxFootprintArea=Driver.MAX_FOOTPRINT,zones={
+		{id="crossing",center=Vector2.new(11,572),radius=Driver.CROSSING_RADIUS},
 	},excludedIds=excluded}
 end
 local function sourceMoved(model,row)
@@ -102,7 +103,7 @@ function Driver.Prepare()
 		local scope={version=Driver.VERSION,eligible=report.eligible,held=report.held,
 			alreadyInstalled=installed,queued=#missing,queuedIds=ids,additionalHolds=held,
 			heldBuildings=report.heldBuildings,reasonCounts=report.reasonCounts,
-			policy={maxFloors=15,maxFootprintArea=30000,crossing={11,572,500},district109={683,596,275},excludedIds=opts.excludedIds},
+			policy={maxFloors=opts.maxFloors,maxFootprintArea=opts.maxFootprintArea,crossing={11,572,Driver.CROSSING_RADIUS},excludedIds=opts.excludedIds},
 			deferredBoxRepairs={"fbx_6_16012_2445_-12199","fbx_11_13048_1764_5668"},
 			intentionallyRemovedId=REMOVED,intentionallyRemovedIds=removedIds}
 		Registry.Write(archive,"ExpansionScope",H:JSONEncode(scope))
@@ -147,7 +148,7 @@ function Driver.Step(ctx)
 		end
 		local result={updated=0,errors={}}
 		if #batch>0 then
-			local okay,reportOrError,info=pcall(Pilot.Upsert,batch,ctx.scene,{city=true,incremental=true,
+			local okay,reportOrError,info=pcall(Pilot.Upsert,batch,ctx.scene,{city=Driver.MAX_FLOORS<=15,incremental=true,
 				archive=ctx.archive,keepReplacedGeometry=false})
 			if not okay then
 				ctx.failed=true;ctx.disconnected=not connected()

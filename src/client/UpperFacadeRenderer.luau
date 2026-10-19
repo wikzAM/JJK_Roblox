@@ -13,7 +13,7 @@ local Collection=game:GetService("CollectionService")
 -- Same protected identities/zones as the ground-facade selector (GroundFacadeSection).
 local EXCLUDED={["fbx_6_4510_4915_-8852"]=true,["orph_703_1736"]=true,["orph_706_1735"]=true,["fbx_5_6952_1857_6146"]=true,
 	["orph_-1012_-190"]=true,["orph_-912_-37"]=true,["part_-424_296"]=true}
-local ZONES={{Vector2.new(11,572),500},{Vector2.new(683,596),275}}
+local ZONES={{Vector2.new(11,572),220}} -- the Scramble Crossing itself stays bare (owner)
 local Kit,Catalog
 local candidates,built={},{}
 local styles={} -- model -> deduplicated style (deterministic on every client)

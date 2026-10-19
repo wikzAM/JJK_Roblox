@@ -63,7 +63,7 @@ function Section.Eligible(model,options)
  local okay,plan=pcall(function() return Http:JSONDecode(encoded) end)
  if not okay or type(plan)~="table" or type(plan.levels)~="table" or #plan.levels<2 or not plan.levels[1].pieces then return false,"invalid-source-plan",facts end
  local n=model:GetAttribute("SourceSlicePlan") and model:GetAttribute("GeneratedFloors") or model:GetAttribute("FacadeFloorCount") or model:GetAttribute("GeneratedFloors");facts.floors=n
- if type(n)~="number" or n~=n or n%1~=0 or n<1 or n>15 or n~=#plan.levels-1 then return false,"story-limit-or-mismatch",facts end
+ if type(n)~="number" or n~=n or n%1~=0 or n<1 or n>(o.maxFloors or 15) or n~=#plan.levels-1 then return false,"story-limit-or-mismatch",facts end
  local areaOkay,area=pcall(footprintArea,plan)
  if not areaOkay or area~=area or area<=0 or area==math.huge then return false,"invalid-footprint",facts end
  facts.area=area

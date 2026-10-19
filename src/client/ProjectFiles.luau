@@ -1,5 +1,17 @@
 --!nonstrict
 --[[
+October 19, 2026 — FACADE COVERAGE WIDENED (owner: facadeless buildings).
+  Census of 114 rootless buildings: crossing-zone 36, 109-zone 22, >15 floors 19,
+  >30000 st2 footprint 13, landmark/crown 22, explicit 1, height hold 1.
+  Policy now (GroundFacadeExpansionRollout Driver.MAX_FLOORS=60,
+  MAX_FOOTPRINT=1e9, CROSSING_RADIUS=220; Section.Eligible honours o.maxFloors;
+  109-district zone dropped, 109 itself stays excluded by ID; Upsert city=false
+  when MAX_FLOORS>15). UpperFacadeRenderer ZONES = crossing r220 only.
+  +83 buildings faced (1989/2020 roots; 31 left = 22 landmark/crown, 3 explicit,
+  5 crossing r220, 1 height hold). 7 newly blocked bays in 6 buildings fixed by
+  blind veto + Upsert. Audits: surface 0 pending, SAT 11611/0, blockers 12164/0,
+  reconcile 1989 rows == 1989 roots; 648148 facade parts / 45069 panes.
+
 October 18, 2026 (10:05) — OWNER-APPROVED CLEANUPS + GAP MERGES DONE.
   Owner approved: (1) archived the 38 floating/stacked artifact buildings
   (recomputed list matched exactly) into ServerStorage.OverlapBoxRepairArchive;
