@@ -194,6 +194,10 @@ end
 local WorldSetup = {}
 
 function WorldSetup.Init()
+	-- Minimum illumination: shadowed interiors were pitch black (Ambient 0,0,0).
+	local L = game:GetService("Lighting")
+	local floor = Color3.fromRGB(100, 100, 105)
+	if L.Ambient.R < floor.R or L.Ambient.G < floor.G or L.Ambient.B < floor.B then L.Ambient = floor end
 	makeBuilding("Building1", BUILDING_1_POS, BUILDING_SIZE)
 	makeBuilding("Building2", BUILDING_2_POS, BUILDING_SIZE)
 	spawnTestBuilding(BUILDING_TEST_POS)

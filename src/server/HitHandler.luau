@@ -1125,6 +1125,39 @@ function HitHandler.Init()
 		HitEvent.Parent = ReplicatedStorage
 	end
 
+	-- Summon (client key G): bring the dummy back in front of the player who asked.
+	local SummonEvent = ReplicatedStorage:FindFirstChild("SummonDummyEvent")
+	if not SummonEvent then
+		SummonEvent = Instance.new("RemoteEvent")
+		SummonEvent.Name = "SummonDummyEvent"
+		SummonEvent.Parent = ReplicatedStorage
+	end
+	local lastSummon = {}
+	SummonEvent.OnServerEvent:Connect(function(player)
+		if os.clock() - (lastSummon[player] or 0) < 0.5 then return end
+		lastSummon[player] = os.clock()
+		local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+		local model = CollectionService:GetTagged("HitTarget")[1]
+		if not hrp or not model or not model.Parent then return end
+		hitGeneration = hitGeneration + 1 -- cancel any in-flight ground tracking
+		recoverDummy(model)
+		for _, part in ipairs(model:GetDescendants()) do
+			if part:IsA("BasePart") then
+				part.AssemblyLinearVelocity = Vector3.zero
+				part.AssemblyAngularVelocity = Vector3.zero
+				part.Anchored = true
+			end
+		end
+		local flat = Vector3.new(hrp.CFrame.LookVector.X, 0, hrp.CFrame.LookVector.Z)
+		if flat.Magnitude < 0.01 then flat = Vector3.new(0, 0, -1) end
+		local spot = hrp.Position + flat.Unit * 10
+		model:PivotTo(CFrame.lookAt(spot, Vector3.new(hrp.Position.X, spot.Y, hrp.Position.Z)))
+		task.wait(0.1)
+		for _, part in ipairs(model:GetDescendants()) do
+			if part:IsA("BasePart") then part.Anchored = false end
+		end
+	end)
+
 	-- Persist logical glass damage independently of client LOD and late joins.
 	local GlassDamage=require(script.Parent.GlassDamageService)
 	GlassDamage.Init()
