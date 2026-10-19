@@ -116,3 +116,56 @@ A 200×200×1.5 slab hit by 15 random spheres (r 8–25) in sequence; each resul
 - **`Texture.EmissiveStrength` exists (default 1), with no emissive map property.** It is not documented on the Decal page. It may be an unreleased decal-glow feature, which would replace the separate night bakes (risk 11 in the baking doc). Visual test pending, with the Studio window focused.
 - **`SurfaceAppearance`** has `EmissiveMaskContent`, `EmissiveStrength` (script-writable) and `EmissiveTint`. Stand-in meshes and hero MeshParts can glow at night without Neon parts.
 - **Current place lighting:** `LightingStyle = Soft`, `PrioritizeLightingQuality = false`. **The draw-distance lever recommended in `R2_SKYLINE_HORIZON_RENDERING.md` is already set.** The skyline loss happens even with it, which confirms that instance count is the main driver. The remaining choice is Soft versus Realistic.
+
+## T7: Render baseline from five vantage points (Edit, window focused, 2026-10-19 overnight)
+
+**Method:**
+- Dev PC: i5-12600KF with an RX 7700 XT, running Studio's editor quality, so there is no draw-distance cut.
+- `Stats` render counters work in Edit, **but only while the Studio window is focused**. When it's unfocused, the values freeze.
+- For each view: 30 frames of settling, then the median of 15 frames.
+- Ground at the map centre (40, 414) is at Y ≈ 63.
+- The editor's render-CPU floor (looking at empty sky): **about 11 ms, 4 draw calls**.
+
+| View | Draw calls | Triangles | Render CPU | Render GPU |
+|---|---|---|---|---|
+| Street, eye height, looking along X | 374–431 | 0.71–0.79M | 27–29 ms | 0.5 ms |
+| 300 up, 45° down | 655 | 0.90M | 20–21 ms | 0.7 ms |
+| Corner of map, 600 up, looking across | 341–454 | 1.9–2.1M | 60 ms | 1.1 ms |
+| 1,200 up, looking down at the centre | 570–783 | 2.0–2.2M | 34–36 ms | 1.1 ms |
+| 4,500 out, looking at the skyline | 252–258 | 1.56M | 52–58 ms | 0.6 ms |
+
+- **Rendering is CPU-bound, not GPU-bound.** The GPU uses about 1 ms. Render CPU is 20–60 ms, so 17–50 FPS in the editor on a fast desktop CPU, and worst for wide views of the whole city.
+- A laptop CPU would be slower still, and Roblox would cut its draw distance. This matches the skyline loss.
+- Draw calls are already **above the 500 low-tier budget** from the air.
+
+## T8: What glass panes and ground facades cost (hidden locally with `LocalTransparencyModifier`, then restored)
+
+**Glass (47,464 `GlassPane` parts in Workspace):**
+
+| View | Draw calls with → without | Triangles | Render CPU |
+|---|---|---|---|
+| Street | 374 → 372 | 0.71 → 0.66M | 26.5 → 26.3 ms |
+| 300 up | 655 → 653 | 0.90 → 0.81M | 21.2 → 18.4 ms |
+| 1,200 up | 783 → 783 | 2.22 → 2.07M | 35.2 → 27.7 ms |
+
+- **Correction to `R3_NIGHT_LIGHTING_TRANSPARENCY_COST.md` §Summary 1.** The 2018 staff claim, "one draw call per transparent part", does **not** hold in 2026: hiding all panes changed draw calls by at most 2.
+- Glass costs **render CPU** (up to about 7.5 ms from high up), not draw calls.
+- Its other problems still stand: it hides particles, beams and GUIs behind it.
+
+**Ground facades (653,704 BaseParts under `GroundFacadePilot`):**
+
+| View | Draw calls full → no facades | Triangles | Render CPU |
+|---|---|---|---|
+| Street | 374 → 202 | 0.71 → 0.32M | 28.8 → 23.7 ms |
+| 300 up | 656 → 151 | 0.90 → 0.32M | 21.3 → 16.7 ms |
+| Corner across | 341 → 283 | 1.93 → 1.35M | 60.0 → 30.3 ms |
+| 1,200 up | 747 → 419 | 2.18 → 0.95M | 36.4 → 24.0 ms |
+| Skyline from outside | 258 → 254 | 1.57 → 1.32M | 58.2 → 29.0 ms |
+
+- **Above the editor's floor of about 11 ms, the ground facades are about 60% of the render CPU on wide views.**
+  - Corner view: 49 ms of scene cost falls to 19 ms.
+  - Skyline view: 47 ms falls to 18 ms.
+- **The facades are also 45–77% of the draw calls** at street level and from the air.
+- These parts were only hidden, not removed, so the engine may still walk them. Removing them should save at least this much.
+- **This is the first direct measurement behind the plan:** baking ground facades to textures is the biggest single render lever, as `R2_CITY_INVENTORY.md` predicted from part counts.
+- With facades hidden, 18–19 ms of scene cost remains for wide views. That comes from slabs, cores, crowns and terrain, about 480k parts. Merging slabs is the second lever.
