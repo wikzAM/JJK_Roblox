@@ -418,3 +418,19 @@ Exit criteria:
   - Surface-resolver trimmed runs. A recipe must store `FacadeSharedSurfaceMasks`.
 - **Conclusion:** change #1 needs little new data. It mostly needs final bay roles, trim masks and baked footing/step rows per run.
 - **Client-only upper facades (change #3) are implemented** in `src/client/UpperFacadeRenderer.luau`. In Play, about 17 buildings and 15–17k client parts held about 55 FPS near (-1040, -660).
+
+## 6. Hit latency diagnosis (2026-10-19, read-only measurements in Edit)
+
+The owner reports about 6.0 s from hit to launch. It used to be about 100 ms. Each step of `HitEvent` was measured at a street hit (600 studs, radius 50, near -1040,-660):
+
+| Step | Cost | Note |
+|---|---|---|
+| `findBuildingIntersections`: walk `Workspace:GetDescendants()` and collect building parts | **2,198 ms** | Collects 866,017 parts on every hit. Grows with total map size. |
+| Set a raycast Include filter to those 866k parts | 65 ms | |
+| Each raycast with that filter (up to 20 per hit) | about 52 ms each | **Up to about 1 s.** |
+| The same raycast with Include = `{workspace.Buildings}` | **0 ms** | |
+| `GetPartsInPart` on the 600x100x100 cylinder | **302 ms** | 522 hits: 482 facade parts, 40 structural. |
+| Fallback non-CanQuery scan | 6 ms | |
+| `GlassDamage.DestroyPath` (Capsule) | not timed | Uses `GetDescendants` on candidate buildings plus 48.6k panes city-wide. |
+
+`task.spawn` runs `DestroyPath`, `GetPartsInPart`, about 480 `Destroy()` calls and the CSG task starts synchronously, before `task.wait(YIELD_MASK_DELAY)`. All of that sits in front of the dummy launch. The facade rollout roughly tripled the part count in the O(N) paths, which turned about 100 ms into seconds. The new systems are not slow on their own; old code paths scan the whole map.
