@@ -1,5 +1,19 @@
 --!nonstrict
 --[[
+October 19, 2026 — MORE GAP MERGES + OVERHANG (MISSING GROUND FLOOR) REBUILDS.
+  OverlapBoxRepair: unionRectangles now builds up to group.maxRects (5) pieces,
+  coverage counts only footprint not blocked by other buildings, and
+  group.allLevels uses every floor's footprint. Second/third merge passes: +34
+  groups (16 at 60%, 18 at 45% coverage); 7 groups left as-is (<45%).
+  tools/scan_overhang_buildings.luau (owner screenshot: upper floors with no
+  ground floor under them): 15 flagged (>=25% and >=400 st2 unsupported), all
+  rebuilt single-building with allLevels (incl. fbx_7_16421 f25 and the two
+  owner box-repair targets fbx_6_16012 / fbx_11_13048); re-scan 0.
+  49 new masses got ground facades; 2 blocked bays fixed. Audits: surface 0,
+  SAT 11934/0, blockers 12440/0, reconcile 1910 rows == 1910 roots (79 retired).
+  Buildings 1941 (1910 faced). Instances 1,434,551 (archives grew; deletion of
+  OverlapBoxRepairArchive etc. still awaits an explicit owner choice).
+
 October 19, 2026 — FACADE COVERAGE WIDENED (owner: facadeless buildings).
   Census of 114 rootless buildings: crossing-zone 36, 109-zone 22, >15 floors 19,
   >30000 st2 footprint 13, landmark/crown 22, explicit 1, height hold 1.

@@ -290,7 +290,7 @@ local function insideRing(x,z,ring)
 end
 -- Up to 3 disjoint axis-aligned rectangles (largest first) covering the group's
 -- free union cells. Returns rects, covered area, sampled union area.
-local function unionRectangles(frame,pieces,occupied,lo,hi)
+local function unionRectangles(frame,pieces,occupied,lo,hi,maxRects,minPiece)
  local x0,z0,x1,z1=math.huge,math.huge,-math.huge,-math.huge
  for _,ring in pieces do for _,p in ring do x0=math.min(x0,p[1]);z0=math.min(z0,p[2]);x1=math.max(x1,p[1]);z1=math.max(z1,p[2]) end end
  local n=56;local dx,dz=(x1-x0)/n,(z1-z0)/n;local unionCells=0
@@ -299,7 +299,9 @@ local function unionRectangles(frame,pieces,occupied,lo,hi)
  for row=1,n do free[row]={}
   for col=1,n do
    local ok=true
-   if inUnion(x0+(col-.5)*dx,z0+(row-.5)*dz) then unionCells+=1 end
+   local mx,mz=x0+(col-.5)*dx,z0+(row-.5)*dz
+   -- Only footprint the group can actually occupy counts (not other buildings').
+   if inUnion(mx,mz) then local w=frame:PointToWorldSpace(Vector3.new(mx,0,mz));if not blocked(occupied,w.X,w.Z,lo,hi) then unionCells+=1 end end
    for _,f in {{.02,.02},{.98,.02},{.02,.98},{.98,.98},{.5,.5},{.5,.02},{.5,.98},{.02,.5},{.98,.5}} do
     local x,z=x0+(col-1+f[1])*dx,z0+(row-1+f[2])*dz
     if not inUnion(x,z) then ok=false;break end
@@ -312,7 +314,7 @@ local function unionRectangles(frame,pieces,occupied,lo,hi)
  end
  local unionArea=unionCells*dx*dz
  local rects,covered={},0
- for _=1,3 do
+ for _=1,maxRects or 3 do
   local heights={};local best,bestArea,bc=nil,0,nil
   for row=1,n do
    for col=1,n do heights[col]=free[row][col] and ((heights[col] or 0)+1) or 0 end
@@ -329,7 +331,7 @@ local function unionRectangles(frame,pieces,occupied,lo,hi)
    end
   end
   -- Later pieces must be worth a wing of their own (>=15% of the union).
-  if not best or (#rects>0 and bestArea<.15*unionArea) then break end
+  if not best or (#rects>0 and bestArea<(minPiece or .15)*unionArea) then break end
   table.insert(rects,best);covered+=bestArea
   for row=bc.r0,bc.r1 do for col=bc.c0,bc.c1 do free[row][col]=false end end
   if covered>=.9*unionArea then break end
@@ -395,11 +397,14 @@ function Repair.ApplyMerge(group)
   local src=group.originals[rec.id]
   local plan,frame=rec.plan,rec.frame
   if src then plan=src.plan;frame=Layout.FrameOf(src.model) or rec.frame end -- shrunk box: use its ORIGINAL footprint
-  for _,r in piecesIn(primary.frame,frame,plan.levels[1].pieces) do table.insert(pieces,r) end
+  -- allLevels: overhanging upper floors get a real ground floor under them.
+  for li=1,group.allLevels and math.max(1,#plan.levels-1) or 1 do
+   for _,r in piecesIn(primary.frame,frame,plan.levels[li].pieces) do table.insert(pieces,r) end
+  end
   lo=math.min(lo,rec.lo);hi=math.max(hi,rec.hi);floors=math.max(floors,math.floor(rec.floors))
   bottom=math.min(bottom,frame.Y+plan.levels[1].y);top=math.max(top,frame.Y+plan.levels[#plan.levels].y)
  end
- local rects,area,unionArea=unionRectangles(primary.frame,pieces,occupied,lo,hi)
+ local rects,area,unionArea=unionRectangles(primary.frame,pieces,occupied,lo,hi,group.maxRects,group.minPiece)
  assert(#rects>0,"No 10.1x10.1 rectangle in merged footprint")
  -- A mass much smaller than the group would just open a new gap: refuse it.
  assert(area>=(group.minCoverage or .6)*unionArea,string.format("Merged mass covers only %d%% of the group footprint",math.floor(100*area/math.max(1,unionArea))))
