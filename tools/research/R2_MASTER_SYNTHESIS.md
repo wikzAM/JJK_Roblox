@@ -39,7 +39,9 @@ Victims fly on **anchored kinematic paths** that they can steer with capped inpu
 |---|---|---|
 | Live server memory limit is 6.25 GiB + 100 MiB × peak players; about 6.4 KB per part | `../OPTIMIZATION_RESEARCH.md` §1.1 | 1.14M instances is at or over the limit. **The lean map is required, not optional.** |
 | Roblox shortens draw distance on its own under load; developers can't override it | `SPEED_SKYLINE_STREAMING.md`, `R2_SKYLINE_HORIZON_RENDERING.md` | The skyline needs few, large objects plus a skybox |
-| `PrioritizeLightingQuality = Disabled` lowers lighting first "to preserve draw distance" | `R2_SKYLINE_HORIZON_RENDERING.md` §1 [staff] | Free lever. Set it in the lean place (**Proposed**) |
+| `PrioritizeLightingQuality = Disabled` lowers lighting first "to preserve draw distance" | `R2_SKYLINE_HORIZON_RENDERING.md` §1 [staff] | **Already false in the place** (T6), yet the skyline still drops, so the instance count is the driver |
+| BulkMoveTo about 1.6 µs per part; CSG about 6–20 ms per cut, 32–256 triangles per hole, about 2k after 15 holes; batching 6 cutters is about 2× faster | `R2_ENGINE_TESTS.md` T3–T5 | Collapse motion fits a 1 ms per frame budget. Budget CSG by wall-time, batch cutters, prefer cylinders over spheres |
+| Texture PBR maps are plugin-only; ColorMapContent isn't replicated; `Texture.EmissiveStrength` exists but is undocumented | `R2_ENGINE_TESTS.md` T6 | Set skin maps at edit time; test decal emissive for night bakes |
 | SLIM, StreamingMesh and Server Authority all require streaming | R2 skyline, R2 netcode | None apply while streaming is off |
 | CSG: 3–11 ms per small cut after a ~65 ms warm-up; Textures are not carried over; interior holes keep bounds | `R2_ENGINE_TESTS.md` T1 | Pane holes on textured skins are viable, with a clone and offset-fix helper |
 | Watertight MeshParts are carvable; EditableMesh content doesn't replicate or persist | `R2_ENGINE_TESTS.md` T2 | Meshes must be **uploaded** assets. Uploads are capped at about 20 Models per day, so use a small reusable set |
