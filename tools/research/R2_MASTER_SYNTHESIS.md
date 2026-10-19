@@ -63,7 +63,7 @@ Victims fly on **anchored kinematic paths** that they can steer with capped inpu
 | Street level | The Part version of ground facades only within about 150 studs, for the occupied building, and for damaged bays (one way). Hysteresis 150 in / 210 out, a speed gate, pooled templates, instant swap. | ≤200 draw calls for the near city | Proposed; see the conflict note in §6 |
 | Interiors | Pseudo-3D bay rooms for Part-version zones only | — | Existing system, kept |
 
-**Lighting (Proposed):** LightingStyle Realistic, PrioritizeLightingQuality Disabled, Ambient (90, 92, 98) as the floor already shipped in WorldSetup. Night values are in R2 skyline. Night signage cost is being researched (wave 3).
+**Lighting:** the place is already Soft with PrioritizeLightingQuality false (T6). Proposed: try Realistic with PrioritizeLightingQuality Disabled, Ambient (90, 92, 98) as the floor already shipped in WorldSetup. Night values are in R2 skyline. Night signage cost is being researched (wave 3).
 
 ### 3.2 Facades: one design source, two outputs
 
@@ -160,7 +160,7 @@ Nothing here is authorized yet unless marked. "Owner OK" means the step needs a 
 1. **Fix A:** hit-path queries scoped to nearby folders; no whole-map `GetDescendants` (2.2 s today).
 2. **Fix B:** launch the victim first, then budget destruction per frame behind dust.
 3. Pause the `UpperFacadeRenderer` churn (build once, or off).
-4. Set `PrioritizeLightingQuality = Disabled` (one Studio property; reversible).
+4. ~~Set `PrioritizeLightingQuality = Disabled`~~: **already false in the place** (T6 probe). The skyline loss happens even with it, which points to the instance count.
 
 **Gate:** hit-to-launch under 150 ms in Studio Play; no facade pop.
 

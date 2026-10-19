@@ -105,3 +105,14 @@ A 200×200×1.5 slab hit by 15 random spheres (r 8–25) in sequence; each resul
 - Sphere holes produce about 2–8× more triangles than cylinders. Prefer cylinder or capsule-like cutters for physical hits, and spheres only for beams that need a round look.
 - A heavily damaged slab stays around 2k triangles. The replication cost per carved part still needs measuring in Play (wave 3, `R3_DESTRUCTION_REPLICATION_COST.md`).
 - Server budget: at about 10–20 ms per cut, the "≤8 starts per frame" rule should be read as **CSG wall-time per frame**, not a count. Cap it at about 4 ms of starts per frame and let the rest queue. CSG is async, so measure in Play whether it blocks Heartbeat.
+
+## T6: Texture PBR, emissive and lighting properties (Edit, read-only probe)
+
+- **`Texture` exposes PBR maps:** `ColorMapContent`, `NormalMapContent`, `RoughnessMapContent` and `MetalnessMapContent`, plus older string forms such as `NormalMap`.
+  - Writing `NormalMapContent` from the MCP (plugin) context **works**.
+  - The docs tag Normal, Roughness and Metalness as **Plugin Security** ([Decal docs](https://create.roblox.com/docs/reference/engine/classes/Decal)). Bakes can therefore apply them at edit time, but runtime game scripts cannot change them. That is fine for the bake pipeline, since maps are set once per skin.
+  - `ColorMapContent` is script-writable, but tagged "Not Replicated". A server-side runtime change would not reach clients, so set colour maps at edit time too.
+  - `TexturePackContent` cannot be written ("lacking capability RobloxEngine").
+- **`Texture.EmissiveStrength` exists (default 1), with no emissive map property.** It is not documented on the Decal page. It may be an unreleased decal-glow feature, which would replace the separate night bakes (risk 11 in the baking doc). Visual test pending, with the Studio window focused.
+- **`SurfaceAppearance`** has `EmissiveMaskContent`, `EmissiveStrength` (script-writable) and `EmissiveTint`. Stand-in meshes and hero MeshParts can glow at night without Neon parts.
+- **Current place lighting:** `LightingStyle = Soft`, `PrioritizeLightingQuality = false`. **The draw-distance lever recommended in `R2_SKYLINE_HORIZON_RENDERING.md` is already set.** The skyline loss happens even with it, which confirms that instance count is the main driver. The remaining choice is Soft versus Realistic.
