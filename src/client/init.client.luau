@@ -7,5 +7,6 @@ task.spawn(require(script.GroundFacadeInteriors).Init) -- explicit small opt-in 
 task.spawn(require(script.GlassDemo).Init) -- isolated review platform; no input required
 task.spawn(require(script.UpperFacadeRenderer).Init) -- client-built upper-floor facades near the camera
 task.spawn(require(script.DummyTracker).Init) -- dummy marker + G to summon
+task.spawn(require(script.PlayerMovement).Init) -- no automatic player ragdolls
 
 print("[Client] All modules initialized.")
