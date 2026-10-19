@@ -1,5 +1,15 @@
 --!nonstrict
 --[[
+October 19, 2026 — OWNER-APPROVED DELETION: OverlapBoxRepairArchive + 3 holders.
+  Permanently deleted ServerStorage.OverlapBoxRepairArchive (268,397 inst: all
+  originals replaced/merged/archived by OverlapBoxRepair) and the 3 emptied
+  FacadeSharedSurfaceBackup_656f/c7f2/123c folders: 293,631 instances total.
+  3,292 ObjectValues in other rollback folders (FacadeCoreClearanceBackup,
+  LegacyCoreBackup, GroundFacadePilotArchive Target refs, MovedFrameBackup,
+  FacadeDeferredBoxRepairTargets, BuildingGeometryReviewTargets) now point to
+  nil; those rollbacks for replaced buildings no longer apply. No live refs.
+  ServerStorage 112,234 instances; place 1,140,894 instances.
+
 October 19, 2026 — MORE GAP MERGES + OVERHANG (MISSING GROUND FLOOR) REBUILDS.
   OverlapBoxRepair: unionRectangles now builds up to group.maxRects (5) pieces,
   coverage counts only footprint not blocked by other buildings, and
