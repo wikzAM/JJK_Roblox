@@ -259,3 +259,26 @@ Total: 3,780 parts. Creating them in Edit took 4.0 s, mostly parenting under cha
   - The test omitted ground-floor detail, signs and lights.
   - Measure with ~300 unique textures next (`R2_FACADE_BAKING_PIPELINE.md` key count).
 - **Conclusion:** the lean-map budget (10–25 parts per building) is validated on the render side. The cost driver is the number of unique textures, not parts.
+
+## T13: What breaks batching for textured skins (same 210-building mockup)
+
+The corner view had the whole grid in sight. Each row adds one change to all the rows above it.
+
+| Variant (cumulative) | Draw calls | Render CPU |
+|---|---|---|
+| Baseline: one shared image, one material | 7 | 13.3 ms |
+| Random `Texture.Color3` per skin | 7 | 13.0 ms |
+| + random `OffsetStudsU/V` per skin | 7 | 11.7 ms |
+| + random part `Color` | 7 | 12.7 ms |
+| + 5 different images across skins | **15** | 15.0 ms |
+| + 5 different part materials | **22** | 12.8 ms |
+
+- **Free:** texture tint (`Color3`), texture offset, and part colour. They don't split batches.
+  - The Tokyo kit's per-building tint jitter and phase offsets cost nothing.
+  - **Cropping one atlas image per bay with `OffsetStuds` and `StudsPerTile` keeps everything in one batch.**
+- **Costs draw calls:** each additional unique image (about 2 draw calls each here) and each additional material.
+- **Implication for the bake pipeline:** don't upload about 1,000 separate bay images.
+  - **Pack each facade family into one atlas**, or a few: about 12–24 atlases for F1–F12 plus day and night.
+  - Each skin selects its crop through `OffsetStuds` and `StudsPerTile`.
+  - That bounds facade texture draw calls at about 25–50 for the whole city, whatever the number of keys. The crop maths already exists in `R2_FACADE_BAKING_PIPELINE.md` §5.
+  - An atlas larger than 1,024 px may be downsampled by Roblox (the max texture size is 1,024 unless stated otherwise). Check the max image size, and plan about 16–32 bays per 1,024² atlas at 8 px per stud.
