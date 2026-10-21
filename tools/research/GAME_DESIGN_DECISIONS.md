@@ -159,3 +159,11 @@ See `R2_MASTER_SYNTHESIS.md` §8.
 - **Ground facades measured as the main render cost:** 45–77% of draw calls, and half the render CPU on wide views. Glass costs render CPU, not draw calls.
 - **Night lighting:** emissive SurfaceAppearance/MaterialVariant for distant lit windows and signs; a small budget of near-street lights and GUIs.
 - **Traversal:** the map is about 6,400 × 6,000 studs at 0.2391 m per stud. Proposed speed regimes are combat 50–70, sprint 140–180, travel 600–900 studs/s, with streak or teleport above. FOV is capped at 90 pending a draw-distance test.
+
+## Owner decisions (2026-10-21)
+
+- **No night.** The game is daytime only. The night lighting research (`R3_NIGHT_LIGHTING_TRANSPARENCY_COST.md`) is now reference only. Its glass and GUI cost findings still apply.
+- **Map reset every 15–30 minutes**, plus periodic rebuilding of damaged buildings in between.
+- **Map-wipe ultimates.** Some ultimates flatten the entire map to flat ground. The city must support a whole-map "wiped" state and a return to pristine on reset.
+- **Walk speed stays high.** The owner is designing the movement system. The proposed combat speed of 50–70 in `R3_TRAVERSAL_GAME_FEEL.md` is not adopted.
+- **Building part reduction:** pursue the "one big rectangle per level plus wedges for the perimeter" approach, built from the current slab parts rather than the FBX. Collapse roughly rectangular buildings to very simple boxes. The census is in `R2_CITY_INVENTORY.md`.

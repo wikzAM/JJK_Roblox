@@ -55,3 +55,20 @@ Counts are references to GlassPane, GroundFacadePilot, FacadeInteriorBay, UpperF
 - **Footprint:** 1,941 building models span X −3,155 to 3,235 and Z −2,603 to 3,431, which is **about 6,400 × 6,000 studs** (about 1.5 × 1.4 km at this map's scale of 0.2391 m per stud, per the handoff docs). The diagonal is **about 8,800 studs**.
 - **Heights:** the tallest roof is at Y ≈ 967. Building heights are p50 74 studs, p90 154 studs, max 910 studs.
 - **Pacing implication:** "anywhere within about 20 s" means crossing about 6,000 studs (edge to edge) or about 8,800 (corner to corner). That is an average of **about 300–440 studs/s** including fighting and detours. In practice it calls for long-range movement of about 600+ studs/s, or teleport-tier abilities.
+
+## Footprint shape census (2026-10-21, read-only)
+
+**Method:** for each building, take the `Slab` parts per level (WedgeParts use their true triangle). Build the convex hull of the largest level, then the minimum-area rotated rectangle around it (rotating calipers). "Fill" is slab area ÷ that rectangle's area. Slabs are 5.36 studs thick.
+
+| Fill vs best rotated rectangle | Buildings | Avg levels | Avg slab pieces per level today | With setbacks |
+|---|---|---|---|---|
+| ≥ 95% (effectively a rectangle) | **1,015** | 5.1 | 8.8 | 395 |
+| 90–95% | 230 | 5.1 | 14.2 | 100 |
+| 80–90% | 308 | 5.7 | 17.6 | 167 |
+| < 80% | 388 | 6.3 | 19.8 | 176 |
+
+- **Over half the city (1,015 of 1,941) is effectively rectangular**, yet each of those levels uses about 9 slab pieces. One box per level would do, or one box per run of identical levels.
+- **About 64% (1,245) are at least 90% rectangular, and about 80% (1,553) at least 80%.**
+- **1,571 buildings are convex** (slab area ≥ 95% of the hull). They can be one rectangle plus a few corner wedges per level, the "big rectangle + wedges for the perimeter" idea.
+- **838 buildings have setbacks** (some level under 90% of the largest). Treat them as a stack of boxes, one per distinct footprint band.
+- `Building1` (Shibuya Sky tower, 910 studs tall) has no shell. All 29,907 parts are inside `Interior`: 29,584 `NoCSG` furnishings (furniture, lights, carpet, office walls, 6,400 unions, 590 MeshParts) plus slabs and 276 core walls.
