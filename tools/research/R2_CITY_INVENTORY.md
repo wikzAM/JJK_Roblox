@@ -72,3 +72,25 @@ Counts are references to GlassPane, GroundFacadePilot, FacadeInteriorBay, UpperF
 - **1,571 buildings are convex** (slab area ≥ 95% of the hull). They can be one rectangle plus a few corner wedges per level, the "big rectangle + wedges for the perimeter" idea.
 - **838 buildings have setbacks** (some level under 90% of the largest). Treat them as a stack of boxes, one per distinct footprint band.
 - `Building1` (Shibuya Sky tower, 910 studs tall) has no shell. All 29,907 parts are inside `Interior`: 29,584 `NoCSG` furnishings (furniture, lights, carpet, office walls, 6,400 unions, 590 MeshParts) plus slabs and 276 core walls.
+
+## Part-count projection (2026-10-21, after the artifact archive)
+
+**Live Workspace:** about 840k BaseParts (1.10M instances in the place). Across 1,816 buildings:
+
+| Category | Parts now | Plan | Parts after |
+|---|---|---|---|
+| Ground facades (opaque) | 593,360 | Bake to skins: one textured Part per wall run (avg 9 runs per building, 15,997 total), extended below grade so footings, plinths and steps go | 16k–30k (per run vs per bay) |
+| Ground glass panes | 45,277 | Logical panes inside the skin texture; parts only when cracked or broken | ~0 standing |
+| Slabs | 142,064 | SlabReducer, measured map-wide in Lune on 1,750 plans: shape-faithful 67.8k; near-rect levels ≥90% → 1 box 58.9k; coarser 48.5k | 50k–68k |
+| Cores | 12,168 | Already 6 full-height walls per building | 12k (7k without dividers) |
+| Rims and crowns | 21,867 | Merge per building or fold into skins | 5k–10k |
+| Upper facades | 2,980 now (Play renderer adds more client-side) | 4–9 textured skins per building, or one skin per run running ground to roof | 0–16k extra |
+| Other | ~20k (SlabPilot copies, draft gallery, misc) | Remove the pilot and gallery when done | ~5k |
+| **Total base map** | **~840k** | | **~100k–140k** |
+
+- **Client-only street detail** (full Part facades near slow players, by sector) adds roughly 15k–40k parts on that client only. The server never holds it.
+- **Footing check:** a 600-part sample of `FacadeFooting` (68,667 total) and `BuriedPlinth` (18,019) shows nearly all are partly above terrain. They seal the facade-to-ground gap, so they can't simply be deleted. The baked skins replace them by extending below grade.
+- **Targets:**
+  - **Ideal laptop target:** about 60k parts map-wide. T11 measured about 40 ns per part of render CPU on this desktop, and server memory is about 6.4 KB per part.
+  - **About 100k–140k** should run fine on mid PCs. It is about 0.9 GB of server memory, well inside the 3 GB guidance, and about 5 ms of scene CPU here if everything were in view.
+  - Getting to about 60k needs slabs at about 1–2 per level, or fewer standing skins.

@@ -132,12 +132,23 @@ local function triToWedges(p1: Pt, p2: Pt, p3: Pt, out: { any })
 end
 
 -- Main entry: polygons of one level -> primitives in plan-local XZ.
-function SlabReducer.reduceLevel(polysIn: { Poly }, opts: { areaTol: number?, snapDeg: number? }?): { any }
+function SlabReducer.reduceLevel(
+	polysIn: { Poly },
+	opts: { areaTol: number?, snapDeg: number?, rectFill: number?, dropSlivers: boolean? }?
+): { any }
 	local areaTol = (opts and opts.areaTol) or 2
 	local polys: { Poly } = {}
 	for _, p in polysIn do
 		local s = SlabReducer.simplify(p, areaTol)
-		if #s >= 3 and math.abs(polyArea(s)) > 1 then
+		local a = math.abs(polyArea(s))
+		local perimeter = 0
+		for i = 1, #s do
+			local q = s[i % #s + 1]
+			perimeter += math.sqrt((q[1] - s[i][1]) ^ 2 + (q[2] - s[i][2]) ^ 2)
+		end
+		-- Wall slivers from the source slicing (about 2-3 studs thick): drop them.
+		local sliver = opts and opts.dropSlivers and a < 400 and 2 * a / math.max(perimeter, 1) < 2.5
+		if #s >= 3 and a > 1 and not sliver then
 			table.insert(polys, s)
 		end
 	end
@@ -145,6 +156,21 @@ function SlabReducer.reduceLevel(polysIn: { Poly }, opts: { areaTol: number?, sn
 		return {}
 	end
 	local ux, uz = SlabReducer.dominantAxis(polys)
+
+	-- Optional: a single near-rectangular outline becomes exactly its bounding rectangle.
+	local rectFill = opts and opts.rectFill
+	if rectFill and #polys == 1 then
+		local u0, u1, v0, v1 = math.huge, -math.huge, math.huge, -math.huge
+		for _, v in polys[1] do
+			local u, w = v[1] * ux + v[2] * uz, -v[1] * uz + v[2] * ux
+			u0, u1, v0, v1 = math.min(u0, u), math.max(u1, u), math.min(v0, w), math.max(v1, w)
+		end
+		local rectArea = (u1 - u0) * (v1 - v0)
+		if rectArea > 0 and math.abs(polyArea(polys[1])) / rectArea >= rectFill then
+			local cu, cv = (u0 + u1) / 2, (v0 + v1) / 2
+			return { { kind = "box", cx = cu * ux - cv * uz, cz = cu * uz + cv * ux, sx = u1 - u0, sz = v1 - v0, ux = ux, uz = uz } }
+		end
+	end
 	local function toUV(x: number, z: number): (number, number)
 		return x * ux + z * uz, -x * uz + z * ux
 	end
