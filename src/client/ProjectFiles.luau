@@ -1,5 +1,21 @@
 --!nonstrict
 --[[
+October 21, 2026 — SLAB REDUCTION PILOT + ARTIFACT ARCHIVE (owner-requested).
+  Pilot: Workspace.SlabPilot (off-map at X=4600..4930, Z=-3000..3270) holds 20
+  pairs Pilot_Orig_<name> / Pilot_Reduced_<name>; originals in Buildings are
+  untouched. tools/offline/SlabReducer.luau (pure Luau, runs in Lune and Studio)
+  rebuilds each level of SourceSlicePlan as trapezoid strips = 1 box + up to 2
+  right-triangle wedges per strip (areaTol 20, snapDeg 8): 1,495 -> 796 slab parts
+  (-47%), raycast shape mismatch 1.3% overall (worst 3.5%), rectangles -> 1 part
+  per level. Studio applies it via tools/offline/build_slab_pilot.luau loaded as a
+  temporary ModuleScript from the localhost bridge (port 8766). Lune 0.11.0 added
+  to aftman.toml; tests: lune run tools/offline/test_slab_reducer.luau and
+  test_slab_shape.luau (need tools/offline/data/pilot_plans.json, not committed).
+  Archive: moved 123 tiny buildings (GeneratedFloors<=1, footprint <1000 sq studs;
+  84 were SweepOrphan slices) and 2 buildings whose footprint sat >=80% inside a
+  larger one to ServerStorage.ArtifactArchive_2026_10_21/{Tiny,Nested} (18,301
+  parts; ArchiveReason attribute on each). Buildings: 1,941 -> 1,816. Place saved.
+
 October 21, 2026 — OWNER-APPROVED: Building1 (Shibuya Sky tower) furnishings removed.
   Deleted every NoCSG part under Workspace.Buildings.Building1.Interior
   (29,584 parts: furniture, lights, carpet, office walls, 6,400 unions, 590

@@ -32,3 +32,6 @@ __pycache__/
 
 # generated ground data (tools/ground_heightfield.py, ground_tin.py, ground_terrain.py)
 tools/source_slices/ground/
+
+# offline pipeline exports (Studio -> bridge)
+tools/offline/data/
