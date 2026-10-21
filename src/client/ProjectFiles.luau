@@ -1,5 +1,16 @@
 --!nonstrict
 --[[
+October 21, 2026 — OWNER-APPROVED: Building1 (Shibuya Sky tower) furnishings removed.
+  Deleted every NoCSG part under Workspace.Buildings.Building1.Interior
+  (29,584 parts: furniture, lights, carpet, office walls, 6,400 unions, 590
+  MeshParts). Kept the Interior model, 47 floor models, 47 Slab parts (incl.
+  Roof) and 276 core walls (323 parts). BuildingGenerator and
+  ServerStorage.Furniture/CoreDeco are untouched, so .Regenerate can refurnish
+  later. Place saved. Owner decisions the same day (daytime only, map reset
+  every 15-30 min, map-wipe ultimates, high walk speed, rectangle+wedge slab
+  reduction): tools/research/GAME_DESIGN_DECISIONS.md; footprint census in
+  tools/research/R2_CITY_INVENTORY.md.
+
 October 19, 2026 — DESIGN DIRECTION (READ tools/research/GAME_DESIGN_DECISIONS.md).
   Owner + Claude agreed the game's combat/motion/destruction/rendering pillars:
   physics off by default; motion tiers (kinematic vector paths for most hits,
