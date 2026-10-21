@@ -303,3 +303,23 @@ The corner view had the whole grid in sight. Each row adds one change to all the
 - **Correction to T1: a CSG union's Texture origin is the face centre, not the corner.** After `SubtractAsync`, the cloned Texture needs `OffsetStudsU/V` += half the face size (24, 7 here). Otherwise the image shifts half a tile. T1 missed this because its texture tiled every 4 studs.
 - The opening shows the room behind, with the cut edges in the skin part's own colour. The texture stays on the street face only.
 - The EditableImage texture exists only in this Studio session. A real version uses uploaded atlases.
+
+## T15: Crater on a flat textured wall, using the original glass system (2026-10-21)
+
+**Setup:**
+- `Workspace.GlassSkinDemo.Crater` at X≈5000: a 3-floor, 96-stud wall made of textured skin rows (24 painted panes) with dark office rooms behind.
+- A physical-hit crater: radius 13, centre on floor 2, stair-stepped in 1.5-stud rows.
+- Pane state by distance from the crater to the pane rectangle:
+  - inside the radius: removed;
+  - within +5: shattered;
+  - within +22: cracked;
+  - beyond: intact.
+- Result: 6 removed, 8 shattered, 6 cracked, 6 intact (one pane is in two bands at different rows; the counts are approximate). The wall became 60 skin parts plus 12 real pane parts.
+- Damaged panes are **real glass Parts from the original system**: `GlassVisual.Capture` and `Apply(state)`, with the crack Texture, the jagged-edge `ShatteredImage` strips for shattered panes, and collision rules. Each sits in an opening cut into the skin. Intact panes stay painted.
+
+**Findings:**
+- The rings read clearly: painted intact → cracked real glass → jagged-edged openings → the gone hole with the room visible. The two systems combine without seams: **the flat skin only ever shows intact glass; any damaged pane switches to the original pane look.**
+- **See-through glass in front of a bright room looks pale** next to the dark painted windows. Darker interiors (back wall about RGB 120, dark carpet, low lights) plus tinted glass (RGB 70,92,112, transparency 0.3, reflectance 0.15) match the painted look.
+- **`Lighting.EnvironmentSpecularScale` = 0 and `EnvironmentDiffuseScale` = 0 in this place.** No surface reflects the sky, so painted or PBR glass can't look glossy. Setting specular to 1 (tested briefly, then reverted along with LightingStyle) visibly tints every surface with the sky.
+  - `RoughnessMapContent` and `MetalnessMapContent` accept EditableImage content from the plugin context.
+  - A fair gloss comparison needs specular raised. It is a whole-place look decision.
