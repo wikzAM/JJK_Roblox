@@ -282,3 +282,24 @@ The corner view had the whole grid in sight. Each row adds one change to all the
   - Each skin selects its crop through `OffsetStuds` and `StudsPerTile`.
   - That bounds facade texture draw calls at about 25–50 for the whole city, whatever the number of keys. The crop maths already exists in `R2_FACADE_BAKING_PIPELINE.md` §5.
   - An atlas larger than 1,024 px may be downsampled by Roblox (the max texture size is 1,024 unless stated otherwise). Check the max image size, and plan about 16–32 bays per 1,024² atlas at 8 px per stud.
+
+## T14: Flat textured facade with glass and damage states (visual demo, 2026-10-21)
+
+**Setup:**
+- `tools/demo/GlassSkinDemo.luau` builds `Workspace.GlassSkinDemo` off-map at X 5152–5400, Y 300, Z −3000.
+- One floor of facade (48 × 14 studs) is a single skin Part with one Texture. The texture is a procedurally painted EditableImage at 8 px per stud: tile wall, four aluminium-framed windows, concrete bands. Behind it is a small furnished room.
+- Five copies show the five states.
+
+| State | Facade parts |
+|---|---|
+| 1 Intact | 1 |
+| 2 Cracked panes | 3 (skin + 2 opaque crack overlays using the existing `GlassConfig.CrackImage`) |
+| 3 Shattered pane | 5 (skin split into 4 boxes around the opening + 1 overlay), plus glass shards |
+| 4 Physical hit | 20 (stair-stepped analytic hole, 1.5-stud steps), plus debris and shards |
+| 5 Beam | 3 (CSG union + 2 overlays) |
+
+**Findings:**
+- **Split pieces line up exactly** with the full skin when each piece uses `StudsPerTile` = full skin size and `OffsetStudsU/V = +u0/+v0`. u and v are measured from the top-left as seen from the street; the screen-right direction is the part's −X for a Front face facing −Z. A wrong sign visibly misaligns the windows.
+- **Correction to T1: a CSG union's Texture origin is the face centre, not the corner.** After `SubtractAsync`, the cloned Texture needs `OffsetStudsU/V` += half the face size (24, 7 here). Otherwise the image shifts half a tile. T1 missed this because its texture tiled every 4 studs.
+- The opening shows the room behind, with the cut edges in the skin part's own colour. The texture stays on the street face only.
+- The EditableImage texture exists only in this Studio session. A real version uses uploaded atlases.
