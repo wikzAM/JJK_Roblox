@@ -98,6 +98,80 @@ function T.Office()
 	return office
 end
 
+-- Tokyo ribbon-window office (small-tile spandrels, continuous glazing, aluminium
+-- mullions every 3 studs, some panes with blinds). Tile = 12 x 14 studs.
+local ribbons = {}
+function T.Ribbon(variant: string)
+	if ribbons[variant] then
+		return ribbons[variant]
+	end
+	local tile = variant == "brown" and { 150, 128, 106 } or { 176, 176, 172 }
+	local grout = variant == "brown" and { 122, 104, 86 } or { 148, 148, 146 }
+	ribbons[variant] = newImage(12, 14, function(iw, ih, set)
+		local rng = Random.new(variant == "brown" and 21 or 22)
+		local blinds = {}
+		for p = 0, 3 do
+			blinds[p] = rng:NextNumber() < 0.45
+		end
+		for y = 0, ih - 1 do
+			for x = 0, iw - 1 do
+				local su, sv = x / PPS, y / PPS
+				if sv < 6.2 or sv >= 12.6 then -- tiled spandrel
+					local j = ((x // 8) * 7 + (y // 4) * 13) % 9 - 4
+					if x % 8 == 0 or y % 4 == 0 then
+						set(x, y, grout[1] + j, grout[2] + j, grout[3] + j)
+					else
+						set(x, y, tile[1] + j, tile[2] + j, tile[3] + j)
+					end
+					if sv >= 12.6 and sv < 12.85 then -- shadow under the window sill
+						set(x, y, grout[1] - 30, grout[2] - 30, grout[3] - 30)
+					end
+				elseif sv < 6.45 or sv > 12.35 or su % 3 < 0.18 or su % 3 > 2.82 then
+					set(x, y, 205, 208, 211) -- aluminium head, sill and mullions
+				else
+					local pane = math.floor(su / 3)
+					local t = (sv - 6.45) / 5.9
+					local r, g, b = 150 - 40 * t, 165 - 42 * t, 178 - 44 * t -- pale reflective glass
+					local d = x + y * 1.1
+					if d % 80 > 10 and d % 80 < 30 then
+						r, g, b = r + 22, g + 22, b + 20
+					end
+					if blinds[pane] and sv < 6.45 + 3.4 then -- blinds / curtains drawn partway
+						local stripe = (y % 3 == 0) and 12 or 0
+						r, g, b = 226 - stripe, 224 - stripe, 216 - stripe
+					end
+					set(x, y, r, g, b)
+				end
+			end
+		end
+	end)
+	return ribbons[variant]
+end
+
+-- Re-style the upper skins of every building in a folder: cycles grid / brown ribbon / grey ribbon.
+function T.Restyle(folder: Instance)
+	local styles = { "grid", "brown", "grey" }
+	local n = 0
+	for i, model in folder:GetChildren() do
+		local style = styles[(i - 1) % 3 + 1]
+		local rng = Random.new(i * 31)
+		local tint = Color3.fromHSV(rng:NextNumber(0.05, 0.12), rng:NextNumber(0, 0.05), rng:NextNumber(0.92, 1))
+		local skins = model:FindFirstChild("FacadeSkins")
+		if skins then
+			for _, p in skins:GetChildren() do
+				if p.Name == "UpperSkin" then
+					local t = p:FindFirstChildOfClass("Texture")
+					t.TextureContent = Content.fromObject(style == "grid" and T.Office() or T.Ribbon(style))
+					t.StudsPerTileU = 12
+					t.Color3 = tint
+					n += 1
+				end
+			end
+		end
+	end
+	return n
+end
+
 local function skin(parent: Instance, origin: CFrame, a, b, y0: number, y1: number, img, tileU: number, tileV: number, tint: Color3, name: string)
 	local dx, dz = b[1] - a[1], b[2] - a[2]
 	local len = math.sqrt(dx * dx + dz * dz)
