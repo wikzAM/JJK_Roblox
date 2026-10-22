@@ -134,7 +134,7 @@ end
 -- Main entry: polygons of one level -> primitives in plan-local XZ.
 function SlabReducer.reduceLevel(
 	polysIn: { Poly },
-	opts: { areaTol: number?, snapDeg: number?, rectFill: number?, dropSlivers: boolean? }?
+	opts: { areaTol: number?, snapDeg: number?, rectFill: number?, dropSlivers: boolean?, returnOutline: boolean? }?
 ): { any }
 	local areaTol = (opts and opts.areaTol) or 2
 	local polys: { Poly } = {}
@@ -240,6 +240,19 @@ function SlabReducer.reduceLevel(
 			end
 		end
 		table.insert(uvPolys, q)
+	end
+
+	-- Facade skins must follow exactly the outline the slabs are built from.
+	if opts and opts.returnOutline then
+		local outline = {}
+		for _, q in uvPolys do
+			local xz = {}
+			for _, v in q do
+				table.insert(xz, toXZ(v[1], v[2]))
+			end
+			table.insert(outline, xz)
+		end
+		return outline
 	end
 
 	-- Edges in (u,v); collect vertex v values for strip boundaries.

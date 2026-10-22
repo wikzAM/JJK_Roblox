@@ -14,12 +14,12 @@ local function newImage(w, h, painter)
 	local iw, ih = w * PPS, h * PPS
 	local img = AssetService:CreateEditableImage({ Size = Vector2.new(iw, ih) })
 	local buf = buffer.create(iw * ih * 4)
-	local function set(x, y, r, g, b)
+	local function set(x, y, r, g, b, a)
 		local i = (y * iw + x) * 4
 		buffer.writeu8(buf, i, math.clamp(r, 0, 255))
 		buffer.writeu8(buf, i + 1, math.clamp(g, 0, 255))
 		buffer.writeu8(buf, i + 2, math.clamp(b, 0, 255))
-		buffer.writeu8(buf, i + 3, 255)
+		buffer.writeu8(buf, i + 3, a or 255)
 	end
 	painter(iw, ih, set)
 	img:WritePixelsBuffer(Vector2.zero, img.Size, buf)
@@ -57,71 +57,108 @@ function T.Shopfront()
 	return shopfront
 end
 
--- Simple office floor, one tile = 12 x 14 studs (stretched to floor height).
-local office
-function T.Office()
-	office = office
-		or newImage(12, 14, function(iw, ih, set)
-			local rng = Random.new(7)
-			for y = 0, ih - 1 do
-				for x = 0, iw - 1 do
-					local su, sv = x / PPS, y / PPS
-					if sv < 2.5 or sv >= 11.5 then -- spandrel / slab band
-						local r = 176 + rng:NextInteger(-4, 4)
-						set(x, y, r, r - 4, r - 12)
-					elseif su < 1.4 or su > 10.6 then -- pier
-						local r = 196 + rng:NextInteger(-4, 4)
-						set(x, y, r, r - 6, r - 16)
-					elseif su < 1.7 or su > 10.3 or sv < 2.8 or sv > 11.2 or math.abs(su - 6) < 0.15 then
-						set(x, y, 182, 186, 191) -- frame and mullion
-					else
-						set(x, y, GLASS[1], GLASS[2], GLASS[3])
-					end
-				end
-			end
-		end)
-	return office
-end
+-- Upper-floor layouts in one 12 x 14 tile (stretched to the storey height). v runs from
+-- the top of the storey; the floor slab sits in the bottom ~5.4 of 17.86 studs, so the
+-- window band must sit above it: v 1.2 .. 9.0 (ribbon) / 1.0 .. 9.2 (office grid).
+T.Layout = {
+	ribbon = { pv0 = 1.2, pv1 = 9.0, panes = { { 0.18, 5.82 }, { 6.18, 11.82 } } },
+	office = { pv0 = 1.0, pv1 = 9.2, panes = { { 1.7, 5.85 }, { 6.15, 10.3 } } },
+}
 
--- Tokyo ribbon-window office (small-tile spandrels, continuous glazing, aluminium
--- mullions every 6 studs, flat glass colour). Tile = 12 x 14 studs.
-local ribbons = {}
-function T.Ribbon(variant: string)
-	if ribbons[variant] then
-		return ribbons[variant]
+-- alpha = window-pixel opacity (255 = opaque painted glass, lower = see-through)
+local office = {}
+function T.Office(alpha: number?)
+	alpha = alpha or 255
+	if office[alpha] then
+		return office[alpha]
 	end
-	local tile = variant == "brown" and { 150, 128, 106 } or { 176, 176, 172 }
-	local grout = variant == "brown" and { 122, 104, 86 } or { 148, 148, 146 }
-	ribbons[variant] = newImage(12, 14, function(iw, ih, set)
+	local L = T.Layout.office
+	office[alpha] = newImage(12, 14, function(iw, ih, set)
+		local rng = Random.new(7)
 		for y = 0, ih - 1 do
 			for x = 0, iw - 1 do
 				local su, sv = x / PPS, y / PPS
-				if sv < 6.2 or sv >= 12.6 then -- tiled spandrel
+				if sv < L.pv0 - 0.3 or sv >= L.pv1 + 0.3 then -- spandrel covers the slab edge
+					local r = 176 + rng:NextInteger(-4, 4)
+					set(x, y, r, r - 4, r - 12)
+				elseif su < 1.4 or su > 10.6 then -- pier
+					local r = 196 + rng:NextInteger(-4, 4)
+					set(x, y, r, r - 6, r - 16)
+				elseif su < 1.7 or su > 10.3 or sv < L.pv0 or sv > L.pv1 or math.abs(su - 6) < 0.15 then
+					set(x, y, 182, 186, 191) -- frame and mullion
+				else
+					set(x, y, GLASS[1], GLASS[2], GLASS[3], alpha)
+				end
+			end
+		end
+	end)
+	return office[alpha]
+end
+
+local ribbons = {}
+function T.Ribbon(variant: string, alpha: number?)
+	alpha = alpha or 255
+	local key = variant .. alpha
+	if ribbons[key] then
+		return ribbons[key]
+	end
+	local L = T.Layout.ribbon
+	local tile = variant == "brown" and { 150, 128, 106 } or { 176, 176, 172 }
+	local grout = variant == "brown" and { 122, 104, 86 } or { 148, 148, 146 }
+	ribbons[key] = newImage(12, 14, function(iw, ih, set)
+		for y = 0, ih - 1 do
+			for x = 0, iw - 1 do
+				local su, sv = x / PPS, y / PPS
+				if sv < L.pv0 - 0.25 or sv >= L.pv1 + 0.25 then -- tiled spandrel
 					local j = ((x // 8) * 7 + (y // 4) * 13) % 9 - 4
 					if x % 8 == 0 or y % 4 == 0 then
 						set(x, y, grout[1] + j, grout[2] + j, grout[3] + j)
 					else
 						set(x, y, tile[1] + j, tile[2] + j, tile[3] + j)
 					end
-					if sv >= 12.6 and sv < 12.85 then -- shadow under the window sill
+					if sv >= L.pv1 + 0.25 and sv < L.pv1 + 0.5 then -- shadow under the sill
 						set(x, y, grout[1] - 30, grout[2] - 30, grout[3] - 30)
 					end
-				elseif sv < 6.45 or sv > 12.35 or su % 6 < 0.18 or su % 6 > 5.82 then
+				elseif sv < L.pv0 or sv > L.pv1 or su % 6 < 0.18 or su % 6 > 5.82 then
 					set(x, y, 205, 208, 211) -- aluminium head, sill and mullions
 				else
-					set(x, y, GLASS[1], GLASS[2], GLASS[3])
+					set(x, y, GLASS[1], GLASS[2], GLASS[3], alpha)
 				end
 			end
 		end
 	end)
-	return ribbons[variant]
+	return ribbons[key]
 end
 
+-- Which layout a texture image belongs to (any alpha variant).
+function T.LayoutOf(img)
+	for _, a in { 255, T.SeeThroughAlpha } do
+		if img == T.Ribbon("grey", a) or img == T.Ribbon("brown", a) then
+			return T.Layout.ribbon
+		elseif img == T.Office(a) then
+			return T.Layout.office
+		end
+	end
+	return nil
+end
+T.SeeThroughAlpha = 70
+
 -- Re-style the upper skins of every building in a folder: cycles grid / brown ribbon / grey ribbon.
-function T.Restyle(folder: Instance)
+-- seeThrough: window pixels partly transparent, skin part fully transparent, texture on both faces.
+function T.Restyle(folder: Instance, seeThrough: boolean?)
 	local styles = { "grid", "brown", "grey" }
+	local alpha = seeThrough and T.SeeThroughAlpha or 255
 	local n = 0
-	for i, model in folder:GetChildren() do
+	local list = {}
+	for _, m in folder:GetChildren() do
+		if m:IsA("Model") then
+			table.insert(list, m)
+		end
+	end
+	table.sort(list, function(a, b)
+		return a.Name < b.Name
+	end)
+	for i, model in list do
 		local style = styles[(i - 1) % 3 + 1]
 		local rng = Random.new(i * 31)
 		local tint = Color3.fromHSV(rng:NextNumber(0.05, 0.12), rng:NextNumber(0, 0.05), rng:NextNumber(0.92, 1))
@@ -130,9 +167,21 @@ function T.Restyle(folder: Instance)
 			for _, p in skins:GetChildren() do
 				if p.Name == "UpperSkin" then
 					local t = p:FindFirstChildOfClass("Texture")
-					t.TextureContent = Content.fromObject(style == "grid" and T.Office() or T.Ribbon(style))
+					t.TextureContent = Content.fromObject(style == "grid" and T.Office(alpha) or T.Ribbon(style, alpha))
 					t.StudsPerTileU = 12
 					t.Color3 = tint
+					local back = p:FindFirstChild("BackTexture")
+					if seeThrough then
+						p.Transparency = 1
+						back = back or t:Clone()
+						back.Name = "BackTexture"
+						back.Face = Enum.NormalId.Back
+						back.TextureContent = t.TextureContent
+						back.Color3 = tint
+						back.Parent = p
+					elseif back then
+						back:Destroy()
+					end
 					n += 1
 				end
 			end
@@ -144,7 +193,7 @@ end
 -- Parts version of the upper floors: replaces each UpperSkin with a per-floor part
 -- composition (spandrel bands, head/sill strips, mullions or piers, real glass panes
 -- tagged for the glass system). Colours are sampled from the skin's own texture.
-local GLASS = Color3.fromRGB(88, 104, 118)
+local GLASS_C = Color3.fromRGB(88, 104, 118)
 local function texColor(tex: Texture, img, fu: number, fv: number): Color3
 	local px = math.clamp(math.floor(fu * img.Size.X), 0, img.Size.X - 1)
 	local py = math.clamp(math.floor(fv * img.Size.Y), 0, img.Size.Y - 1)
@@ -169,16 +218,15 @@ function T.ComposeUpper(model: Model): number
 		end
 		local tex = sk:FindFirstChildOfClass("Texture")
 		local img = tex and tex.TextureContent and tex.TextureContent.Object
-		if not img then
+		local lay = img and T.LayoutOf(img)
+		if not lay then
 			continue
 		end
-		local ribbon = img == T.Ribbon("grey") or img == T.Ribbon("brown")
-		-- pane layout within one 12 x 14 tile (u0,u1,v0,v1 in tile studs)
-		local layout = ribbon and { { 0.18, 5.82 }, { 6.18, 11.82 } } or { { 1.7, 5.85 }, { 6.15, 10.3 } }
-		local pv0, pv1 = ribbon and 6.45 or 2.8, ribbon and 12.35 or 11.2
-		local wallCol = texColor(tex, img, 0.3, ribbon and 0.2 / 1 * 0.2 or 0.05)
+		local ribbon = lay == T.Layout.ribbon
+		local pv0, pv1 = lay.pv0, lay.pv1
+		local wallCol = texColor(tex, img, 0.31, 0.8)
 		local frameCol = Color3.fromRGB(200, 203, 206)
-		local pierCol = ribbon and frameCol or texColor(tex, img, 0.05, 0.5)
+		local pierCol = ribbon and frameCol or texColor(tex, img, 0.05, (pv0 + pv1) / 28)
 		local L, H = sk.Size.X, sk.Size.Y
 		local fh = tex.StudsPerTileV
 		local k = fh / 14
@@ -210,16 +258,15 @@ function T.ComposeUpper(model: Model): number
 			put(0, L, top + pv0 * k - 0.25, top + pv0 * k, frameCol, Enum.Material.Metal, false, "Head")
 			put(0, L, top + pv1 * k, top + pv1 * k + 0.25, frameCol, Enum.Material.Metal, false, "Sill")
 			put(0, L, top + pv1 * k + 0.25, top + fh, wallCol, Enum.Material.SmoothPlastic, false, "Spandrel")
-			-- panes and the gaps between them along the edge
 			local u = 0
 			local i = 0
 			while u < L - 0.05 do
-				for _, pr in layout do
+				for _, pr in lay.panes do
 					local a, b = i * 12 + pr[1], math.min(i * 12 + pr[2], L)
 					if a < L then
 						put(u, math.min(a, L), top + pv0 * k, top + pv1 * k, pierCol, Enum.Material.Metal, false, "Mullion")
 						if b - a > 0.5 then
-							put(a, b, top + pv0 * k, top + pv1 * k, GLASS, Enum.Material.Glass, true, "GlassPane")
+							put(a, b, top + pv0 * k, top + pv1 * k, GLASS_C, Enum.Material.Glass, true, "GlassPane")
 						end
 						u = b
 					end
@@ -250,7 +297,7 @@ local function skin(parent: Instance, origin: CFrame, a, b, y0: number, y1: numb
 	p.Name = name
 	p.Material = Enum.Material.SmoothPlastic
 	p.Color = Color3.fromRGB(150, 146, 140)
-	p.Size = Vector3.new(len, y1 - y0, 0.6)
+	p.Size = Vector3.new(len + 0.6, y1 - y0, 0.6) -- overlap at corners so they close
 	p.CFrame = origin * CFrame.fromMatrix(Vector3.new(mx, (y0 + y1) / 2, mz), xAxis, Vector3.yAxis)
 	local t = Instance.new("Texture")
 	t.Face = Enum.NormalId.Front
@@ -306,10 +353,9 @@ function T.AddSkins(model: Model, Reducer, groundFlat: boolean, seed: number): (
 	local outlines = {}
 	for i, level in plan.levels do
 		local polys = {}
-		for _, p in level.pieces do
-			local s = Reducer.simplify(p, 20)
-			if #s >= 3 then
-				table.insert(polys, s)
+		for _, poly in Reducer.reduceLevel(level.pieces, { areaTol = 20, snapDeg = 8, dropSlivers = true, returnOutline = true }) do
+			if #poly >= 3 then
+				table.insert(polys, poly)
 			end
 		end
 		outlines[i] = polys

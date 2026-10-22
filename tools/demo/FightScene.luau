@@ -279,15 +279,15 @@ end
 local function paneLayout(tex: Texture)
 	local T = _G.__SectorT
 	local obj = tex.TextureContent and tex.TextureContent.Object
-	if not T or not obj then
+	local lay = T and obj and T.LayoutOf and T.LayoutOf(obj)
+	if not lay then
 		return nil
 	end
-	if obj == T.Ribbon("grey") or obj == T.Ribbon("brown") then
-		return { { 0.18 / 12, 5.82 / 12, 6.45 / 14, 12.35 / 14 }, { 6.18 / 12, 11.82 / 12, 6.45 / 14, 12.35 / 14 } }
-	elseif obj == T.Office() then
-		return { { 1.7 / 12, 5.85 / 12, 2.8 / 14, 11.2 / 14 }, { 6.15 / 12, 10.3 / 12, 2.8 / 14, 11.2 / 14 } }
+	local out = {}
+	for _, pr in lay.panes do
+		table.insert(out, { pr[1] / 12, pr[2] / 12, lay.pv0 / 14, lay.pv1 / 14 })
 	end
-	return nil
+	return out
 end
 
 local GlassVisual
@@ -374,10 +374,15 @@ local function cutSkinWithGlass(skin: BasePart, P: Vector3, R: number): boolean
 			pc.Size = Vector3.new(u1 - u0, v1 - v0, skin.Size.Z)
 			pc.CFrame = skin.CFrame * CFrame.new(L / 2 - (u0 + u1) / 2, H / 2 - (v0 + v1) / 2, 0)
 			pc.Transparency = skin.Transparency
-			local t = pc:FindFirstChildOfClass("Texture")
-			if t and tex then
-				t.OffsetStudsU = tex.OffsetStudsU + u0
-				t.OffsetStudsV = tex.OffsetStudsV + v0
+			for _, t in pc:GetChildren() do
+				if t:IsA("Texture") then
+					local src = skin:FindFirstChild(t.Name)
+					local baseU = src and src.OffsetStudsU or 0
+					local baseV = src and src.OffsetStudsV or 0
+					-- the back face runs the other way along the wall
+					t.OffsetStudsU = baseU + (t.Face == Enum.NormalId.Back and (L - u1) or u0)
+					t.OffsetStudsV = baseV + v0
+				end
 			end
 			pc.Parent = fx()
 		end
@@ -443,8 +448,8 @@ local function spawnBurst(P: Vector3, dir: Vector3, groundY: number, rng: Random
 	end
 	-- amplified, long-lasting HitHandler dust tinted toward the wall colour
 	local dustCol = sampled():Lerp(Color3.fromRGB(150, 145, 138), 0.5)
-	dustCloud(P, 2.6, dustCol, 6.5)
-	dustCloud(P + dir * 6, 1.8, dustCol, 5)
+	dustCloud(P, 2.6, dustCol, 3.2)
+	dustCloud(P + dir * 6, 1.8, dustCol, 2.6)
 end
 
 -- Static "baked" debris placed under the dust (about 50 parts):
@@ -916,9 +921,10 @@ function Scene.Play(plan, flat: boolean, duration: number?)
 		local rpc = RaycastParams.new()
 		rpc.FilterType = Enum.RaycastFilterType.Exclude
 		rpc.FilterDescendantsInstances = { fx() }
-		for _, cand in { -d * 16 + side * 9 + Vector3.new(0, 6, 0), -d * 16 - side * 9 + Vector3.new(0, 6, 0), side * 18 + Vector3.new(0, 5, 0), -side * 18 + Vector3.new(0, 5, 0), -d * 10 + Vector3.new(0, 14, 0) } do
+		for _, cand in { -d * 16 + side * 9 + Vector3.new(0, 6, 0), -d * 16 - side * 9 + Vector3.new(0, 6, 0), side * 18 + Vector3.new(0, 5, 0), -side * 18 + Vector3.new(0, 5, 0), -d * 22 + Vector3.new(0, 10, 0), -d * 14 + Vector3.new(0, 30, 0) } do
 			local eye = target + cand
-			if not workspace:Raycast(target, cand, rpc) and #workspace:GetPartBoundsInRadius(eye, 2) == 0 then
+			local openSky = not workspace:Raycast(eye, Vector3.new(0, 400, 0), rpc)
+			if openSky and not workspace:Raycast(target, cand, rpc) and #workspace:GetPartBoundsInRadius(eye, 2) == 0 then
 				return eye
 			end
 		end
@@ -998,7 +1004,7 @@ function Scene.Play(plan, flat: boolean, duration: number?)
 						vy = 0
 						grounded = true
 						landAt = Vector3.new(S.X, floorY, S.Z) + d * distNow
-						dustCloud(landAt + Vector3.yAxis, 1.6, Color3.fromRGB(150, 148, 145), 6)
+						dustCloud(landAt + Vector3.yAxis, 1.6, Color3.fromRGB(150, 148, 145), 2.6)
 					end
 				end
 			end
