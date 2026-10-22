@@ -141,6 +141,101 @@ function T.Restyle(folder: Instance)
 	return n
 end
 
+-- Parts version of the upper floors: replaces each UpperSkin with a per-floor part
+-- composition (spandrel bands, head/sill strips, mullions or piers, real glass panes
+-- tagged for the glass system). Colours are sampled from the skin's own texture.
+local GLASS = Color3.fromRGB(88, 104, 118)
+local function texColor(tex: Texture, img, fu: number, fv: number): Color3
+	local px = math.clamp(math.floor(fu * img.Size.X), 0, img.Size.X - 1)
+	local py = math.clamp(math.floor(fv * img.Size.Y), 0, img.Size.Y - 1)
+	local buf = img:ReadPixelsBuffer(Vector2.new(px, py), Vector2.one)
+	local c = tex.Color3
+	return Color3.fromRGB(buffer.readu8(buf, 0) * c.R, buffer.readu8(buf, 1) * c.G, buffer.readu8(buf, 2) * c.B)
+end
+
+function T.ComposeUpper(model: Model): number
+	local skins = model:FindFirstChild("FacadeSkins")
+	if not skins then
+		return 0
+	end
+	local GlassVisual = require(game:GetService("ReplicatedStorage").Shared.GlassVisual)
+	local out = model:FindFirstChild("FacadeParts") or Instance.new("Folder")
+	out.Name = "FacadeParts"
+	out.Parent = model
+	local made = 0
+	for _, sk in skins:GetChildren() do
+		if sk.Name ~= "UpperSkin" then
+			continue
+		end
+		local tex = sk:FindFirstChildOfClass("Texture")
+		local img = tex and tex.TextureContent and tex.TextureContent.Object
+		if not img then
+			continue
+		end
+		local ribbon = img == T.Ribbon("grey") or img == T.Ribbon("brown")
+		-- pane layout within one 12 x 14 tile (u0,u1,v0,v1 in tile studs)
+		local layout = ribbon and { { 0.18, 5.82 }, { 6.18, 11.82 } } or { { 1.7, 5.85 }, { 6.15, 10.3 } }
+		local pv0, pv1 = ribbon and 6.45 or 2.8, ribbon and 12.35 or 11.2
+		local wallCol = texColor(tex, img, 0.3, ribbon and 0.2 / 1 * 0.2 or 0.05)
+		local frameCol = Color3.fromRGB(200, 203, 206)
+		local pierCol = ribbon and frameCol or texColor(tex, img, 0.05, 0.5)
+		local L, H = sk.Size.X, sk.Size.Y
+		local fh = tex.StudsPerTileV
+		local k = fh / 14
+		local floors = math.max(1, math.floor(H / fh + 0.5))
+		local function put(u0, u1, v0, v1, color, mat, isGlass, name)
+			if u1 - u0 < 0.05 or v1 - v0 < 0.05 then
+				return
+			end
+			local p = Instance.new("Part")
+			p.Anchored = true
+			p.Name = name
+			p.Material = mat or Enum.Material.SmoothPlastic
+			p.Color = color
+			p.Size = Vector3.new(u1 - u0, v1 - v0, isGlass and 0.25 or (name == "Mullion" and 0.9 or 0.6))
+			p.CFrame = sk.CFrame * CFrame.new(L / 2 - (u0 + u1) / 2, H / 2 - (v0 + v1) / 2, isGlass and 0.15 or 0)
+			if isGlass then
+				p.Transparency = 0.3
+				p.Reflectance = 0.1
+				p.Parent = out
+				GlassVisual.Capture(p, model.Name .. ":" .. made, true)
+			else
+				p.Parent = out
+			end
+			made += 1
+		end
+		for f = 0, floors - 1 do
+			local top = f * fh
+			put(0, L, top, top + pv0 * k - 0.25, wallCol, Enum.Material.SmoothPlastic, false, "Spandrel")
+			put(0, L, top + pv0 * k - 0.25, top + pv0 * k, frameCol, Enum.Material.Metal, false, "Head")
+			put(0, L, top + pv1 * k, top + pv1 * k + 0.25, frameCol, Enum.Material.Metal, false, "Sill")
+			put(0, L, top + pv1 * k + 0.25, top + fh, wallCol, Enum.Material.SmoothPlastic, false, "Spandrel")
+			-- panes and the gaps between them along the edge
+			local u = 0
+			local i = 0
+			while u < L - 0.05 do
+				for _, pr in layout do
+					local a, b = i * 12 + pr[1], math.min(i * 12 + pr[2], L)
+					if a < L then
+						put(u, math.min(a, L), top + pv0 * k, top + pv1 * k, pierCol, Enum.Material.Metal, false, "Mullion")
+						if b - a > 0.5 then
+							put(a, b, top + pv0 * k, top + pv1 * k, GLASS, Enum.Material.Glass, true, "GlassPane")
+						end
+						u = b
+					end
+				end
+				i += 1
+				if i * 12 >= L then
+					put(u, L, top + pv0 * k, top + pv1 * k, pierCol, Enum.Material.Metal, false, "Mullion")
+					u = L
+				end
+			end
+		end
+		sk:Destroy()
+	end
+	return made
+end
+
 local function skin(parent: Instance, origin: CFrame, a, b, y0: number, y1: number, img, tileU: number, tileV: number, tint: Color3, name: string)
 	local dx, dz = b[1] - a[1], b[2] - a[2]
 	local len = math.sqrt(dx * dx + dz * dz)
