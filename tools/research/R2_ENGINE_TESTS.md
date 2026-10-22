@@ -323,3 +323,33 @@ The corner view had the whole grid in sight. Each row adds one change to all the
 - **`Lighting.EnvironmentSpecularScale` = 0 and `EnvironmentDiffuseScale` = 0 in this place.** No surface reflects the sky, so painted or PBR glass can't look glossy. Setting specular to 1 (tested briefly, then reverted along with LightingStyle) visibly tints every surface with the sky.
   - `RoughnessMapContent` and `MetalnessMapContent` accept EditableImage content from the plugin context.
   - A fair gloss comparison needs specular raised. It is a whole-place look decision.
+
+## T16: Test sector, parts ground facades vs flat ground skins (2026-10-22)
+
+**Setup:**
+- `tools/demo/SectorTest.luau` copies 17 real buildings (2–10 floors, the cell around (2583, −1009)) twice, off-map in `Workspace.SectorTest`:
+  - `A_PartsGround` at (7000, −800);
+  - `B_FlatGround` at (7000, +800).
+- **Both copies:** SlabReducer slabs (tolerance 20, snap 8, slivers dropped), plus flat upper-floor skins: one textured Part per outline edge, merged vertically across floors with identical outlines, with a painted office tile and a per-building tint.
+- **Copy A** keeps today's `GroundFacadePilot`.
+- **Copy B** replaces it with flat ground skins: a placeholder painted shopfront tile extended 3 studs below grade. It is not a bake of each building's real facade.
+
+| | Original | A: parts ground | B: flat ground |
+|---|---|---|---|
+| Slabs | 906 | 445 | 445 |
+| Facade skins | 0 | 120 (upper) | 235 (upper + ground) |
+| Ground facade parts | 4,568 | 4,568 | 0 |
+| Other (rims, cores) | 219 | 219 | 219 |
+| **Total parts** | **5,693** | **5,352** | **899 (−84%)** |
+
+**Render, with the rest of the city hidden locally (draw calls / triangles / render CPU):**
+
+| View | A | B | Nothing |
+|---|---|---|---|
+| Street | 219 / 81k / 17.2 ms | 213 / 46k / 17.1 ms | 216 / 46k / 17.1 ms |
+| Aerial | 212 / 77k / 16.6 ms | 235 / 78k / 15.9 ms | 235 / 78k / 16.0 ms |
+
+- The baseline (about 215 draw calls, 16–17 ms) is terrain plus hidden-part overhead.
+- The flat sector costs nothing measurable. The parts sector adds about 35k triangles at street level and a fraction of a millisecond.
+- **One sector is cheap either way; the gap only matters city-wide**, at about 100 such sectors. That is the 840k → about 120k projection.
+- **Visual:** the flat upper floors turn the bare slab stacks into readable office buildings. The flat ground floor needs a real per-facade bake to match copy A; the placeholder texture shows the method only.
