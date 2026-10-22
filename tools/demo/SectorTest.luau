@@ -84,7 +84,7 @@ function T.Office()
 end
 
 -- Tokyo ribbon-window office (small-tile spandrels, continuous glazing, aluminium
--- mullions every 3 studs, flat glass colour). Tile = 12 x 14 studs.
+-- mullions every 6 studs, flat glass colour). Tile = 12 x 14 studs.
 local ribbons = {}
 function T.Ribbon(variant: string)
 	if ribbons[variant] then
@@ -106,7 +106,7 @@ function T.Ribbon(variant: string)
 					if sv >= 12.6 and sv < 12.85 then -- shadow under the window sill
 						set(x, y, grout[1] - 30, grout[2] - 30, grout[3] - 30)
 					end
-				elseif sv < 6.45 or sv > 12.35 or su % 3 < 0.18 or su % 3 > 2.82 then
+				elseif sv < 6.45 or sv > 12.35 or su % 6 < 0.18 or su % 6 > 5.82 then
 					set(x, y, 205, 208, 211) -- aluminium head, sill and mullions
 				else
 					set(x, y, GLASS[1], GLASS[2], GLASS[3])
