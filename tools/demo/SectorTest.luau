@@ -9,6 +9,7 @@ local HttpService = game:GetService("HttpService")
 local T = {}
 
 local PPS = 8
+local GLASS = { 88, 104, 118 } -- flat glass colour (owner: no streaks or gradients)
 local function newImage(w, h, painter)
 	local iw, ih = w * PPS, h * PPS
 	local img = AssetService:CreateEditableImage({ Size = Vector2.new(iw, ih) })
@@ -48,17 +49,7 @@ function T.Shopfront()
 					elseif su > 9.5 and su < 14.5 and sv > 9.5 and math.abs(su - 12) < 0.15 then -- door split
 						set(x, y, 70, 72, 76)
 					else
-						local t = (sv - 3.9) / 12.7
-						local r, g, b = 58 - 20 * t, 72 - 24 * t, 88 - 30 * t
-						local d = x + y * 0.8
-						if d % 90 > 20 and d % 90 < 38 then
-							r, g, b = r + 30, g + 34, b + 36
-						end
-						-- warm interior hint near the bottom
-						if sv > 12.5 then
-							r, g, b = r + 18, g + 12, b + 4
-						end
-						set(x, y, r, g, b)
+						set(x, y, GLASS[1], GLASS[2], GLASS[3])
 					end
 				end
 			end
@@ -84,13 +75,7 @@ function T.Office()
 					elseif su < 1.7 or su > 10.3 or sv < 2.8 or sv > 11.2 or math.abs(su - 6) < 0.15 then
 						set(x, y, 182, 186, 191) -- frame and mullion
 					else
-						local t = (sv - 2.8) / 8.4
-						local r, g, b = 64 - 22 * t, 80 - 26 * t, 100 - 32 * t
-						local d = x + y * 0.9
-						if d % 60 > 14 and d % 60 < 26 then
-							r, g, b = r + 34, g + 38, b + 40
-						end
-						set(x, y, r, g, b)
+						set(x, y, GLASS[1], GLASS[2], GLASS[3])
 					end
 				end
 			end
@@ -99,7 +84,7 @@ function T.Office()
 end
 
 -- Tokyo ribbon-window office (small-tile spandrels, continuous glazing, aluminium
--- mullions every 3 studs, some panes with blinds). Tile = 12 x 14 studs.
+-- mullions every 3 studs, flat glass colour). Tile = 12 x 14 studs.
 local ribbons = {}
 function T.Ribbon(variant: string)
 	if ribbons[variant] then
@@ -108,11 +93,6 @@ function T.Ribbon(variant: string)
 	local tile = variant == "brown" and { 150, 128, 106 } or { 176, 176, 172 }
 	local grout = variant == "brown" and { 122, 104, 86 } or { 148, 148, 146 }
 	ribbons[variant] = newImage(12, 14, function(iw, ih, set)
-		local rng = Random.new(variant == "brown" and 21 or 22)
-		local blinds = {}
-		for p = 0, 3 do
-			blinds[p] = rng:NextNumber() < 0.45
-		end
 		for y = 0, ih - 1 do
 			for x = 0, iw - 1 do
 				local su, sv = x / PPS, y / PPS
@@ -129,18 +109,7 @@ function T.Ribbon(variant: string)
 				elseif sv < 6.45 or sv > 12.35 or su % 3 < 0.18 or su % 3 > 2.82 then
 					set(x, y, 205, 208, 211) -- aluminium head, sill and mullions
 				else
-					local pane = math.floor(su / 3)
-					local t = (sv - 6.45) / 5.9
-					local r, g, b = 150 - 40 * t, 165 - 42 * t, 178 - 44 * t -- pale reflective glass
-					local d = x + y * 1.1
-					if d % 80 > 10 and d % 80 < 30 then
-						r, g, b = r + 22, g + 22, b + 20
-					end
-					if blinds[pane] and sv < 6.45 + 3.4 then -- blinds / curtains drawn partway
-						local stripe = (y % 3 == 0) and 12 or 0
-						r, g, b = 226 - stripe, 224 - stripe, 216 - stripe
-					end
-					set(x, y, r, g, b)
+					set(x, y, GLASS[1], GLASS[2], GLASS[3])
 				end
 			end
 		end
