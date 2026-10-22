@@ -1,5 +1,22 @@
 --!nonstrict
 --[[
+October 22, 2026 — CITY-WIDE SLAB REDUCTION + OVERHANG TRIM (owner-requested, saved).
+  SlabReducer (tools/offline/SlabReducer.luau, areaTol 20, snapDeg 8, slivers
+  dropped) applied in place to all 1,750 Workspace.Buildings models with a
+  SourceSlicePlan via tools/offline/build_slab_pilot.luau ReduceModel: 0 skipped,
+  slab parts 142,064 -> 69,585 (models get SlabReducedVersion=1).
+  Overhang trim, <=10-floor buildings only (landmarks/taller untouched): where a
+  floor overhung the floor below by >2% and <=~25-30% of its area, its outline
+  vertices outside the lower floor were projected onto the lower outline, then
+  the floor rebuilt with the reducer (parts tagged OverhangTrimmed attribute).
+  214 buildings / 955 levels rebuilt; city slab parts 68,919. Terraces and
+  setbacks unaffected. 20 buildings with large overhangs (>25%, likely slicing
+  errors or real cantilevers) left for owner review, e.g. orph_1840_1137,
+  fbx_3_2807_1545_17047, fbx_16_12511_1928_-1064, fbx_2_20043_2099_-7166.
+  Ray check: ~11.5% of upper-floor sample points in trimmed buildings still lack a
+  floor directly below (edge sampling + concave lower outlines).
+  Test sector (Workspace.SectorTest) uses EditableImage textures: session-only.
+
 October 21, 2026 — SLAB REDUCTION PILOT + ARTIFACT ARCHIVE (owner-requested).
   Pilot: Workspace.SlabPilot (off-map at X=4600..4930, Z=-3000..3270) holds 20
   pairs Pilot_Orig_<name> / Pilot_Reduced_<name>; originals in Buildings are

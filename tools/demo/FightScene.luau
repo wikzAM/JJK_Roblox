@@ -296,15 +296,16 @@ local function glassPane(cf: CFrame, w: number, h: number, stateN: number, id: s
 	local g = Instance.new("Part")
 	g.Anchored, g.CanCollide, g.CanQuery = true, false, false
 	g.Name = "GlassPane"
-	g.Material = Enum.Material.Glass
-	g.Color = GLASS_COLOR
-	g.Transparency = 0.25
-	g.Reflectance = 0.1
+	g.Material = Enum.Material.SmoothPlastic
+	g.Color = Color3.fromRGB(38, 48, 58)
+	g.Transparency = 0.45
+	g.Reflectance = 0.25
 	g.Size = Vector3.new(w, h, 0.25)
 	g.CFrame = cf
 	g.Parent = fx()
 	GlassVisual.Capture(g, id, false)
 	GlassVisual.Apply(g, stateN)
+	g.Material = Enum.Material.SmoothPlastic -- Apply sets Glass; keep plastic (no hide-behind-glass)
 	return g
 end
 
@@ -506,7 +507,7 @@ local function bakeDebris(P: Vector3, dir: Vector3, R: number, floorY: number, c
 	for i = 1, 8 do
 		local off = rng:NextNumber(-R * 0.9, R * 0.9)
 		local len = rng:NextNumber(2.5, 5.5)
-		local top = Vector3.new(P.X, ceilY, P.Z) + side * off + dir * rng:NextNumber(0, 2.5)
+		local top = Vector3.new(P.X, ceilY, P.Z) + side * off + dir * rng:NextNumber(3, 7)
 		box(Vector3.new(0.2, len, 0.2), CFrame.new(top - Vector3.yAxis * len / 2) * CFrame.Angles(math.rad(rng:NextNumber(-25, 25)), 0, math.rad(rng:NextNumber(-25, 25))), Color3.fromRGB(92, 70, 58), Enum.Material.CorrodedMetal)
 	end
 	-- 3) broken floor lip: slab wedges tipped down at the hole bottom
@@ -824,6 +825,105 @@ function Scene.CarveTrench(model: Model, from: Vector3, to: Vector3, floorY: num
 	carveSlabs(model, c, len / 2 + 4)
 end
 
+-- Steep variant: enter through the facade at floor `entryLevel`, dive down through
+-- `drop` floor slabs (each carved), land on the floor below them, slide and stop.
+function Scene.PlanDive(folder: Instance, name: string, dir: Vector3, entryLevel: number, drop: number)
+	local m = folder:FindFirstChild(name)
+	local t = 5.3571
+	local ys = {}
+	for _, x in m:GetDescendants() do
+		if x:IsA("BasePart") and x.Name == "Slab" then
+			ys[math.floor(x.Position.Y * 10 + 0.5)] = x.Position.Y
+		end
+	end
+	local list = {}
+	for _, y in ys do
+		table.insert(list, y)
+	end
+	table.sort(list)
+	local grade = list[1] - t / 2
+	local landLevel = entryLevel - drop
+	local h = list[entryLevel] + t / 2 + 6
+	local wall
+	for _, sk in m.FacadeSkins:GetChildren() do
+		local top, bottom = sk.Position.Y + sk.Size.Y / 2, sk.Position.Y - sk.Size.Y / 2
+		if sk.CFrame.LookVector:Dot(dir) < -0.85 and bottom < h - 6 and top > h + 6 then
+			if not wall or sk.Size.X > wall.Size.X then
+				wall = sk
+			end
+		end
+	end
+	if not wall then
+		return nil
+	end
+	dir = -wall.CFrame.LookVector
+	local E = (wall.CFrame * CFrame.new(0, h - wall.Position.Y, -wall.Size.Z / 2)).Position
+	local landY = list[landLevel] + t / 2 + 1.2
+	local horiz = 40
+	local L = Vector3.new(E.X, landY, E.Z) + dir * horiz
+	local u = (L - E).Unit
+	local crossings = {}
+	for k = entryLevel, landLevel + 1, -1 do
+		local s = (E.Y - list[k]) / -u.Y
+		table.insert(crossings, { dist = s, point = E + u * s, floorBelow = list[k - 1] + t / 2, ceilBelow = list[k] - t / 2 })
+	end
+	return {
+		model = m, dir = dir, u = u, entry = E, landPoint = L, start = E - u * 75, exit = nil,
+		grade = grade, floorTop = list[landLevel] + t / 2, ceil = list[entryLevel + 1] - t / 2,
+		entryFloorTop = list[entryLevel] + t / 2, height = h, crossings = crossings, dive = true, air = true,
+		insideStop = horiz + 7,
+	}
+end
+
+-- Hole punched down through a floor slab: CSG cylinder, burst falling to the floor
+-- below, and baked debris hanging from the hole rim (slab shards + rebar, inside only).
+local function slabHole(plan, c, u: Vector3, rng: Random)
+	local R = 9
+	local cut = Instance.new("Part")
+	cut.Shape = Enum.PartType.Cylinder
+	cut.Size = Vector3.new(14, R * 2, R * 2)
+	cut.CFrame = CFrame.new(c.point) * CFrame.Angles(0, 0, math.rad(90))
+	task.spawn(carveSlabs, plan.model, cut, R + 8)
+	spawnBurst(c.point, (u + Vector3.new(0, -0.3, 0)).Unit, c.floorBelow, rng, false, nil)
+	task.delay(0.45, function()
+		if not state.fx then
+			return
+		end
+		for i = 1, 14 do
+			local a = (i / 14) * math.pi * 2 + rng:NextNumber(-0.15, 0.15)
+			local r = R + rng:NextNumber(-0.6, 0.5)
+			local pos = c.point + Vector3.new(math.cos(a) * r, -rng:NextNumber(3.2, 4.6), math.sin(a) * r)
+			local s = rng:NextNumber(2.2, 4.8)
+			local w = Instance.new("WedgePart")
+			w.Anchored, w.CanCollide, w.CanQuery = true, false, false
+			w.Material = Enum.Material.Concrete
+			w.Color = SLAB_COLOR
+			w.Size = Vector3.new(rng:NextNumber(0.8, 1.5), s * 0.6, s)
+			-- tipped down into the hole, pointing at its centre
+			w.CFrame = CFrame.lookAt(pos, Vector3.new(c.point.X, pos.Y - 3, c.point.Z)) * CFrame.Angles(math.rad(rng:NextNumber(-20, 20)), 0, math.rad(rng:NextNumber(-15, 15)))
+			w.Parent = fx()
+		end
+		for i = 1, 7 do
+			local a = rng:NextNumber(0, math.pi * 2)
+			local top = c.point + Vector3.new(math.cos(a) * (R - 0.3), -2.6, math.sin(a) * (R - 0.3))
+			local len = rng:NextNumber(2.5, 5)
+			box(Vector3.new(0.2, len, 0.2), CFrame.new(top - Vector3.yAxis * len / 2) * CFrame.Angles(math.rad(rng:NextNumber(-25, 25)), 0, math.rad(rng:NextNumber(-25, 25))), Color3.fromRGB(92, 70, 58), Enum.Material.CorrodedMetal)
+		end
+		for i = 1, 8 do
+			local pos = Vector3.new(c.point.X, c.floorBelow, c.point.Z) + Vector3.new(rng:NextNumber(-R, R), 0, rng:NextNumber(-R, R))
+			local s = rng:NextNumber(1.5, 4)
+			local w = Instance.new("WedgePart")
+			w.Anchored, w.CanCollide, w.CanQuery = true, false, false
+			w.Material = Enum.Material.Concrete
+			w.Color = SLAB_COLOR
+			w.Size = Vector3.new(s, s * rng:NextNumber(0.35, 0.7), s * rng:NextNumber(0.6, 1.2))
+			w.CFrame = CFrame.new(pos + Vector3.yAxis * s * 0.25) * CFrame.Angles(math.rad(rng:NextNumber(-25, 25)), math.rad(rng:NextNumber(-180, 180)), 0)
+			w.Parent = fx()
+		end
+	end)
+	dustCloud(c.point, 2.0, Color3.fromRGB(160, 158, 154), 3)
+end
+
 -- Break one wall face of the target at P (world), moving along dir.
 local function breakWall(plan, P: Vector3, dir: Vector3, flat: boolean, rng: Random)
 	local R = 8
@@ -864,6 +964,7 @@ local function breakWall(plan, P: Vector3, dir: Vector3, flat: boolean, rng: Ran
 				end
 				pcall(GlassVisual.Capture, c, p.Name .. tostring(p.Position), false)
 				pcall(GlassVisual.Apply, c, dist < R + SHATTER_RING and 3 or 2)
+				c.Material = Enum.Material.SmoothPlastic
 			end
 		elseif p:FindFirstAncestor("GroundFacadePilot") or p:FindFirstAncestor("FacadeParts") then
 			if dist < R then
@@ -898,9 +999,10 @@ function Scene.Play(plan, flat: boolean, duration: number?)
 	if plan.air then
 		h = plan.height
 	end
-	local S = Vector3.new(plan.start.X, plan.air and (plan.height - 2.9) or plan.grade, plan.start.Z)
+	local S = plan.dive and (plan.start - Vector3.new(0, 2.9, 0)) or Vector3.new(plan.start.X, plan.air and (plan.height - 2.9) or plan.grade, plan.start.Z)
 	local victim = dummy("Victim", CFrame.lookAt(S + Vector3.new(0, 2.9, 0), S + Vector3.new(0, 2.9, 0) - d))
-	local attacker = dummy("Attacker", CFrame.lookAt(S - d * 5 + Vector3.new(0, 2.9, 0), S + Vector3.new(0, 2.9, 0)))
+	local back = plan.dive and plan.u or d
+	local attacker = dummy("Attacker", CFrame.lookAt(S - back * 5 + Vector3.new(0, 2.9, 0), S + Vector3.new(0, 2.9, 0)))
 	local vM, aM = motors(victim), motors(attacker)
 	local distEntry = (Vector3.new(plan.entry.X, 0, plan.entry.Z) - Vector3.new(S.X, 0, S.Z)).Magnitude
 	local distExit = plan.exit and (Vector3.new(plan.exit.X, 0, plan.exit.Z) - Vector3.new(S.X, 0, S.Z)).Magnitude or math.huge
@@ -913,6 +1015,8 @@ function Scene.Play(plan, flat: boolean, duration: number?)
 	local launched, inside, grounded, stopped, vel = false, false, false, false, 0
 	local yNow = h
 	local landAt = nil
+	local diveDist, nextCross, slideLeft, slid = 0, 1, 0, 0
+	local arrivedT = nil
 	local roll = 0
 	local stopT = nil
 	-- walk-around ending (dummy POV): get up, walk back toward the hole, look around
@@ -963,6 +1067,63 @@ function Scene.Play(plan, flat: boolean, duration: number?)
 		local pos
 		if t < tLaunch then
 			pos = S + Vector3.new(0, 2.9, 0)
+		elseif plan.dive and not stopped then
+			-- straight 3D dive: facade, then each slab, then land and slide along d
+			if not launched then
+				launched = true
+				vel = v0
+				diveDist = 0
+				nextCross = 1
+			end
+			local u = plan.u
+			local entryD = (plan.entry - plan.start).Magnitude
+			local landD = (plan.landPoint - plan.start).Magnitude
+			if not grounded then
+				vel = math.max(60, vel - (inside and 60 or 10) * dt)
+				diveDist += vel * dt
+				if not broke1 and diveDist >= entryD - 1 then
+					broke1 = true
+					inside = true
+					wallSplit = { plan.entry, d, plan.floorTop, plan.grade }
+					vel *= 0.7
+					breakWall(plan, plan.entry, d, flat, rng)
+					local l1 = Instance.new("PointLight")
+					l1.Range, l1.Brightness, l1.Color = 45, 1.8, Color3.fromRGB(255, 244, 228)
+					local holder = box(Vector3.one * 0.2, CFrame.new(plan.landPoint + Vector3.new(0, 9, 0) - d * 6), Color3.new(1, 1, 1))
+					holder.Transparency = 1
+					l1.Parent = holder
+				end
+				while plan.crossings[nextCross] and diveDist >= entryD + plan.crossings[nextCross].dist do
+					slabHole(plan, plan.crossings[nextCross], u, rng)
+					vel *= 0.8
+					nextCross += 1
+				end
+				if diveDist >= landD then
+					diveDist = landD
+					grounded = true
+					landAt = Vector3.new(plan.landPoint.X, plan.floorTop, plan.landPoint.Z)
+					dustCloud(landAt + Vector3.yAxis, 1.8, Color3.fromRGB(150, 148, 145), 2.6)
+					slideLeft = plan.insideStop - 40
+				end
+				pos = plan.start + u * diveDist
+			else
+				local slide = math.min(slideLeft, 0) -- placeholder to keep types simple
+				local step = math.min(slideLeft, math.max(vel, 20) * dt * 0.5)
+				slideLeft -= step
+				slid += step
+				vel = math.max(0, vel - 200 * dt)
+				pos = plan.landPoint + d * slid
+				if slideLeft <= 0.01 or vel <= 0 then
+					local stopAt = Vector3.new(pos.X, plan.floorTop, pos.Z)
+					task.spawn(Scene.CarveTrench, plan.model, landAt, stopAt, plan.floorTop)
+					stopped = true
+					stopT = t
+					standPos = stopAt + Vector3.new(0, 2.9, 0)
+					-- walk back under the holes so the camera can look up through them
+					local c1 = plan.crossings[#plan.crossings]
+					walkTarget = Vector3.new(c1.point.X, standPos.Y, c1.point.Z) + d * 4.5 + side * 1.5 -- hole just ahead, overhead
+				end
+			end
 		elseif not stopped then
 			if not launched then
 				launched = true
@@ -1079,21 +1240,31 @@ function Scene.Play(plan, flat: boolean, duration: number?)
 		-- camera: opening shot, chase in flight, over-the-shoulder POV once standing
 		local targetCF
 		local alpha = math.clamp(dt * 9, 0, 1)
-		if t < tLaunch - 0.05 then
+		if phase == "idle" or not standPos and phase ~= "fly" then
 			targetCF = CFrame.lookAt(openEye, S + Vector3.new(0, 3, 0))
 			alpha = 1
+		elseif plan.dive and broke1 and phase ~= "walk" then
+			-- wait on the landing floor and watch the body come down through the ceiling
+			local eye = plan.landPoint + d * 18 + side * 10 + Vector3.new(0, 3.5, 0)
+			targetCF = CFrame.lookAt(eye, plan.landPoint + Vector3.new(0, 6, 0))
+			alpha = math.clamp(dt * 7, 0, 1)
 		elseif phase == "fly" or phase == "lie" or phase == "getup" then
 			local p0 = phase == "fly" and pos or standPos
-			local behind = p0 - d * 18 + side * 6 + Vector3.new(0, 5, 0)
+			local behind = p0 - back * 18 + side * 6 + Vector3.new(0, 5, 0)
 			if stopped then
 				behind = standPos + d * 9 + side * 3 + Vector3.new(0, 4, 0) -- look back at the body from deeper inside
 			end
-			targetCF = CFrame.lookAt(behind, (stopped and standPos or p0 + d * 14) + Vector3.new(0, 0.5, 0))
+			targetCF = CFrame.lookAt(behind, (stopped and standPos or p0 + back * 14) + Vector3.new(0, 0.5, 0))
 			alpha = math.clamp(dt * (stopped and 3 or 9), 0, 1)
 		else
 			local right = facing:Cross(Vector3.yAxis).Unit
 			local eye = standPos - facing * 9 + Vector3.new(0, 3.4, 0) + right * 3.6
-			targetCF = CFrame.lookAt(eye, standPos + facing * 14 + Vector3.new(0, 0.8, 0))
+			local lookUp = 0.8
+			if plan.dive and (Vector3.new(walkTarget.X - standPos.X, 0, walkTarget.Z - standPos.Z).Magnitude <= 0.4) then
+				arrivedT = arrivedT or t
+				lookUp = 0.8 + math.clamp((t - arrivedT) * 12, 0, 26) -- tilt up to the ceiling holes
+			end
+			targetCF = CFrame.lookAt(eye, standPos + facing * 14 + Vector3.new(0, lookUp, 0))
 			alpha = math.clamp(dt * 4, 0, 1)
 		end
 		camCF = camCF:Lerp(targetCF, alpha)

@@ -10,6 +10,7 @@ local T = {}
 
 local PPS = 8
 local GLASS = { 88, 104, 118 } -- flat glass colour (owner: no streaks or gradients)
+local DARK_GLASS = { 38, 48, 58 } -- tinted see-through glass (not a fishbowl)
 local function newImage(w, h, painter)
 	local iw, ih = w * PPS, h * PPS
 	local img = AssetService:CreateEditableImage({ Size = Vector2.new(iw, ih) })
@@ -87,7 +88,8 @@ function T.Office(alpha: number?)
 				elseif su < 1.7 or su > 10.3 or sv < L.pv0 or sv > L.pv1 or math.abs(su - 6) < 0.15 then
 					set(x, y, 182, 186, 191) -- frame and mullion
 				else
-					set(x, y, GLASS[1], GLASS[2], GLASS[3], alpha)
+					local g = alpha < 255 and DARK_GLASS or GLASS
+					set(x, y, g[1], g[2], g[3], alpha)
 				end
 			end
 		end
@@ -122,7 +124,8 @@ function T.Ribbon(variant: string, alpha: number?)
 				elseif sv < L.pv0 or sv > L.pv1 or su % 6 < 0.18 or su % 6 > 5.82 then
 					set(x, y, 205, 208, 211) -- aluminium head, sill and mullions
 				else
-					set(x, y, GLASS[1], GLASS[2], GLASS[3], alpha)
+					local g = alpha < 255 and DARK_GLASS or GLASS
+					set(x, y, g[1], g[2], g[3], alpha)
 				end
 			end
 		end
@@ -141,7 +144,7 @@ function T.LayoutOf(img)
 	end
 	return nil
 end
-T.SeeThroughAlpha = 70
+T.SeeThroughAlpha = 150
 
 -- Re-style the upper skins of every building in a folder: cycles grid / brown ribbon / grey ribbon.
 -- seeThrough: window pixels partly transparent, skin part fully transparent, texture on both faces.
@@ -240,11 +243,13 @@ function T.ComposeUpper(model: Model): number
 			p.Name = name
 			p.Material = mat or Enum.Material.SmoothPlastic
 			p.Color = color
-			p.Size = Vector3.new(u1 - u0, v1 - v0, isGlass and 0.25 or (name == "Mullion" and 0.9 or 0.6))
-			p.CFrame = sk.CFrame * CFrame.new(L / 2 - (u0 + u1) / 2, H / 2 - (v0 + v1) / 2, isGlass and 0.15 or 0)
+			p.Size = Vector3.new(u1 - u0, v1 - v0, isGlass and 0.25 or (name == "Mullion" and 0.9 or 1.6))
+			p.CFrame = sk.CFrame * CFrame.new(L / 2 - (u0 + u1) / 2, H / 2 - (v0 + v1) / 2, isGlass and -0.45 or (name == "Mullion" and -0.35 or 0))
 			if isGlass then
-				p.Transparency = 0.3
-				p.Reflectance = 0.1
+				p.Material = Enum.Material.SmoothPlastic
+				p.Color = Color3.fromRGB(38, 48, 58)
+				p.Transparency = 0.45
+				p.Reflectance = 0.25
 				p.Parent = out
 				GlassVisual.Capture(p, model.Name .. ":" .. made, true)
 			else
@@ -290,14 +295,14 @@ local function skin(parent: Instance, origin: CFrame, a, b, y0: number, y1: numb
 		return nil
 	end
 	local ox, oz = dz / len, -dx / len -- outward for counter-clockwise outlines
-	local mx, mz = (a[1] + b[1]) / 2 + ox * 0.3, (a[2] + b[2]) / 2 + oz * 0.3
+	local mx, mz = (a[1] + b[1]) / 2 - ox * 0.5, (a[2] + b[2]) / 2 - oz * 0.5
 	local xAxis = Vector3.new(-oz, 0, ox)
 	local p = Instance.new("Part")
 	p.Anchored = true
 	p.Name = name
 	p.Material = Enum.Material.SmoothPlastic
 	p.Color = Color3.fromRGB(150, 146, 140)
-	p.Size = Vector3.new(len + 0.6, y1 - y0, 0.6) -- overlap at corners so they close
+	p.Size = Vector3.new(len + 0.6, y1 - y0, 1.6) -- 1.6 thick: outer face 0.3 proud, overlaps slab edges inside; ends overlap at corners
 	p.CFrame = origin * CFrame.fromMatrix(Vector3.new(mx, (y0 + y1) / 2, mz), xAxis, Vector3.yAxis)
 	local t = Instance.new("Texture")
 	t.Face = Enum.NormalId.Front
